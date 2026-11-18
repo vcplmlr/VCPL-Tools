@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rent Payment Letter Maker – Advanced</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://vcpltools.vercel.app/vcpl-tools/rent-payment-letter-maker">
+<script>if(window.self===window.top&&!/[?&]raw=1\b/.test(location.search))location.replace('/vcpl-tools/rent-payment-letter-maker/full');</script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f4f5f7;--card:#fff;--tx:#1b1f24;--mu:#5f6b7a;--bd:#d5dae1;--ac:#1d4ed8;--ok:#15803d;--wn:#b45309;--er:#b91c1c;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171c;--card:#1d2127;--tx:#e8ebef;--mu:#9aa5b3;--bd:#343b45;--ac:#6c9bff;--ok:#4ade80;--wn:#fbbf24;--er:#f87171;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14171c;--card:#1d2127;--tx:#e8ebef;--mu:#9aa5b3;--bd:#343b45;--ac:#6c9bff;--ok:#4ade80;--wn:#fbbf24;--er:#f87171;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{display:grid;grid-template-columns:380px 1fr;gap:16px;padding:16px;max-width:1240px;margin:auto}
+@media(max-width:880px){.wrap{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px}
+h1{font-size:17px;margin:0 0 4px}h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mu);margin:16px 0 6px}
+label{display:block;font-size:12px;color:var(--mu);margin:8px 0 3px}
+input,select,textarea{width:100%;padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit}
+textarea{resize:vertical;min-height:62px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button{padding:9px 14px;border:0;border-radius:6px;background:var(--ac);color:#fff;font:600 14px inherit;cursor:pointer;margin-top:12px;width:100%}
+button.s{background:transparent;color:var(--ac);border:1px solid var(--ac)}
+.note{font-size:11px;color:var(--mu);margin-top:4px}
+#chk{border:1px solid var(--bd);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.6;background:var(--bg)}
+#chk div::before{content:"✔ ";color:var(--ok)}#chk .w{color:var(--wn)}#chk .w::before{content:"⚠ ";color:var(--wn)}#chk .e{color:var(--er)}#chk .e::before{content:"✖ ";color:var(--er)}
+#chk .f{color:var(--mu);font-family:ui-monospace,Menlo,monospace}#chk .f::before{content:""}
+.sheetbox{overflow-x:auto}
+#sheet{background:#fff;color:#000;width:210mm;min-height:297mm;padding:var(--lh,45mm) 20mm var(--lf,18mm);margin:0 auto;font:12pt/1.45 "Times New Roman",Times,serif;box-shadow:0 1px 6px rgba(0,0,0,.2)}
+#sheet p{margin:0 0 10px}
+#sheet .top{display:flex;justify-content:space-between;margin-bottom:12px}
+#sheet .ids{font-size:10.5pt}
+#sheet table{border-collapse:collapse;margin:12px 0 14px;width:100%}
+#sheet td{border:1px solid #000;padding:5px 9px}
+#sheet td:last-child{text-align:right;width:34%;white-space:nowrap}
+#sheet tr.b td{font-weight:bold}
+#sheet tr.i td{font-size:10.5pt;padding-left:22px}
+#sheet img{max-height:70px;max-width:200px;display:block}
+.sp{height:46px}
+@media print{@page{size:A4;margin:0}body{background:#fff}.wrap>.panel{display:none}.wrap{display:block;padding:0}.sheetbox{overflow:visible}#sheet{box-shadow:none;margin:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="panel" id="form">
+<h1>Rent Payment Letter Maker <small style="color:var(--mu)">Advanced</small></h1>
+<div class="note">Choose what the amount you type means; everything else is derived and checked.</div>
+
+<h2>This month's entries</h2>
+<div class="row"><div><label>Letter date</label><input type="date" id="ldate"></div><div><label>Rent month</label><input id="month" placeholder="May 2026"></div></div>
+<label>Amount type — what are you entering?</label>
+<select id="mode">
+<option value="taxable">Taxable rent (before GST)</option>
+<option value="total">Total incl. GST (invoice value)</option>
+<option value="net">Net payable (after TDS &amp; GST)</option>
+</select>
+<label>Amount (₹)</label><input type="number" id="rent" step="0.01" placeholder="570130">
+<div class="row"><div><label>Payment date</label><input type="date" id="pdate"></div><div><label>Bank Ref No</label><input id="ref"></div></div>
+
+<h2>Tax settings</h2>
+<div class="row"><div><label>TDS %</label><input type="number" id="tdsr" value="10" step="0.01"></div><div><label>GST %</label><input type="number" id="gstr" value="18" step="0.01"></div></div>
+<div class="row"><div><label>TDS calculated on</label><select id="tbasis"><option value="base">Taxable rent (excl. GST)</option><option value="gross">Rent + GST</option></select></div>
+<div><label>GST type</label><select id="gtype"><option value="cs">CGST + SGST</option><option value="i">IGST</option><option value="n">No GST</option></select></div></div>
+<label>Rounding of TDS / GST</label>
+<select id="rnd"><option value="ceil">Round up to next rupee (as sample)</option><option value="round">Nearest rupee</option><option value="none">No rounding (paise)</option></select>
+
+<h2>Letterhead space</h2>
+<div class="row"><div><label>Top blank space (mm)</label><input type="number" id="lhtop" value="45" min="0" max="120" step="1"></div><div><label>Bottom blank space (mm)</label><input type="number" id="lhbot" value="18" min="0" max="80" step="1"></div></div>
+<div class="note">Leaves room for your pre-printed letterhead. Typical: 40–55 mm top. Saved with landlord &amp; company details.</div>
+
+<h2>Calculation check</h2>
+<div id="chk"></div>
+
+<h2>Landlord (saved)</h2>
+<label>Name (as in address)</label><input id="lname" value="Mr.N Raviraj Shetty">
+<label>Address</label><textarea id="laddr">D.No:-15-4-199/2(49),
+Flat No.1201, Westwind Apartment,
+Collectors Gate, Balmatta,
+Kankanady, Mangalore.</textarea>
+<div class="row"><div><label>Landlord PAN (optional)</label><input id="lpan"></div><div><label>Landlord GSTIN (optional)</label><input id="lgst"></div></div>
+<label>Beneficiary name in bank</label><input id="bname" value="Raviraj N Shetty">
+<label>Landlord's bank</label><input id="lbank" value="State Bank of India">
+
+<h2>Company (saved)</h2>
+<label>Company name</label><input id="co" value="Varsha Cars Private Limited">
+<div class="row"><div><label>Company TAN (optional)</label><input id="ctan"></div><div><label>Company GSTIN (optional)</label><input id="cgst"></div></div>
+<label>Paying bank &amp; branch</label><input id="pbank" value="State bank of India, Nagole Branch, Hyderabad">
+<label>Signature image (optional)</label><input type="file" id="sig" accept="image/*">
+
+<button id="print">Print / Save as PDF</button>
+<button class="s" id="save">Save landlord &amp; company details</button>
+<div class="note">In the print dialog choose "Save as PDF", and untick Headers and footers.</div>
+</div>
+
+<div class="sheetbox"><div id="sheet"></div></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const F=['lhtop','lhbot','ldate','month','mode','rent','pdate','ref','tdsr','gstr','tbasis','gtype','rnd','lname','laddr','lpan','lgst','bname','lbank','co','ctan','cgst','pbank'];
+const SAVE=['lhtop','lhbot','tdsr','gstr','tbasis','gtype','rnd','lname','laddr','lpan','lgst','bname','lbank','co','ctan','cgst','pbank'];
+let sigData='';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dmy=v=>{if(!v)return'__-__-____';const[y,m,d]=v.split('-');return d+'-'+m+'-'+y};
+const r2=n=>Math.round((n+Number.EPSILON)*100)/100;
+const inr=n=>{n=r2(n);return n.toLocaleString('en-IN',{minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2})};
+function rnd(n){const m=$('rnd').value;return m==='ceil'?Math.ceil(n-1e-9):m==='round'?Math.round(n):r2(n)}
+function words(n){
+  const a=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'],
+  b=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  const t=x=>x<20?a[x]:b[Math.floor(x/10)]+(x%10?' '+a[x%10]:'');
+  const h=x=>(x>99?a[Math.floor(x/100)]+' Hundred'+(x%100?' ':''):'')+(x%100?t(x%100):'');
+  let r=Math.floor(n),p=Math.round((n-r)*100),o=[];
+  [[1e7,'Crore'],[1e5,'Lakh'],[1e3,'Thousand']].forEach(([d,s])=>{const q=Math.floor(r/d);if(q){o.push(h(q)+' '+s);r%=d}});
+  if(r)o.push(h(r));
+  return 'Rupees '+(o.join(' ')||'Zero')+(p?' and '+t(p)+' Paise':'')+' Only';
+}
+function calc(){
+  const amt=parseFloat($('rent').value)||0,t=(parseFloat($('tdsr').value)||0)/100,g=$('gtype').value==='n'?0:(parseFloat($('gstr').value)||0)/100;
+  const gb=$('tbasis').value==='gross',mode=$('mode').value;
+  let base=amt;
+  if(mode==='total')base=amt/(1+g);
+  if(mode==='net')base=amt/(gb?(1+g)*(1-t):(1-t+g));
+  base=r2(base);
+  const gst=rnd(base*g),gross=r2(base+gst),tds=rnd((gb?gross:base)*t),net=r2(gross-tds);
+  return{amt,t,g,base,gst,gross,tds,net,gb,mode};
+}
+function checks(c){
+  const o=[],add=(k,x)=>o.push(`<div class="${k}">${x}</div>`);
+  if(!c.amt){add('w','Enter the amount.');}
+  else{
+    const lbl={taxable:'Taxable rent',total:'Total incl. GST',net:'Net payable'}[c.mode];
+    add('',`Entered as <b>${lbl}</b> ₹${inr(c.amt)} → taxable rent ₹${inr(c.base)}`);
+    if(c.mode!=='taxable')add('w','Taxable rent was back-calculated; confirm it matches the agreement.');
+    add('',`GST ${inr(c.g*100)}% on ₹${inr(c.base)} = ₹${inr(c.gst)}`);
+    add('',`TDS ${inr(c.t*100)}% on ${c.gb?'rent+GST':'taxable rent'} ₹${inr(c.gb?c.gross:c.base)} = ₹${inr(c.tds)}`);
+    add('f',`Net = ${inr(c.base)} + ${inr(c.gst)} − ${inr(c.tds)} = ${inr(c.net)}`);
+    if(Math.abs(c.net-(c.base+c.gst-c.tds))>0.005)add('e','Net does not reconcile.');
+    if(c.gb)add('w','TDS on GST-inclusive amount: normally TDS u/s 194-I is on rent excl. GST when GST is shown separately.');
+    if(c.t>0&&c.t!==0.1&&c.t!==0.02)add('w','TDS rate is not 10% (land/building) or 2% (plant/machinery).');
+    if($('gtype').value==='i'&&c.g&&$('gstr').value%2===1)add('w','Check IGST rate.');
+  }
+  if(!$('ref').value)add('w','Bank Ref No is empty.');
+  if(!$('pdate').value)add('w','Payment date is empty.');
+  if(!$('month').value)add('w','Rent month is empty.');
+  if($('lpan').value&&!/^[A-Z]{5}\d{4}[A-Z]$/i.test($('lpan').value))add('e','PAN format looks wrong.');
+  if($('lgst').value&&!/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/i.test($('lgst').value))add('e','Landlord GSTIN format looks wrong.');
+  if($('cgst').value&&!/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/i.test($('cgst').value))add('e','Company GSTIN format looks wrong.');
+  if($('ctan').value&&!/^[A-Z]{4}\d{5}[A-Z]$/i.test($('ctan').value))add('e','TAN format looks wrong.');
+  if($('pdate').value&&$('ldate').value&&$('pdate').value>$('ldate').value)add('w','Payment date is after the letter date.');
+  $('chk').innerHTML=o.join('');
+}
+
+try{const s=JSON.parse(localStorage.getItem('rentLetterSaved2')||'{}');SAVE.forEach(k=>{if(s[k]!=null)$(k).value=s[k]});sigData=s.sig||''}catch(e){}
+$('ldate').value=new Date().toISOString().slice(0,10);
+
+function render(){
+  const sh=$('sheet');sh.style.setProperty('--lh',(parseFloat($('lhtop').value)||0)+'mm');sh.style.setProperty('--lf',(parseFloat($('lhbot').value)||0)+'mm');
+  const c=calc(),{base,gst,tds,net,gross}=c,gt=$('gtype').value;
+  const tp=inr(c.t*100),gp=inr(c.g*100);
+  const m=esc($('month').value||'____');
+  const addr=esc($('laddr').value).split('\n').map(l=>l.trim()).filter(Boolean).join('<br>');
+  const ids=(l,v)=>v?`${l}: ${esc(v.toUpperCase())}`:'';
+  const lid=[ids('PAN',$('lpan').value),ids('GSTIN',$('lgst').value)].filter(Boolean).join(' &nbsp;|&nbsp; ');
+  const cid=[ids('TAN',$('ctan').value),ids('GSTIN',$('cgst').value)].filter(Boolean).join(' &nbsp;|&nbsp; ');
+  const gstTxt=gt==='n'?'':` and adding Rs. ${inr(gst)}/- towards ${gp}% GST`;
+  let gstRows='';
+  if(gt==='cs')gstRows=`<tr><td>Add: GST ${gp}% (CGST ${inr(c.g*50)}% + SGST ${inr(c.g*50)}%)</td><td>Rs.${inr(gst)}/-</td></tr><tr class="i"><td>CGST ${inr(c.g*50)}%: Rs.${inr(gst/2)}/- &nbsp; SGST ${inr(c.g*50)}%: Rs.${inr(gst/2)}/-</td><td></td></tr>`;
+  if(gt==='i')gstRows=`<tr><td>Add: IGST ${gp}%</td><td>Rs.${inr(gst)}/-</td></tr>`;
+  $('sheet').innerHTML=`
+  <div class="top"><div>To,</div><div>Date:- ${dmy($('ldate').value)}</div></div>
+  <p>${esc($('lname').value)},<br>${addr}${lid?`<br><span class="ids">${lid}</span>`:''}</p>
+  <p style="margin-left:36px">Dear Sir,</p>
+  <p style="margin-left:36px"><b>Ref: Payment of Rent for the month of ${m}.</b></p>
+  <p style="text-align:justify">This is to inform you that we have transferred an amount of Rs.${inr(net)}/- (${words(net)}) from ${esc($('pbank').value)} vide Ref No “${esc($('ref').value)}”, in favor of “${esc($('bname').value)}” towards Rent for the month of ${m} through online transfer on ${dmy($('pdate').value)}, to your Bank Account at ${esc($('lbank').value)}. Please be noted that we are deducting Rs. ${inr(tds)}/- as TDS @ ${tp}% from the ${c.gb?'Rent plus GST':'Rent'} payable to you${gstTxt}. Details are below:</p>
+  <table>
+   <tr><td>Total Rent Payable for ${m} (taxable value)</td><td>Rs.${inr(base)}/-</td></tr>
+   ${gstRows}
+   ${gt!=='n'?`<tr><td>Gross Rent incl. GST</td><td>Rs.${inr(gross)}/-</td></tr>`:''}
+   <tr><td>Less: TDS @ ${tp}% on ${inr(c.gb?gross:base)}</td><td>Rs.${inr(tds)}/-</td></tr>
+   <tr class="b"><td>Net payable Rent</td><td>Rs.${inr(net)}/-</td></tr>
+  </table>
+  <p>Kindly accept and acknowledge as a receipt of payment.</p>
+  <p>Thanking You,</p>
+  <p>For ${esc($('co').value)}.${cid?`<br><span class="ids">${cid}</span>`:''}</p>
+  ${sigData?`<img src="${sigData}" alt="">`:'<div class="sp"></div>'}
+  <p>Authorized Signature</p>`;
+  checks(c);
+}
+F.forEach(k=>$(k).addEventListener('input',render));
+$('sig').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=()=>{sigData=r.result;render()};r.readAsDataURL(f);
+});
+$('save').onclick=()=>{
+  try{const o={sig:sigData};SAVE.forEach(k=>o[k]=$(k).value);localStorage.setItem('rentLetterSaved2',JSON.stringify(o));alert('Saved in this browser.')}
+  catch(e){alert('Could not save in this browser.')}
+};
+$('print').onclick=()=>window.print();
+render();
+</script>
+</body>
+</html>

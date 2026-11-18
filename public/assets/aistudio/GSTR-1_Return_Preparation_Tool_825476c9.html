@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GSTR-1 Return Preparation Tool</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://vcpltools.vercel.app/gst-utilities/gstr1-return-prep">
+<script>if(window.self===window.top&&!/[?&]raw=1\b/.test(location.search))location.replace('/gst-utilities/gstr1-return-prep/full');</script>
+<style>
+:root{--bg:#f6f7f4;--card:#fff;--ink:#1c2420;--mute:#66726b;--line:#dde2dc;--acc:#0b6b57;--accink:#fff;--bad:#b3261e;--badbg:#fdecea;--ok:#1b7a3d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121715;--card:#1a211e;--ink:#e6ebe7;--mute:#93a099;--line:#2c3631;--acc:#4cc2a4;--accink:#08201a;--bad:#ff8a80;--badbg:#3a1f1d;--ok:#7bd99a}}
+:root[data-theme="dark"]{--bg:#121715;--card:#1a211e;--ink:#e6ebe7;--mute:#93a099;--line:#2c3631;--acc:#4cc2a4;--accink:#08201a;--bad:#ff8a80;--badbg:#3a1f1d;--ok:#7bd99a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.45rem;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 18px;max-width:70ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+label{display:flex;flex-direction:column;font-size:.8rem;color:var(--mute);gap:4px}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:170px}
+input.bad{border-color:var(--bad)}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 13px}
+button.p{background:var(--acc);color:var(--accink);border-color:var(--acc);font-weight:600}
+button:disabled{opacity:.45;cursor:not-allowed}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:22px;text-align:center;color:var(--mute);cursor:pointer}
+.drop.on{border-color:var(--acc);background:var(--bg)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.tab{padding:6px 12px;border-radius:6px 6px 0 0}
+.tab.on{background:var(--acc);color:var(--accink);border-color:var(--acc)}
+.tab b{font-weight:600;margin-left:6px;opacity:.85}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{border-left:3px solid var(--acc);padding:2px 10px}
+.stat small{color:var(--mute);display:block}
+.stat span{font-size:1.15rem;font-weight:600;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:.82rem;font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--mute);font-weight:600;position:sticky;top:0;background:var(--card)}
+tr.err td{background:var(--badbg)}
+.errs{max-height:200px;overflow:auto;font-size:.85rem;color:var(--bad);margin:8px 0 0;padding-left:18px}
+.note{font-size:.82rem;color:var(--mute)}
+.ok{color:var(--ok)}
+:root{--bg:#eef2f7;--acc:#1f4e8c;--accink:#fff;--line:#d3dbe6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1622;--card:#17202e;--ink:#e4eaf3;--mute:#93a3ba;--line:#2a3649;--acc:#7fb0ff;--accink:#0a1a33}}
+.top{background:var(--acc);color:var(--accink);padding:10px 16px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-weight:600}
+.top small{font-weight:400;opacity:.85}
+.crumb{font-size:.8rem;color:var(--mute);margin:10px 0 6px}
+.steps{display:flex;gap:18px;flex-wrap:wrap;font-size:.85rem;color:var(--mute);margin:0 0 12px}
+.steps b{color:var(--acc)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.bar select,.bar input{min-width:120px;padding:5px 8px}
+td input,td select{min-width:96px;width:100%;border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:4px}
+td input:focus,td select:focus{border-color:var(--acc);background:var(--bg)}
+.x{border:0;color:var(--bad);padding:2px 8px;background:transparent}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span>Goods and Services Tax · Returns Offline Tool (Web)</span><small>Form GSTR-1</small></div><div class="crumb">Home › Returns › Prepare offline › GSTR-1</div><h1>GSTR-1 Return Preparation Tool</h1><div class="steps"><span><b>1</b> Download the sample or blank Excel</span><span><b>2</b> Fill, paste or upload your data</span><span><b>3</b> Fix the rows shown in red</span><span><b>4</b> Generate JSON for the GST portal</span></div>
+  <p class="sub">Upload your GSTR-1 Excel workbook (V2.2 layout) or section CSV files. Everything is checked and converted inside your browser; no invoice data is uploaded anywhere.</p>
+
+  <div class="card">
+    <div class="row">
+      <label>GSTIN of taxpayer<input id="gstin" maxlength="15" placeholder="29ABCDE1234F1Z5" autocomplete="off"></label>
+      <label>Return period (MMYYYY)<input id="fp" maxlength="6" placeholder="102026" autocomplete="off"></label>
+      <label style="flex-direction:row;align-items:center;gap:8px;min-width:0"><input type="checkbox" id="skip" checked style="min-width:0"> Leave out rows with errors</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="drop" id="drop">Drop the Excel workbook or CSV files here, or click to choose<br><span class="note">.xlsx / .xls / .csv — CSV file names should match the section (b2b.csv, b2cl.csv, b2cs.csv, cdnr.csv, cdnur.csv, exp.csv)</span></div>
+    <input type="file" id="file" multiple accept=".xlsx,.xls,.csv" hidden>
+    <div class="bar" style="margin:12px 0 0"><button id="sample">↓ Sample Excel (with example data)</button><button id="blank">↓ Blank Excel template</button><button id="export">↓ Export my data to Excel</button><button id="demo">Load sample data into the grid</button></div>
+  </div>
+
+  <div class="card" id="out" hidden>
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <div class="card" id="grid">
+    <div class="tabs" id="tabs"></div>
+    <div class="bar"><button id="addr">+ Add row</button><button id="add10">+ 10 rows</button><button id="clr">Clear section</button><span class="note">Fill column:</span><select id="fcol"></select><input id="fval" placeholder="value"><button id="fall">All rows</button><button id="fblank">Blank cells only</button></div>
+    <p class="note" style="margin:0 0 8px">Tip: copy cells from Excel and paste into any cell of the grid. Entering a recipient GSTIN fills the place of supply from its state code.</p>
+    <div class="scroll"><table id="tbl"></table></div>
+    <ul class="errs" id="errs"></ul>
+    <p class="note" id="more"></p>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button class="p" id="gen" disabled>Generate GSTR-1 JSON</button>
+      <button id="tpl">Download blank CSV for this section</button>
+    </div>
+    <p class="note" id="msg" style="margin:10px 0 0">Add a GSTIN, a period and at least one file to begin.</p>
+  </div>
+  <p class="note">Covers B2B/SEZ/DE, B2CL, B2CS, CDNR, CDNUR and Exports. HSN, documents issued, nil-rated, advances and ECO sections are planned next. Check generated files on the GST portal before filing.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const SEC={
+ b2b:{l:'B2B',sh:['b2b,sez,de','b2b'],h:['GSTIN/UIN of Recipient','Receiver Name','Invoice Number','Invoice date','Invoice Value','Place Of Supply','Reverse Charge','Applicable % of Tax Rate','Invoice Type','E-Commerce GSTIN','Rate','Taxable Value','Cess Amount']},
+ b2cl:{l:'B2CL',sh:['b2cl'],h:['Invoice Number','Invoice date','Invoice Value','Place Of Supply','Applicable % of Tax Rate','Rate','Taxable Value','Cess Amount','E-Commerce GSTIN']},
+ b2cs:{l:'B2CS',sh:['b2cs'],h:['Type','Place Of Supply','Applicable % of Tax Rate','Rate','Taxable Value','Cess Amount','E-Commerce GSTIN']},
+ cdnr:{l:'CDNR',sh:['cdnr'],h:['GSTIN/UIN of Recipient','Receiver Name','Note Number','Note Date','Note Type','Place Of Supply','Reverse Charge','Note Supply Type','Note Value','Applicable % of Tax Rate','Rate','Taxable Value','Cess Amount']},
+ cdnur:{l:'CDNUR',sh:['cdnur'],h:['UR Type','Note Number','Note Date','Note Type','Place Of Supply','Note Value','Applicable % of Tax Rate','Rate','Taxable Value','Cess Amount']},
+ exp:{l:'Exports',sh:['exp'],h:['Export Type','Invoice Number','Invoice date','Invoice Value','Port Code','Shipping Bill Number','Shipping Bill Date','Rate','Taxable Value','Cess Amount']}
+};
+const RATES=[0,0.1,0.25,1,1.5,3,5,6,7.5,12,18,28,40];
+const INVTYPE={'regular':'R','deemed exp':'DE','sez supplies with payment':'SEZWP','sez supplies without payment':'SEZWOP','intra-state supplies attracting igst':'CBW'};
+const MON={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+const GSTIN_RE=/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/;
+let data={},cur='b2b',res={};
+
+const norm=s=>String(s==null?'':s).toLowerCase().replace(/[^a-z0-9%]/g,'');
+const n2=v=>{const x=parseFloat(v);return isNaN(x)?0:Math.round(x*100)/100};
+const str=v=>v==null?'':String(v).trim();
+function pd(v){ // returns dd-mm-yyyy or null
+  if(v==null||v==='')return null;let d;
+  if(typeof v==='number'){d=new Date(Date.UTC(1899,11,30)+Math.round(v)*864e5);return p2(d.getUTCDate())+'-'+p2(d.getUTCMonth()+1)+'-'+d.getUTCFullYear()}
+  const s=String(v).trim();let m;
+  if(m=s.match(/^(\d{1,2})[-\/ ]([A-Za-z]{3})[a-z]*[-\/ ](\d{2,4})$/)){const mo=MON[m[2].toLowerCase()];if(mo==null)return null;let y=+m[3];if(y<100)y+=2000;return chk(+m[1],mo+1,y)}
+  if(m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/))return chk(+m[1],+m[2],+m[3]);
+  return null}
+const p2=n=>String(n).padStart(2,'0');
+function chk(d,m,y){const t=new Date(Date.UTC(y,m-1,d));return t.getUTCDate()===d&&t.getUTCMonth()===m-1?p2(d)+'-'+p2(m)+'-'+y:null}
+const sc=v=>str(v).slice(0,2);
+const dtVal=s=>{const[a,b,c]=s.split('-');return +c*372+ +b*31+ +a};
+
+function fpInfo(){const f=$('fp').value.trim();if(!/^(0[1-9]|1[0-2])20\d\d$/.test(f))return null;return{m:+f.slice(0,2),y:+f.slice(2)}}
+function periodOK(dt,fp){if(!fp||!dt)return true;const[,m,y]=dt.split('-').map(Number);return y*12+m<=fp.y*12+fp.m}
+
+// parse one row of a section into {rec, errs}
+function checkRow(k,r,g,fp){
+  const e=[],R=n=>r[n];const rec={};
+  const gs=str(g).toUpperCase(),home=gs.slice(0,2);
+  const inv=(label,v)=>{const s=str(v);if(!s)e.push(label+' is missing');else if(s.length>16||!/^[A-Za-z0-9\/-]+$/.test(s)||/^0+$/.test(s)||/^[\/-]|[\/-]$/.test(s))e.push(label+' "'+s+'" is not valid (max 16 chars, letters, digits, / and -)');return s};
+  const dt=(label,v)=>{const d=pd(v);if(!d)e.push(label+' is missing or not a valid date');else if(!periodOK(d,fp))e.push(label+' is after the return period');return d};
+  const tin=(label,v,req)=>{const s=str(v).toUpperCase();if(!s){if(req)e.push(label+' is missing');return s}if(!GSTIN_RE.test(s))e.push(label+' "'+s+'" is not a valid GSTIN');return s};
+  const pos=(v)=>{const s=sc(v);if(!/^\d{2}$/.test(s))e.push('Place of supply is missing or invalid');return s};
+  const rate=v=>{const x=parseFloat(v);if(isNaN(x)){e.push('Rate is missing');return 0}if(!RATES.includes(x))e.push('Rate '+x+'% is not an allowed rate');return x};
+  const amt=(label,v,neg)=>{const x=parseFloat(v);if(isNaN(x)){e.push(label+' is missing or not a number');return 0}if(x<0&&!neg)e.push(label+' cannot be negative');return n2(x)};
+  const rc=v=>{const s=str(v).toUpperCase();if(s!=='Y'&&s!=='N')e.push('Reverse charge must be Y or N');return s};
+  const tax=(x,rt,p,b2c)=>{const o={rt:rt,txval:x.tv};const inter=home&&p&&home!==p;
+    if(inter||x.forceInter){o.iamt=n2(x.tv*rt/100)}else{o.camt=n2(x.tv*rt/200);o.samt=n2(x.tv*rt/200)}
+    if(x.cs)o.csamt=x.cs;return o};
+  if(k==='b2b'||k==='cdnr'){
+    rec.ctin=tin('Recipient GSTIN',R(SEC[k].h[0]),true);
+    const note=k==='cdnr';
+    rec.num=inv(note?'Note number':'Invoice number',R(note?'Note Number':'Invoice Number'));
+    rec.dt=dt(note?'Note date':'Invoice date',R(note?'Note Date':'Invoice date'));
+    rec.val=amt(note?'Note value':'Invoice value',R(note?'Note Value':'Invoice Value'),note);
+    rec.pos=pos(R('Place Of Supply'));rec.rchrg=rc(R('Reverse Charge'));
+    if(note){const t=str(R('Note Type')).toUpperCase();if(t!=='C'&&t!=='D')e.push('Note type must be C or D');rec.ntty=t;
+      const ty=str(R('Note Supply Type')).toLowerCase();rec.inv_typ=INVTYPE[ty]||(ty.startsWith('regular')?'R':(e.push('Note supply type "'+str(R('Note Supply Type'))+'" not recognised'),''))}
+    else{const ty=str(R('Invoice Type')).toLowerCase();rec.inv_typ=INVTYPE[ty]||(e.push('Invoice type "'+str(R('Invoice Type'))+'" not recognised'),'')}
+    rec.etin=tin('E-commerce GSTIN',R('E-Commerce GSTIN'),false);
+    const tv=amt('Taxable value',R('Taxable Value'),note);rec.itm=tax({tv,cs:n2(R('Cess Amount')),forceInter:rec.inv_typ==='SEZWP'||rec.inv_typ==='SEZWOP'||rec.inv_typ==='CBW'},rate(R('Rate')),rec.pos);
+    if(rec.inv_typ==='SEZWOP'){delete rec.itm.iamt}
+    if(rec.ctin&&rec.ctin===gs)e.push('Recipient GSTIN cannot be your own GSTIN');
+  }else if(k==='b2cl'){
+    rec.num=inv('Invoice number',R('Invoice Number'));rec.dt=dt('Invoice date',R('Invoice date'));rec.val=amt('Invoice value',R('Invoice Value'));rec.pos=pos(R('Place Of Supply'));
+    const lim=fp&&(fp.y*12+fp.m>=2024*12+8)?100000:250000;
+    if(rec.val&&rec.val<=lim)e.push('B2CL invoice value must be above ₹'+lim.toLocaleString('en-IN')+' for this period');
+    if(home&&rec.pos===home)e.push('B2CL supplies must be inter-state (place of supply equals your state)');
+    rec.etin=tin('E-commerce GSTIN',R('E-Commerce GSTIN'),false);
+    const tv=amt('Taxable value',R('Taxable Value'));rec.itm=tax({tv,cs:n2(R('Cess Amount')),forceInter:true},rate(R('Rate')),rec.pos);
+  }else if(k==='b2cs'){
+    const t=str(R('Type')).toUpperCase();if(t!=='OE'&&t!=='E')e.push('Type must be OE or E');rec.typ=t==='E'?'E':'OE';
+    rec.pos=pos(R('Place Of Supply'));rec.etin=tin('E-commerce GSTIN',R('E-Commerce GSTIN'),t==='E');
+    const tv=amt('Taxable value',R('Taxable Value'),true),rt=rate(R('Rate'));rec.inter=home&&rec.pos&&home!==rec.pos;
+    rec.tv=tv;rec.rt=rt;rec.cs=n2(R('Cess Amount'));
+  }else if(k==='cdnur'){
+    const t=str(R('UR Type')).toUpperCase().replace(/\s/g,'');if(!['B2CL','EXPWP','EXPWOP'].includes(t))e.push('UR type must be B2CL, EXPWP or EXPWOP');rec.typ=t;
+    rec.num=inv('Note number',R('Note Number'));rec.dt=dt('Note date',R('Note Date'));
+    const nt=str(R('Note Type')).toUpperCase();if(nt!=='C'&&nt!=='D')e.push('Note type must be C or D');rec.ntty=nt;
+    rec.pos=pos(R('Place Of Supply'));rec.val=amt('Note value',R('Note Value'),true);
+    const tv=amt('Taxable value',R('Taxable Value'),true);rec.itm=tax({tv,cs:n2(R('Cess Amount')),forceInter:true},rate(R('Rate')),rec.pos);
+    if(t==='EXPWOP')delete rec.itm.iamt;
+  }else if(k==='exp'){
+    const t=str(R('Export Type')).toUpperCase();if(t!=='WPAY'&&t!=='WOPAY')e.push('Export type must be WPAY or WOPAY');rec.typ=t;
+    rec.num=inv('Invoice number',R('Invoice Number'));rec.dt=dt('Invoice date',R('Invoice date'));rec.val=amt('Invoice value',R('Invoice Value'));
+    rec.pc=str(R('Port Code')).toUpperCase();if(rec.pc&&!/^[A-Z0-9]{6}$/.test(rec.pc))e.push('Port code must be 6 characters');
+    rec.sb=str(R('Shipping Bill Number'));if(rec.sb&&!/^\d{1,7}$/.test(rec.sb))e.push('Shipping bill number must be numeric, up to 7 digits');
+    rec.sd=R('Shipping Bill Date')?pd(R('Shipping Bill Date')):null;if(R('Shipping Bill Date')&&!rec.sd)e.push('Shipping bill date is not a valid date');
+    const tv=amt('Taxable value',R('Taxable Value'));rec.itm=tax({tv,cs:n2(R('Cess Amount')),forceInter:true},rate(R('Rate')),'');
+    if(rec.typ==='WOPAY')delete rec.itm.iamt;
+  }
+  rec.tv=rec.tv!==undefined?rec.tv:(rec.itm?rec.itm.txval:0);
+  return{rec,e}}
+
+function validateAll(keep){
+  const g=$('gstin').value.trim().toUpperCase(),fp=fpInfo();res={};
+  $('gstin').classList.toggle('bad',!!g&&!GSTIN_RE.test(g));$('fp').classList.toggle('bad',!!$('fp').value&&!fp);
+  for(const k in data){res[k]=data[k].map(r=>isBlank(k,r)?{rec:{},e:[],blank:true}:checkRow(k,r,g,fp));
+    // duplicate document numbers
+    if(k!=='b2cs'){const seen={};res[k].forEach(x=>{const key=(x.rec.ctin||'')+'|'+x.rec.num+(k==='cdnr'||k==='cdnur'?'|'+x.rec.ntty:'');if(x.rec.num){if(seen[key])x.e.push('Duplicate document number');seen[key]=1}})}}
+  render(keep)}
+
+function totals(){let rows=0,tv=0,tx=0,er=0;for(const k in res)res[k].forEach(x=>{if(x.blank)return;rows++;if(x.e.length)er++;else{tv+=x.rec.tv||0;const i=x.rec.itm;if(i)tx+=(i.iamt||0)+(i.camt||0)+(i.samt||0)+(i.csamt||0)}});return{rows,tv,tx,er}}
+const inr=v=>v.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function render(keep){
+  const keys=Object.keys(data);$('out').hidden=!keys.length;
+  const t=totals();
+  $('stats').innerHTML=[['Records read',t.rows],['Records with errors',t.er],['Taxable value (valid)','₹ '+inr(t.tv)],['Tax + cess (valid)','₹ '+inr(t.tx)]].map(a=>`<div class="stat"><small>${a[0]}</small><span>${a[1]}</span></div>`).join('');
+  $('tabs').innerHTML=Object.keys(SEC).map(k=>{const n=res[k]?res[k].length:0,er=res[k]?res[k].filter(x=>x.e.length).length:0;return`<button class="tab ${k===cur?'on':''}" data-k="${k}">${SEC[k].l}<b>${n}${er?' · '+er+'!':''}</b></button>`}).join('');
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{cur=b.dataset.k;render()});
+  const H=SEC[cur].h,rows=data[cur]||[],rr=res[cur]||[];
+  if(keep)document.querySelectorAll('#tbl tr[data-r]').forEach(tr=>{const x=rr[tr.dataset.r];tr.className=x&&x.e.length?'err':''});else drawGrid(H,rows,rr);
+  const lst=[];rr.forEach((x,i)=>x.e.forEach(m=>lst.push(`Row ${i+1}: ${esc(m)}`)));
+  $('errs').innerHTML=lst.slice(0,150).map(s=>`<li>${s}</li>`).join('');
+  $('more').textContent=(rows.length>500?`Showing the first 500 of ${rows.length} rows. `:'')+(lst.length>150?`Showing 150 of ${lst.length} errors.`:'');
+  const ok=GSTIN_RE.test($('gstin').value.trim().toUpperCase())&&fpInfo()&&t.rows>0;
+  $('gen').disabled=!ok;
+  $('msg').textContent=ok?(t.er&&!$('skip').checked?'Fix or leave out the rows with errors before generating.':'Ready to generate.'):'Add a valid GSTIN, a period (MMYYYY) and at least one file to begin.';
+}
+const esc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---- file reading
+function rowsFromAOA(aoa,k){
+  const H=SEC[k].h,nh=H.map(norm);let hi=-1,map=[];
+  for(let i=0;i<Math.min(aoa.length,15);i++){const c=aoa[i].map(norm);const m=nh.map(h=>c.indexOf(h));if(m.filter(x=>x>=0).length>=Math.max(3,nh.length-2)){hi=i;map=m;break}}
+  if(hi<0)return null;const out=[];
+  for(let i=hi+1;i<aoa.length;i++){const a=aoa[i];if(!a||a.every(v=>v===''||v==null))continue;const o={};H.forEach((h,j)=>o[h]=map[j]>=0?a[map[j]]:'');out.push(o)}return out}
+async function readFile(f){
+  const buf=await f.arrayBuffer(),isCsv=/\.csv$/i.test(f.name);let found=0;
+  const wb=XLSX.read(buf,isCsv?{type:'array',raw:true}:{type:'array'});
+  for(const k in SEC){
+    let ws=null;
+    if(isCsv){const b=f.name.toLowerCase().replace(/\.csv$/,'');if(SEC[k].sh.includes(b))ws=wb.Sheets[wb.SheetNames[0]]}
+    else{const nm=wb.SheetNames.find(n=>SEC[k].sh.includes(n.trim().toLowerCase()));if(nm)ws=wb.Sheets[nm]}
+    if(!ws)continue;
+    const aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+    const rows=rowsFromAOA(aoa,k);if(rows===null){msg(`Sheet "${SEC[k].l}" in ${f.name}: column headings do not match the template.`);continue}
+    data[k]=rows;found++}
+  if(!found)msg(`${f.name}: no recognised section found. Use the V2.2 workbook or CSV names such as b2b.csv.`)}
+function msg(t){$('msg').textContent=t}
+async function load(files){for(const f of files){try{await readFile(f)}catch(e){msg('Could not read '+f.name)}}
+  const first=Object.keys(SEC).find(k=>data[k]);if(first)cur=first;validateAll()}
+
+const drop=$('drop');drop.onclick=()=>$('file').click();$('file').onchange=e=>load(e.target.files);
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('on')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('on')}));
+drop.addEventListener('drop',e=>load(e.dataTransfer.files));
+['gstin','fp','skip'].forEach(id=>$(id).addEventListener('input',()=>validateAll()));
+
+// ---- JSON build
+function build(){
+  const out={gstin:$('gstin').value.trim().toUpperCase(),fp:$('fp').value.trim()};const skip=$('skip').checked;
+  const good=k=>(res[k]||[]).filter(x=>!x.blank&&(skip?!x.e.length:true)).map(x=>x.rec);
+  const grp=(arr,key)=>{const m={};arr.forEach(r=>(m[r[key]]=m[r[key]]||[]).push(r));return m};
+  const item=(r,n)=>({num:n,itm_det:r.itm});
+  let b=good('b2b');if(b.length){out.b2b=Object.entries(grp(b,'ctin')).map(([ctin,l])=>({ctin,inv:Object.entries(grp(l,'num')).map(([num,xs])=>{const x=xs[0];const o={inum:num,idt:x.dt,val:x.val,pos:x.pos,rchrg:x.rchrg,inv_typ:x.inv_typ,itms:xs.map((y,i)=>item(y,i+1))};if(x.etin)o.etin=x.etin;return o})}))}
+  b=good('b2cl');if(b.length){out.b2cl=Object.entries(grp(b,'pos')).map(([pos,l])=>({pos,inv:Object.entries(grp(l,'num')).map(([num,xs])=>{const x=xs[0];const o={inum:num,idt:x.dt,val:x.val,itms:xs.map((y,i)=>item(y,i+1))};if(x.etin)o.etin=x.etin;return o})}))}
+  b=good('b2cs');if(b.length){const m={};b.forEach(r=>{const key=[r.pos,r.rt,r.typ,r.etin].join('|');const o=m[key]||(m[key]={sply_ty:r.inter?'INTER':'INTRA',rt:r.rt,typ:r.typ,pos:r.pos,txval:0,iamt:0,camt:0,samt:0,csamt:0,_i:r.inter});if(r.typ==='E')o.etin=r.etin;o.txval=n2(o.txval+r.tv);if(r.inter)o.iamt=n2(o.iamt+r.tv*r.rt/100);else{o.camt=n2(o.camt+r.tv*r.rt/200);o.samt=o.camt}o.csamt=n2(o.csamt+r.cs)});
+    out.b2cs=Object.values(m).map(o=>{const i=o._i;delete o._i;if(i){delete o.camt;delete o.samt}else delete o.iamt;if(!o.csamt)delete o.csamt;return o})}
+  b=good('cdnr');if(b.length){out.cdnr=Object.entries(grp(b,'ctin')).map(([ctin,l])=>({ctin,nt:l.map(x=>({ntty:x.ntty,nt_num:x.num,nt_dt:x.dt,val:x.val,pos:x.pos,rchrg:x.rchrg,inv_typ:x.inv_typ,itms:[item(x,1)]}))}))}
+  b=good('cdnur');if(b.length){out.cdnur=b.map(x=>({typ:x.typ,ntty:x.ntty,nt_num:x.num,nt_dt:x.dt,val:x.val,pos:x.pos,itms:[item(x,1)]}))}
+  b=good('exp');if(b.length){out.exp=Object.entries(grp(b,'typ')).map(([exp_typ,l])=>({exp_typ,inv:Object.entries(grp(l,'num')).map(([num,xs])=>{const x=xs[0];const o={inum:num,idt:x.dt,val:x.val,itms:xs.map(y=>{const d={txval:y.itm.txval,rt:y.itm.rt};if(y.itm.iamt!=null)d.iamt=y.itm.iamt;if(y.itm.csamt)d.csamt=y.itm.csamt;return d})};if(x.pc)o.sbpcode=x.pc;if(x.sb)o.sbnum=x.sb;if(x.sd)o.sbdt=x.sd;return o})}))}
+  return out}
+function count(o){let n=0;for(const k in o){if(!Array.isArray(o[k]))continue;o[k].forEach(e=>{const a=e.inv||e.nt;n+=a?a.length:1})}return n}
+$('gen').onclick=()=>{
+  validateAll();const t=totals();if(t.er&&!$('skip').checked){msg('Fix or leave out the rows with errors first.');return}
+  const o=build(),txt=JSON.stringify(o),n=count(o);
+  if(!n){msg('No valid records to export.');return}
+  let w=`${n} documents/entries written.`;if(n>19000||txt.length>5*1024*1024)w+=' Warning: the GST portal accepts at most 19,000 items or 5 MB per upload; this file is too large and must be split.';
+  if(t.er)w+=` ${t.er} rows with errors were left out.`;msg(w);
+  save(`GSTR1_${o.gstin}_${o.fp}.json`,new Blob([txt],{type:'application/json'}))};
+$('tpl').onclick=()=>save(cur+'.csv',new Blob([SEC[cur].h.join(',')+'\r\n'],{type:'text/csv'}));
+const STATES='01-Jammu & Kashmir|02-Himachal Pradesh|03-Punjab|04-Chandigarh|05-Uttarakhand|06-Haryana|07-Delhi|08-Rajasthan|09-Uttar Pradesh|10-Bihar|11-Sikkim|12-Arunachal Pradesh|13-Nagaland|14-Manipur|15-Mizoram|16-Tripura|17-Meghalaya|18-Assam|19-West Bengal|20-Jharkhand|21-Odisha|22-Chhattisgarh|23-Madhya Pradesh|24-Gujarat|26-Dadra and Nagar Haveli and Daman and Diu|27-Maharashtra|29-Karnataka|30-Goa|31-Lakshdweep|32-Kerala|33-Tamil Nadu|34-Puducherry|35-Andaman & Nicobar Islands|36-Telangana|37-Andhra Pradesh|38-Ladakh|97-Other Territory'.split('|');
+const SUP=['Regular','SEZ supplies with payment','SEZ supplies without payment','Deemed Exp'];
+const OPT={'Reverse Charge':['Y','N'],'Invoice Type':[...SUP,'Intra-State supplies attracting IGST'],'Note Type':['C','D'],'Note Supply Type':['Regular B2B',...SUP.slice(1)],'Type':['OE','E'],'UR Type':['B2CL','EXPWP','EXPWOP'],'Export Type':['WPAY','WOPAY'],'Rate':RATES.map(String),'Place Of Supply':STATES};
+const DEF={b2b:{'Reverse Charge':'N','Invoice Type':'Regular'},b2cs:{Type:'OE'},cdnr:{'Reverse Charge':'N','Note Type':'C','Note Supply Type':'Regular B2B'},cdnur:{'UR Type':'B2CL','Note Type':'C'},exp:{'Export Type':'WPAY'}};
+const SAMPLE={
+ b2b:[['27AABCU9603R1ZX','Sample Buyer Pvt Ltd','INV-001','05-10-2026',118000,'27-Maharashtra','N','','Regular','',18,100000,''],['29AAACR5055K1ZG','Local Traders','INV-002','06-10-2026',59000,'29-Karnataka','N','','Regular','',18,50000,'']],
+ b2cl:[['INV-B2CL-1','07-10-2026',300000,'27-Maharashtra','',18,254237.29,'','']],
+ b2cs:[['OE','29-Karnataka','',5,40000,'',''],['OE','27-Maharashtra','',18,25000,'','']],
+ cdnr:[['27AABCU9603R1ZX','Sample Buyer Pvt Ltd','CN-001','12-10-2026','C','27-Maharashtra','N','Regular B2B',11800,'',18,10000,'']],
+ cdnur:[['B2CL','CN-U-1','12-10-2026','C','27-Maharashtra',5900,'',18,5000,'']],
+ exp:[['WPAY','EXP-001','08-10-2026',236000,'INMAA1','1234567','09-10-2026',18,200000,'']]};
+const sampleData=()=>{const d={};for(const k in SAMPLE)d[k]=SAMPLE[k].map(a=>{const o={};SEC[k].h.forEach((h,j)=>o[h]=a[j]);return o});return d};
+const newRow=k=>{const o={};SEC[k].h.forEach(h=>o[h]=(DEF[k]&&DEF[k][h])||'');return o};
+const isBlank=(k,r)=>SEC[k].h.every(h=>str(r[h])===''||str(r[h])===((DEF[k]&&DEF[k][h])||'\u0000'));
+function dv(h,v){if(typeof v==='number'&&/date/i.test(h))return pd(v)||v;if(h==='Rate'&&v!==''&&!isNaN(v))return String(parseFloat(v));return v==null?'':v}
+function drawGrid(H,rows,rr){
+ const t=$('tbl'),s=$('fcol').value;
+ if(!rows.length)t.innerHTML='<tr><td class="note">No rows yet. Use Add row, paste from Excel, load the sample, or upload a file.</td></tr>';
+ else t.innerHTML='<tr><th></th><th>#</th>'+H.map(h=>`<th>${h}</th>`).join('')+'</tr>'+rows.slice(0,500).map((r,i)=>`<tr data-r="${i}" class="${rr[i]&&rr[i].e.length?'err':''}"><td><button class="x" data-del="${i}" title="Delete row">×</button></td><td>${i+1}</td>${H.map((h,j)=>{const v=String(dv(h,r[h])),o=OPT[h];if(o){const l=(o.includes(v)||v==='')?o:[...o,v];return`<td><select data-r="${i}" data-c="${j}"><option value=""></option>${l.map(x=>`<option${v===x?' selected':''}>${esc(x)}</option>`).join('')}</select></td>`}return`<td><input data-r="${i}" data-c="${j}" value="${esc(v)}"></td>`}).join('')}</tr>`).join('');
+ $('fcol').innerHTML=H.map((h,j)=>`<option value="${j}">${h}</option>`).join('');if(s)$('fcol').value=s}
+const tbl=$('tbl');
+tbl.addEventListener('change',e=>{const el=e.target;if(el.dataset.r==null)return;const k=cur,row=data[k][+el.dataset.r],h=SEC[k].h[+el.dataset.c];row[h]=el.value;
+ if(h==='GSTIN/UIN of Recipient'){const s=STATES.find(x=>x.slice(0,2)===el.value.trim().slice(0,2));const pc=SEC[k].h.indexOf('Place Of Supply');if(s&&!row['Place Of Supply']){row['Place Of Supply']=s;const ps=tbl.querySelector(`select[data-r="${el.dataset.r}"][data-c="${pc}"]`);if(ps)ps.value=s}}
+ validateAll(true)});
+tbl.addEventListener('click',e=>{const d=e.target.dataset.del;if(d==null)return;data[cur].splice(+d,1);validateAll()});
+tbl.addEventListener('paste',e=>{const el=e.target;if(el.dataset.r==null)return;const tx=(e.clipboardData||window.clipboardData).getData('text');if(!/[\t\n]/.test(tx.trim()))return;e.preventDefault();
+ const k=cur,H=SEC[k].h,r0=+el.dataset.r,c0=+el.dataset.c;data[k]=data[k]||[];tx.replace(/\r/g,'').replace(/\n+$/,'').split('\n').forEach((ln,i)=>{while(data[k].length<=r0+i)data[k].push(newRow(k));ln.split('\t').forEach((v,j)=>{if(c0+j<H.length)data[k][r0+i][H[c0+j]]=v.trim()})});validateAll()});
+$('addr').onclick=()=>{(data[cur]=data[cur]||[]).push(newRow(cur));validateAll()};
+$('add10').onclick=()=>{data[cur]=data[cur]||[];for(let i=0;i<10;i++)data[cur].push(newRow(cur));validateAll()};
+$('clr').onclick=()=>{delete data[cur];delete res[cur];validateAll()};
+function fill(onlyBlank){const h=SEC[cur].h[+$('fcol').value],v=$('fval').value;(data[cur]||[]).forEach(r=>{if(!onlyBlank||str(r[h])==='')r[h]=v});validateAll()}
+$('fall').onclick=()=>fill(false);$('fblank').onclick=()=>fill(true);
+$('demo').onclick=()=>{data=sampleData();cur='b2b';validateAll()};
+function wbFrom(d){const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['GSTR-1 Excel Workbook - Help'],['Fill each sheet from row 5. Column headings are in row 4; do not change them. Enter dates as dd-mm-yyyy and place of supply as code-name (for example 29-Karnataka).'],['Upload this file in the web tool, correct the rows shown in red, then generate the JSON.']]),'Help Instruction');
+ for(const k in SEC){const H=SEC[k].h,rows=(d[k]||[]).filter(r=>!isBlank(k,r)).map(r=>H.map(h=>{const v=dv(h,r[h]);return v}));const ws=XLSX.utils.aoa_to_sheet([['Summary for '+SEC[k].l],[],[],H,...rows]);ws['!cols']=H.map(h=>({wch:Math.max(14,h.length+2)}));XLSX.utils.book_append_sheet(wb,ws,SEC[k].sh[0])}
+ return wb}
+const xl=wb=>new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})]);
+$('sample').onclick=()=>save('GSTR1_Sample_Workbook.xlsx',xl(wbFrom(sampleData())));
+$('blank').onclick=()=>save('GSTR1_Blank_Template.xlsx',xl(wbFrom({})));
+$('export').onclick=()=>save('GSTR1_MyData.xlsx',xl(wbFrom(data)));
+async function save(name,blob){try{const d=window.claude?await claude.use('downloads'):null;if(d){await d.save({filename:name,data:blob});return}}catch(e){if(e&&e.code==='declined')return}
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove()}
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <pattern id="bg-dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="4" r="1.4" fill="#2F3E4E" fill-opacity="0.12" />
+    </pattern>
+  </defs>
+
+  <!-- Buttercream Canvas -->
+  <rect width="1200" height="630" fill="#FEF2C8" />
+  <rect width="1200" height="630" fill="url(#bg-dots)" />
+
+  <!-- Top Dark Slate Strip -->
+  <rect x="0" y="0" width="1200" height="16" fill="#2F3E4E" />
+  <rect x="0" y="16" width="1200" height="6" fill="#F9C80E" />
+
+  <!-- Main Card Container -->
+  <rect x="64" y="64" width="1072" height="502" rx="28" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="4" />
+  <rect x="72" y="72" width="1072" height="502" rx="28" fill="none" />
+
+  <!-- Top Badge Row -->
+  <rect x="108" y="108" width="212" height="44" rx="12" fill="#2F3E4E" />
+  <rect x="120" y="118" width="12" height="12" rx="2" fill="#F9C80E" />
+  <rect x="134" y="118" width="12" height="12" rx="2" fill="#CEE5DC" />
+  <rect x="120" y="132" width="12" height="12" rx="2" fill="#CEE5DC" />
+  <rect x="134" y="132" width="12" height="12" rx="2" fill="#F9C80E" />
+  <text x="158" y="137" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="22" letter-spacing="1">VCPL TOOLS</text>
+
+  <rect x="336" y="108" width="260" height="44" rx="12" fill="#CEE5DC" stroke="#2F3E4E" stroke-width="2" />
+  <text x="466" y="136" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="18">60 OFFLINE BROWSER TOOLS</text>
+
+  <rect x="612" y="108" width="230" height="44" rx="12" fill="#F9C80E" stroke="#2F3E4E" stroke-width="2" />
+  <text x="727" y="136" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="18">100% ZERO UPLOAD</text>
+
+  <!-- Headline -->
+  <text x="108" y="232" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="56" letter-spacing="-1">Smart Browser Utilities for</text>
+  <text x="108" y="298" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="56" letter-spacing="-1">Banking, GST, PDF &amp; Finance</text>
+
+  <!-- Subtitle -->
+  <text x="108" y="352" fill="#475569" font-family="system-ui, -apple-system, sans-serif" font-weight="500" font-size="24">SBI &amp; HDFC Deposit Slips · Form 26AS &amp; GSTR-2B · PDF to Excel · Image Studio · Calculator Hub</text>
+
+  <!-- 4 Suite Pills -->
+  <rect x="108" y="394" width="228" height="54" rx="14" fill="#FEF2C8" stroke="#2F3E4E" stroke-width="2" />
+  <text x="222" y="428" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="20">Bank Slips &amp; GST</text>
+
+  <rect x="352" y="394" width="228" height="54" rx="14" fill="#CEE5DC" stroke="#2F3E4E" stroke-width="2" />
+  <text x="466" y="428" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="20">32 PDF Utilities</text>
+
+  <rect x="596" y="394" width="228" height="54" rx="14" fill="#FFE1B3" stroke="#2F3E4E" stroke-width="2" />
+  <text x="710" y="428" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="20">Image &amp; QR Studio</text>
+
+  <rect x="840" y="394" width="252" height="54" rx="14" fill="#F9C80E" stroke="#2F3E4E" stroke-width="2" />
+  <text x="966" y="428" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="20">VCPL Recon Suite</text>
+
+  <!-- Attribution Footer Bar -->
+  <rect x="108" y="478" width="984" height="56" rx="14" fill="#2F3E4E" />
+  <text x="600" y="513" text-anchor="middle" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="21">
+    Designed &amp; Developed by <tspan fill="#F9C80E" font-weight="800">Arjun Bangera</tspan>  ·  Ideas &amp; Tool Requirements by <tspan fill="#CEE5DC" font-weight="800">Kaushik Bangera</tspan>
+  </text>
+</svg>

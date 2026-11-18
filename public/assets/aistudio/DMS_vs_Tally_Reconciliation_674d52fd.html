@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DMS vs Tally Reconciliation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mu:#667085;--bd:#e3e6ea;--pr:#1d4ed8;--ok:#047857;--wa:#b45309;--er:#b91c1c;--in:#6d28d9;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1a1f26;--tx:#e8ebef;--mu:#98a2b3;--bd:#2c333d;--pr:#6c9bff;--ok:#34d399;--wa:#fbbf24;--er:#f87171;--in:#a78bfa}}
+:root[data-theme="dark"]{--bg:#111418;--card:#1a1f26;--tx:#e8ebef;--mu:#98a2b3;--bd:#2c333d;--pr:#6c9bff;--ok:#34d399;--wa:#fbbf24;--er:#f87171;--in:#a78bfa}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.w{max-width:1200px;margin:0 auto;padding:16px}h1{font-size:20px;margin:0}.sub{color:var(--mu);margin:2px 0 14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:760px){.g2{grid-template-columns:1fr}}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}
+.c h2{font-size:15px;margin:0 0 8px}
+.dz{border:2px dashed var(--bd);border-radius:8px;padding:14px;text-align:center;color:var(--mu);cursor:pointer}.dz.on{border-color:var(--pr);color:var(--pr)}
+.f{display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--bd);padding:6px 0;font-size:13px}.f b{flex:1;min-width:120px;word-break:break-all}
+select,input[type=number],input[type=text]{background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font:inherit;max-width:100%}
+button{background:var(--pr);color:#fff;border:0;border-radius:7px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}button.s{background:var(--bg);color:var(--tx);border:1px solid var(--bd);padding:3px 8px;font-weight:400}
+.ck{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.ck label{display:flex;gap:4px;align-items:center}
+details{margin-top:6px}summary{cursor:pointer;color:var(--mu)}.mp{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.mp label{font-size:12px;color:var(--mu);display:flex;flex-direction:column}
+.opt{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:12px 0}.opt label{display:flex;gap:5px;align-items:center}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:12px 0}
+.k{background:var(--card);border:1px solid var(--bd);border-left:4px solid var(--pr);border-radius:8px;padding:8px 10px;cursor:pointer}.k small{color:var(--mu);display:block}.k b{font-size:20px}.k.sel{outline:2px solid var(--pr)}
+.sc{overflow-x:auto;border:1px solid var(--bd);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{padding:5px 8px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}th{position:sticky;top:0;background:var(--card);color:var(--mu)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.t{padding:1px 7px;border-radius:10px;font-size:11.5px;font-weight:600;background:var(--bd)}
+.Matched{color:var(--ok)}.Amount{color:var(--er)}.Date{color:var(--wa)}.Type{color:var(--in)}.Fuzzy{color:var(--pr)}.Only{color:var(--er)}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}.bar input[type=text]{flex:1;min-width:160px}.mu{color:var(--mu)}
+</style></head><body><div class="w">
+<h1>DMS vs Tally Reconciliation</h1>
+<div class="sub">Upload one or many Excel/CSV files on each side, pick which voucher types to include, then reconcile. Files never leave your browser.</div>
+<div class="g2" id="sides"></div>
+<div class="c" style="margin-top:12px"><h2>Matching rules</h2>
+<div class="opt">
+<label>Amount tolerance ₹ <input type="number" id="tol" value="1" min="0" step="0.5" style="width:70px"></label>
+<label>Date tolerance (days) <input type="number" id="dd" value="0" min="0" style="width:60px"></label>
+<label><input type="checkbox" id="fz" checked> Fuzzy match leftovers (amount + date, ignore voucher no.)</label>
+<label>Fuzzy ± days <input type="number" id="fd" value="3" min="0" style="width:60px"></label>
+<label><input type="checkbox" id="ct" checked> Fuzzy must be same type</label>
+<label><input type="checkbox" id="pf"> Ignore voucher prefix/leading zeros (match on trailing digits)</label>
+</div>
+<div class="opt"><label>Voucher prefix → type rules (optional) <input type="text" id="rules" placeholder="VMSC=Credit Note, VMPC=Credit Note" style="width:300px"></label>
+<button id="go">Reconcile</button></div></div>
+<div id="out"></div></div>
+<script>
+const $=s=>document.querySelector(s),CATS=['Sales','Purchase','Debit Note','Credit Note','Other'];
+const NAMES={dms:'DMS report',tally:'Tally report'};
+const S={dms:{files:[],map:{},inc:new Set(CATS)},tally:{files:[],map:{},inc:new Set(CATS)}};
+const FIELDS=[['vno','Voucher / Invoice No'],['date','Date'],['party','Party'],['amt','Amount'],['amt2','Amount 2 (e.g. Credit)'],['type','Type / Vch Type']];
+const AUTO={vno:[/vch\s*no|voucher\s*no|invoice\s*#|invoice\s*no|inv\w*\s*no|bill\s*no|doc\s*no/i],date:[/^(invoice\s*|vch\s*|bill\s*)?date$/i],party:[/particulars/i,/billing customer/i,/party|customer|ledger/i],amt:[/final amount with tax/i,/gross|invoice amount|total amount/i,/^debit/i,/amount/i],amt2:[/^credit/i],type:[/vch\s*type|voucher\s*type/i,/^type$/i]};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fm=n=>n==null?'':n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fd=n=>{if(n==null)return'';const d=new Date(Date.UTC(1899,11,30)+n*864e5);return String(d.getUTCDate()).padStart(2,'0')+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+d.getUTCFullYear()};
+function pd(v){if(typeof v==='number')return v>20000&&v<80000?Math.floor(v):null;if(!v)return null;const m=String(v).trim().match(/(\d{1,2})[-\/. ]([A-Za-z]{3}|\d{1,2})[-\/. ](\d{2,4})/);if(!m)return null;let mo=isNaN(m[2])?['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(m[2].toLowerCase()):+m[2]-1,y=+m[3];if(y<100)y+=2000;if(mo<0)return null;return Math.floor(Date.UTC(y,mo,+m[1])/864e5)+25569}
+const pn=v=>{if(typeof v==='number')return v;const x=parseFloat(String(v??'').replace(/[,₹\s]/g,''));return isNaN(x)?0:x};
+function autoIdx(h,f){for(const rx of AUTO[f]){const i=h.findIndex(x=>rx.test(x));if(i>=0)return i}return -1}
+function detect(rows){let b=0,bs=-1;for(let i=0;i<Math.min(rows.length,40);i++){let s=0;(rows[i]||[]).forEach(c=>{if(typeof c==='string'&&/date|vch|voucher|invoice|amount|debit|credit|particulars|party|customer|bill/i.test(c))s++});if(s>bs){bs=s;b=i}}return b}
+function drawSides(){$('#sides').innerHTML=['dms','tally'].map(s=>`<div class="c" data-s="${s}"><h2>${s==='dms'?'① DMS report':'② Tally report'} <span class="mu">(multiple files allowed)</span></h2>
+<label class="dz" data-dz="${s}">Drop files here or click to browse (.xlsx .xls .csv)<input type="file" multiple accept=".xlsx,.xls,.csv" hidden data-in="${s}"></label>
+<div id="fl-${s}"></div><b style="font-size:13px">Include voucher types</b><div class="ck" id="ck-${s}"></div><details><summary>Column mapping (auto-detected)</summary><div class="mp" id="mp-${s}"></div></details></div>`).join('');
+document.querySelectorAll('[data-in]').forEach(i=>i.onchange=e=>load(i.dataset.in,e.target.files));
+document.querySelectorAll('[data-dz]').forEach(z=>{z.ondragover=e=>{e.preventDefault();z.classList.add('on')};z.ondragleave=()=>z.classList.remove('on');z.ondrop=e=>{e.preventDefault();z.classList.remove('on');load(z.dataset.dz,e.dataTransfer.files)}});['dms','tally'].forEach(s=>{renderFiles(s);renderMap(s)})}
+async function load(side,files){for(const f of files){try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});const hi=detect(rows);const headers=(rows[hi]||[]).map(c=>String(c??'').trim());S[side].files.push({name:f.name,headers,rows:rows.slice(hi+1),ov:'Auto'})}catch(e){alert('Could not read '+f.name)}}
+const d=S[side];FIELDS.forEach(([k])=>{if(d.map[k]===undefined){const h=d.files[0]?.headers||[];const i=autoIdx(h,k);d.map[k]=i>=0?h[i]:''}});renderFiles(side);renderMap(side)}
+function renderFiles(side){const el=$('#fl-'+side);el.innerHTML=S[side].files.map((f,i)=>`<div class="f"><b>${esc(f.name)}</b><span class="mu">${f.rows.length} rows</span><select data-ov="${side}:${i}"><option>Auto</option>${CATS.map(c=>`<option ${f.ov===c?'selected':''}>${c}</option>`).join('')}</select><button class="s" data-rm="${side}:${i}">✕</button></div>`).join('');
+el.querySelectorAll('[data-ov]').forEach(x=>x.onchange=()=>{const[s,i]=x.dataset.ov.split(':');S[s].files[i].ov=x.value;renderChecks(s)});
+el.querySelectorAll('[data-rm]').forEach(x=>x.onclick=()=>{const[s,i]=x.dataset.rm.split(':');S[s].files.splice(i,1);renderFiles(s);renderMap(s)});renderChecks(side)}
+function renderChecks(side){const cnt={};CATS.forEach(c=>cnt[c]=0);if(S[side].files.length){try{build(side,true).forEach(r=>cnt[r.cat]++)}catch(e){}}
+$('#ck-'+side).innerHTML=CATS.map(c=>`<label><input type="checkbox" data-c="${side}:${c}" ${S[side].inc.has(c)?'checked':''}>${c} <span class="mu">(${cnt[c]})</span></label>`).join('');
+$('#ck-'+side).querySelectorAll('input').forEach(x=>x.onchange=()=>{const[s,c]=x.dataset.c.split(':');x.checked?S[s].inc.add(c):S[s].inc.delete(c)})}
+function renderMap(side){const hs=[...new Set(S[side].files.flatMap(f=>f.headers).filter(Boolean))];$('#mp-'+side).innerHTML=FIELDS.map(([k,l])=>`<label>${l}<select data-m="${side}:${k}"><option value="">— none —</option>${hs.map(h=>`<option ${S[side].map[k]===h?'selected':''}>${esc(h)}</option>`).join('')}</select></label>`).join('');
+$('#mp-'+side).querySelectorAll('select').forEach(x=>x.onchange=()=>{const[s,k]=x.dataset.m.split(':');S[s].map[k]=x.value;renderChecks(s)})}
+function rules(){return($('#rules').value||'').split(',').map(x=>x.split('=').map(y=>y.trim())).filter(x=>x[0]&&CATS.includes(x[1]))}
+function catOf(type,vno,ov){if(ov&&ov!=='Auto')return ov;const v=String(vno).toUpperCase();for(const[p,c]of rules())if(v.startsWith(p.toUpperCase()))return c;const t=String(type||'');if(/credit\s*(note|memo)|^cn$/i.test(t))return'Credit Note';if(/debit\s*(note|memo)|^dn$/i.test(t))return'Debit Note';if(/purchase/i.test(t))return'Purchase';if(/sale|service|invoice|parts/i.test(t))return'Sales';return t?'Other':'Sales'}
+const nk=v=>{let k=String(v).toUpperCase().replace(/[^A-Z0-9]/g,'');if($('#pf').checked){const m=k.match(/(\d+)$/);if(m)k=String(+m[1])}return k};
+function build(side,all){const d=S[side],out=[];d.files.forEach(f=>{const ix={};FIELDS.forEach(([k])=>{let i=f.headers.indexOf(d.map[k]);if(i<0&&d.map[k]!=='')i=autoIdx(f.headers,k);ix[k]=i});if(ix.vno<0)return;
+f.rows.forEach(r=>{const vno=String(r[ix.vno]??'').trim();if(!vno||/^total/i.test(vno)||/^total/i.test(String(r[ix.date]??'')))return;let a=ix.amt>=0?pn(r[ix.amt]):0;if(!a&&ix.amt2>=0)a=pn(r[ix.amt2]);
+const cat=catOf(ix.type>=0?r[ix.type]:'',vno,f.ov);if(!all&&!d.inc.has(cat))return;out.push({side,file:f.name,vno,key:nk(vno),date:ix.date>=0?pd(r[ix.date]):null,party:ix.party>=0?String(r[ix.party]??''):'',amt:Math.abs(a),cat})})});return out}
+function recon(){const tol=+$('#tol').value||0,dd=+$('#dd').value||0,fz=$('#fz').checked,fdays=+$('#fd').value||0,ct=$('#ct').checked;const A=build('dms'),B=build('tally'),res=[];
+const mb=new Map(),ca={},cb={};B.forEach(b=>{(mb.get(b.key)||mb.set(b.key,[]).get(b.key)).push(b);cb[b.key]=(cb[b.key]||0)+1});A.forEach(a=>ca[a.key]=(ca[a.key]||0)+1);
+const left=[];A.forEach(a=>{const arr=mb.get(a.key);if(arr&&arr.length){const b=arr.shift();b.used=1;res.push(pair(a,b,tol,dd,(ca[a.key]>1||cb[a.key]>1)?'Duplicate voucher no. in file(s)':''))}else left.push(a)});
+const lb=B.filter(b=>!b.used);
+if(fz)left.slice().forEach(a=>{let best=null,bd=1e9;lb.forEach(b=>{if(b.used||Math.abs(a.amt-b.amt)>tol)return;if(ct&&a.cat!==b.cat)return;const g=a.date!=null&&b.date!=null?Math.abs(a.date-b.date):0;if(g>fdays)return;if(g<bd){bd=g;best=b}});if(best){best.used=1;left.splice(left.indexOf(a),1);const r=pair(a,best,tol,1e9,'');r.status='Fuzzy match';r.notes=['Voucher no. differs'].concat(bd?['date gap '+bd+'d']:[]).join(', ');res.push(r)}});
+left.forEach(a=>res.push({status:'Only in DMS',cat:a.cat,vd:a.vno,vt:'',dd:a.date,dt:null,party:a.party,a:a.amt,b:null,diff:a.amt,notes:'Missing in Tally'}));
+B.filter(b=>!b.used).forEach(b=>res.push({status:'Only in Tally',cat:b.cat,vd:'',vt:b.vno,dd:null,dt:b.date,party:b.party,a:null,b:b.amt,diff:-b.amt,notes:'Missing in DMS'}));return{res,A,B}}
+function pair(a,b,tol,dd,dup){const diff=Math.round((a.amt-b.amt)*100)/100,n=[];let st='Matched';const ad=Math.abs(diff)>tol,gap=a.date!=null&&b.date!=null?Math.abs(a.date-b.date):0;
+if(ad){st='Amount diff';n.push('Amount differs by '+fm(diff))}else if(diff)n.push('Rounding '+fm(diff));
+if(gap>dd){if(st==='Matched')st='Date diff';n.push('Date gap '+gap+'d')}if(a.cat!==b.cat){if(st==='Matched')st='Type diff';n.push('Type: DMS '+a.cat+' / Tally '+b.cat)}if(dup)n.push(dup);
+return{status:st,cat:a.cat,vd:a.vno,vt:b.vno,dd:a.date,dt:b.date,party:a.party||b.party,a:a.amt,b:b.amt,diff,notes:n.join('; ')}}
+let R=null,flt='All';
+const SC={'Matched':'Matched','Amount diff':'Amount','Date diff':'Date','Type diff':'Type','Fuzzy match':'Fuzzy','Only in DMS':'Only','Only in Tally':'Only'};
+function show(){if(!S.dms.files.length||!S.tally.files.length){alert('Upload at least one DMS file and one Tally file.');return}R=recon();flt='All';draw()}
+function draw(){const{res}=R,sts=Object.keys(SC),cnt={},sum={};sts.forEach(s=>{cnt[s]=0;sum[s]=0});res.forEach(r=>{cnt[r.status]++;sum[r.status]+=Math.abs(r.diff||0)});
+const tA=res.reduce((x,r)=>x+(r.a||0),0),tB=res.reduce((x,r)=>x+(r.b||0),0);
+const cats=CATS.filter(c=>res.some(r=>r.cat===c));
+const catRows=cats.map(c=>{const x=res.filter(r=>r.cat===c);const a=x.reduce((s,r)=>s+(r.a||0),0),b=x.reduce((s,r)=>s+(r.b||0),0);return`<tr><td>${c}</td><td class="n">${x.filter(r=>r.a!=null).length}</td><td class="n">${fm(a)}</td><td class="n">${x.filter(r=>r.b!=null).length}</td><td class="n">${fm(b)}</td><td class="n ${Math.abs(a-b)>1?'Amount':'Matched'}">${fm(a-b)}</td></tr>`}).join('');
+$('#out').innerHTML=`<div class="cards"><div class="k ${flt==='All'?'sel':''}" data-f="All"><small>All entries</small><b>${res.length}</b></div>${sts.map(s=>`<div class="k ${flt===s?'sel':''}" data-f="${s}" style="border-left-color:var(--${SC[s]==='Matched'?'ok':SC[s]==='Date'?'wa':SC[s]==='Type'?'in':SC[s]==='Fuzzy'?'pr':'er'})"><small>${s}</small><b>${cnt[s]}</b><small>${s==='Matched'?'':'₹ '+fm(sum[s])}</small></div>`).join('')}</div>
+<div class="c"><h2>Summary by voucher type</h2><div class="sc"><table><tr><th>Type</th><th class="n">DMS count</th><th class="n">DMS amount</th><th class="n">Tally count</th><th class="n">Tally amount</th><th class="n">Difference</th></tr>${catRows}<tr><th>Total</th><th></th><th class="n">${fm(tA)}</th><th></th><th class="n">${fm(tB)}</th><th class="n">${fm(tA-tB)}</th></tr></table></div></div>
+<div class="bar"><input type="text" id="q" placeholder="Search voucher no., party, notes…"><select id="cf"><option>All types</option>${cats.map(c=>`<option>${c}</option>`).join('')}</select><button id="ex">Export to Excel</button></div>
+<div class="sc" style="max-height:70vh"><table id="tb"></table></div>`;
+document.querySelectorAll('[data-f]').forEach(k=>k.onclick=()=>{flt=k.dataset.f;draw()});$('#q').oninput=rows;$('#cf').onchange=rows;$('#ex').onclick=exp;rows()}
+function view(){const q=($('#q')?.value||'').toLowerCase(),c=$('#cf')?.value||'All types';return R.res.filter(r=>(flt==='All'||r.status===flt)&&(c==='All types'||r.cat===c)&&(!q||[r.vd,r.vt,r.party,r.notes].join(' ').toLowerCase().includes(q)))}
+function rows(){const v=view();$('#tb').innerHTML='<tr><th>Status</th><th>Type</th><th>DMS voucher</th><th>Tally voucher</th><th>DMS date</th><th>Tally date</th><th>Party</th><th class="n">DMS ₹</th><th class="n">Tally ₹</th><th class="n">Diff</th><th>Notes</th></tr>'+v.slice(0,1500).map(r=>`<tr><td><span class="t ${SC[r.status]}">${r.status}</span></td><td>${r.cat}</td><td>${esc(r.vd)}</td><td>${esc(r.vt)}</td><td>${fd(r.dd)}</td><td>${fd(r.dt)}</td><td>${esc(r.party)}</td><td class="n">${fm(r.a)}</td><td class="n">${fm(r.b)}</td><td class="n">${fm(r.diff)}</td><td>${esc(r.notes)}</td></tr>`).join('')+(v.length>1500?`<tr><td colspan="11" class="mu">Showing first 1500 of ${v.length}. Export for all.</td></tr>`:'')}
+function exp(){const H=['Status','Type','DMS voucher','Tally voucher','DMS date','Tally date','Party','DMS amount','Tally amount','Difference','Notes'],f=r=>[r.status,r.cat,r.vd,r.vt,fd(r.dd),fd(r.dt),r.party,r.a,r.b,r.diff,r.notes],wb=XLSX.utils.book_new();
+const add=(n,l)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([H].concat(l.map(f))),n),re=R.res;
+const sm=[['Status','Count','Abs difference']].concat(Object.keys(SC).map(s=>[s,re.filter(r=>r.status===s).length,re.filter(r=>r.status===s).reduce((x,r)=>x+Math.abs(r.diff||0),0)]));
+XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sm),'Summary');add('All',re);add('Matched',re.filter(r=>r.status==='Matched'));add('Differences',re.filter(r=>['Amount diff','Date diff','Type diff'].includes(r.status)));add('Fuzzy',re.filter(r=>r.status==='Fuzzy match'));add('Only in DMS',re.filter(r=>r.status==='Only in DMS'));add('Only in Tally',re.filter(r=>r.status==='Only in Tally'));
+XLSX.writeFile(wb,'DMS_vs_Tally_Reconciliation.xlsx')}
+$('#go').onclick=show;drawSides();
+</script></body></html>

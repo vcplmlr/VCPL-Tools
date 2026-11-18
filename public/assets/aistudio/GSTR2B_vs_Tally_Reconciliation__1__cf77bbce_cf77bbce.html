@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GSTR-2B Reconciliation Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+:root{color-scheme:light dark;--bg:#f5f6fa;--fg:#161a22;--mut:#6b7280;--card:#fff;--bd:#e3e6ee;--ac:#4f46e5;--ac2:#7c3aed;--s0:#16a34a;--s1:#dc2626;--s2:#d97706;--s3:#2563eb;--s4:#ea580c;--sh:0 1px 2px rgba(20,24,40,.06),0 4px 14px rgba(20,24,40,.05)}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1117;--fg:#e8eaf0;--mut:#9199a8;--card:#181b24;--bd:#2a2f3c;--ac:#818cf8;--ac2:#a78bfa;--s0:#4ade80;--s1:#f87171;--s2:#fbbf24;--s3:#60a5fa;--s4:#fb923c;--sh:none}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+header{background:linear-gradient(120deg,var(--ac),var(--ac2));color:#fff;padding:22px 28px}header h1{margin:0;font-size:22px;letter-spacing:-.3px}header p{margin:2px 0 0;opacity:.85}
+main{max-width:1320px;margin:-18px auto 40px;padding:0 20px}
+.up{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:14px}@media(max-width:850px){.up{grid-template-columns:1fr}}
+.card,.dz,.set{background:var(--card);border:1px solid var(--bd);border-radius:14px;box-shadow:var(--sh)}
+.dz{padding:16px;cursor:pointer;display:flex;flex-direction:column;gap:2px;border-style:dashed;transition:.15s}.dz:hover,.dz.over{border-color:var(--ac);transform:translateY(-1px)}.dz.ok{border-style:solid;border-color:var(--s0)}
+.dz .ic{width:26px;height:26px;border-radius:8px;background:var(--ac);color:#fff;display:grid;place-items:center;font-weight:700;margin-bottom:6px}.dz small{color:var(--mut);word-break:break-all}
+.set{padding:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:end}.set b{width:100%}.set label{font-size:12px;color:var(--mut);display:flex;flex-direction:column;gap:2px}
+input[type=number],input[type=search]{font:inherit;padding:7px 10px;border-radius:9px;border:1px solid var(--bd);background:var(--bg);color:var(--fg);width:92px}input[type=search]{width:240px}
+button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--bd);background:var(--card);color:var(--fg);padding:7px 13px}button.pri{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600}
+.log{font-size:12.5px;color:var(--mut);margin:12px 2px}.warn{color:var(--s2)}.bad{color:var(--s1)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:16px 0}
+.kpi{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px 14px;box-shadow:var(--sh)}.kpi small{color:var(--mut);display:block}.kpi strong{font-size:21px;letter-spacing:-.4px}.kpi em{display:block;font-style:normal;color:var(--mut);font-size:12px}
+.kpi.g strong{color:var(--s0)}.kpi.r strong{color:var(--s1)}.kpi.b strong{color:var(--s3)}
+.two{display:grid;grid-template-columns:320px 1fr;gap:14px}@media(max-width:850px){.two{grid-template-columns:1fr}}.card{padding:14px}
+.card h3{margin:0 0 10px;font-size:14px}.donut{display:flex;gap:14px;align-items:center}.donut svg{width:130px;height:130px;transform:rotate(-0deg)}.leg div{font-size:12.5px;display:flex;gap:6px;align-items:center}.dot{width:9px;height:9px;border-radius:50%}
+.bar{display:grid;grid-template-columns:170px 1fr 90px;gap:8px;align-items:center;font-size:12.5px;margin:5px 0}.bar i{display:block;height:9px;border-radius:6px;background:var(--s3)}.bar i.n{background:var(--s1)}.bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:18px 0 8px}.chip{border-radius:999px;padding:5px 12px}.chip.on{background:var(--ac);border-color:var(--ac);color:#fff}.sp{flex:1}
+.wrap{overflow:auto;max-height:560px;border:1px solid var(--bd);border-radius:14px;background:var(--card);box-shadow:var(--sh)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:8px 11px;border-bottom:1px solid var(--bd);white-space:nowrap;text-align:left}th{position:sticky;top:0;background:var(--card);cursor:pointer;user-select:none;font-size:12px;color:var(--mut)}tr.r:hover td{background:color-mix(in srgb,var(--ac) 7%,transparent);cursor:pointer}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td small{display:block;color:var(--mut)}.st{border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:600;color:#fff}
+#dr{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:var(--card);border-left:1px solid var(--bd);box-shadow:-8px 0 30px rgba(0,0,0,.18);padding:20px;overflow:auto;transform:translateX(105%);transition:.2s;z-index:9}#dr.open{transform:none}#dr table td:first-child{color:var(--mut)}
+.note{background:var(--card);border:1px solid var(--bd);border-left:4px solid var(--ac);border-radius:10px;padding:10px 14px;margin:0 0 10px;color:var(--mut)}.ok{color:var(--s0)}.two2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:850px){.two2{grid-template-columns:1fr}}
+.pg{display:flex;gap:8px;align-items:center;justify-content:flex-end;margin:8px 0;color:var(--mut)}
+</style></head><body>
+<header><h1>GSTR-2B Reconciliation Studio</h1><p>GST portal vs Tally Prime · matching, ITC impact, RCM &amp; ITC-not-available reports · everything runs in your browser</p></header>
+<main>
+<section class="up">
+<label class="dz" id="d1"><input type="file" id="f1" accept=".xlsx,.xls" hidden><span class="ic">1</span><b>GST portal GSTR-2B</b><small id="n1">Drop the .xlsx here or click</small></label>
+<label class="dz" id="d2"><input type="file" id="f2" accept=".xlsx,.xls" hidden><span class="ic">2</span><b>Tally Prime export</b><small id="n2">Drop the .xlsx here or click</small></label>
+<div class="set"><b>Rounding tolerance</b><label>Tax heads ₹<input type="number" id="tolx" value="2" min="0" step="0.5"></label><label>Taxable ₹<input type="number" id="tolt" value="15" min="0"></label><button class="pri" id="go">Reconcile →</button></div>
+</section>
+<div class="log" id="log"></div><div id="app"></div>
+</main><aside id="dr"></aside>
+<script>
+const $=id=>document.getElementById(id);
+const GST=/^\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]$/;
+const num=v=>{if(typeof v==='number')return v;const n=parseFloat(String(v).replace(/[,₹\s]/g,''));return isNaN(n)?0:n};
+const pd=x=>String(x).padStart(2,'0');
+const fmtD=v=>{if(typeof v==='number'&&v>20000){const d=XLSX.SSF.parse_date_code(v);if(d)return pd(d.d)+'-'+pd(d.m)+'-'+d.y}return String(v==null?'':v).trim().replace(/\//g,'-')};
+const nk=v=>String(v).toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^0+/,'');
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const R=n=>n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const K=n=>'₹'+Math.round(n).toLocaleString('en-IN');
+const T=r=>r.igst+r.cgst+r.sgst+r.cess;
+const F=['taxable','igst','cgst','sgst','cess'];
+const ST=['Matched','Mismatch','Probable match','Only in 2B','Only in Tally'];
+let out={},logs=[],ui={q:'',st:'All',k:'diff',d:-1,pg:0,view:'docs',rp:'summary'};
+
+/* ---------- parsing ---------- */
+function parseBook(buf,label,portal){
+ const wb=XLSX.read(buf,{type:'array'}),rows=[];
+ for(const sn of wb.SheetNames){
+  if(portal&&/read ?me|summary|itc|rejected|reversal|help|instruction|-dnra?$|isd|impg/i.test(sn))continue;
+  const a=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
+  const h=a.findIndex(r=>r.some(c=>/gstin|\buin\b/i.test(String(c)))&&r.filter(c=>c!=='').length>=4);
+  if(h<0)continue;
+  let gcol=-1;for(let i=h;i<Math.min(h+3,a.length)&&gcol<0;i++)gcol=a[i].findIndex(c=>/gstin|\buin\b/i.test(String(c)));
+  let ds=-1;for(let i=h+1;i<a.length;i++){if(GST.test(String(a[i][gcol]).trim().toUpperCase())){ds=i;break}}
+  if(ds<0)continue;
+  const amend=/b2ba|cdnra|ecoa/i.test(sn),hs=amend&&h>0?h-1:h;
+  const hr=a.slice(hs,ds).map(r=>r.map(c=>String(c==null?'':c).trim()));
+  const nc=Math.max(...hr.map(r=>r.length));hr.forEach(r=>{while(r.length<nc)r.push('')});
+  for(let i=0;i<hr.length-1;i++)for(let c=1;c<nc;c++)if(!hr[i][c]&&hr[i][c-1]&&hr[i+1][c])hr[i][c]=hr[i][c-1];
+  const lab=[];for(let c=0;c<nc;c++)lab.push(hr.map(r=>r[c]).filter(Boolean).join(' ').toLowerCase());
+  const used=new Set([gcol]),X=/original|period|filing|return|status|cancel|reco|effective/,TX=/declared|reduc/;
+  const pick=(ps,ex)=>{for(const p of ps){const c=lab.findIndex((l,i)=>!used.has(i)&&p.test(l)&&!(ex&&ex.test(l)));if(c>=0){used.add(c);return c}}return -1};
+  const col={doc:pick([/(invoice|note|bill|document|doc)\s*(n(o|umber)|num)/],/original/),
+   vch:pick([/vch\.?\s*n(o|umber)|voucher\s*n(o|umber)/]),
+   date:pick([/(invoice|note|bill|doc|document)[^a-z]*date/,/\bdate\b/],X),name:pick([/trade|legal/,/particulars|party name|supplier name|\bname\b/]),
+   type:pick([/vch\.?\s*type|voucher type|note type|document type|invoice type/]),total:pick([/(invoice|note|bill|document)\s*(value|amount)|gross total|total amount/],/taxable/),
+   taxable:pick([/taxable/]),igst:pick([/integrated|igst/],TX),cgst:pick([/central|cgst/],TX),sgst:pick([/state\s*\/?\s*ut|state tax|sgst|utgst/],TX),cess:pick([/cess/],TX),
+   itc:pick([/itc availability|eligibility of itc/]),rcm:pick([/reverse charge/]),reason:pick([/\breason\b/]),per:pick([/period/]),fdate:pick([/filing date/]),pos:pick([/place of supply/])};
+  if(col.doc<0&&col.vch>=0){col.doc=col.vch;col.vch=-1}
+  if(col.doc<0||col.taxable<0){logs.push(`<span class="warn">${label} › “${esc(sn)}”: could not detect ${col.doc<0?'invoice/note number':'taxable value'} column – skipped. Headers seen: ${esc(lab.filter(Boolean).join(' | '))}</span>`);continue}
+  let n=0,skip=0,skipTx=0;const nmc=col.name>=0?col.name:0;
+  for(let i=ds;i<a.length;i++){const r=a[i],g=String(r[gcol]).trim().toUpperCase();
+   if(!GST.test(g)){const nm=String(r[nmc]).trim();if(!portal&&nm&&!/^(grand )?total/i.test(nm)){skip++;skipTx+=num(r[col.taxable])}continue}
+   const s=v=>String(v==null?'':v).trim(),vch=col.vch>=0?s(r[col.vch]):'';
+   const doc=s(r[col.doc])||vch;if(!doc)continue;
+   const g2=k=>col[k]>=0?num(r[col[k]]):0,typ=col.type>=0?s(r[col.type]):'';
+   const isNote=/cdn/i.test(sn)||/credit|debit|note/i.test(typ),sg=portal&&isNote&&!/debit/i.test(typ)?-1:1;
+   const o={gstin:g,name:col.name>=0?s(r[col.name]):'',doc,key:nk(doc),alt:vch?nk(vch):'',date:col.date>=0?fmtD(r[col.date]):'',isNote,sheet:sn,itc:col.itc>=0?s(r[col.itc]):'',vt:portal?'':typ,rcm:col.rcm>=0&&/^y/i.test(s(r[col.rcm])),reason:col.reason>=0?s(r[col.reason]):'',per:col.per>=0?s(r[col.per]):'',fdate:col.fdate>=0?fmtD(r[col.fdate]):'',pos:col.pos>=0?s(r[col.pos]):'',cn:!!(portal&&isNote&&sg<0)};
+   F.forEach(k=>o[k]=g2(k)*sg);o.total=col.total>=0?g2('total')*sg:o.taxable+T(o);rows.push(o);n++}
+  logs.push(`${label} › “${esc(sn)}”: <b>${n}</b> rows read`+(skip?` <span class="warn">(${skip} rows skipped – no valid party GSTIN, taxable ${R(skipTx)}; check manually)</span>`:'')+(['igst','cgst','sgst','date'].some(k=>col[k]<0)?` <span class="warn">(not found: ${['igst','cgst','sgst','date'].filter(k=>col[k]<0).join(', ')})</span>`:''));
+ }
+ if(portal)rows.psum=psum(wb);
+ return rows}
+
+/* ---------- ITC classification & control ---------- */
+const BK={a_reg:['Regular ITC (other than RCM)','4(A)(5)'],a_rcm:['RCM supplies – ITC on payment','3.1(d) / 4(A)(3)'],a_cn:['Credit notes – net-off','Part B / 4(A)'],n_reg:['ITC not available','4(D)(2)'],n_rcm:['RCM – ITC not available','3.1(d) / 4(D)(2)'],n_cn:['Credit notes – ITC not available','Part B']};
+const bucket=o=>(/^n/i.test(o.itc)?'n_':'a_')+(o.cn?'cn':o.rcm?'rcm':'reg');
+const pdt=s=>{const m=/^(\d{2})-(\d{2})-(\d{4})$/.exec(s||'');return m?new Date(+m[3],+m[2]-1,+m[1]):null};
+function psum(wb){const o={};
+ for(const[k,re]of[['a',/^itc available$/i],['n',/^itc not available$/i]]){const sn=wb.SheetNames.find(s=>re.test(s.trim()));if(!sn)continue;
+  const a=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:'',raw:true});
+  const get=t=>{const r=a.find(r=>r.some(c=>typeof c==='string'&&t(c.trim())));if(!r)return null;const v=r.filter(c=>typeof c==='number');return v.length>=4?v.slice(0,4):null};
+  o[k+'_reg']=get(c=>/^all other itc - supplies from registered persons other than reverse charge/i.test(c));
+  o[k+'_rcm']=get(c=>/^inward supplies liable for reverse charge$/i.test(c));
+  o[k+'_cn']=get(c=>c==='Others')}
+ return o}
+function ctl(P,ps){return Object.keys(BK).map(k=>{const rows=P.filter(o=>bucket(o)===k),t=[0,0,0,0],sg=k.endsWith('cn')?-1:1;
+ rows.forEach(o=>{t[0]+=o.igst;t[1]+=o.cgst;t[2]+=o.sgst;t[3]+=o.cess});const own=t.map(x=>x*sg),p=ps&&ps[k]||null,ot=own.reduce((a,b)=>a+b,0),pt=p?p.reduce((a,b)=>a+b,0):null;
+ return{k,label:BK[k][0],tb:BK[k][1],n:rows.length,tx:rows.reduce((a,o)=>a+o.taxable,0)*sg,t:own,ot,pt,diff:pt==null?null:ot-pt}})}
+function finish(res,P){const cnt={};P.forEach(o=>{if(o.per)cnt[o.per]=(cnt[o.per]||0)+1});
+ const cur=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0]||'',today=new Date();today.setHours(0,0,0,0);
+ res.forEach(r=>{const f=[];r.late=!!(r.per&&cur&&r.per!==cur);
+  if(/rcm$/.test(r.bk))f.push(r.docT?'RCM supply booked in regular ITC register – verify RCM accounting':'RCM supply – pay tax under 3.1(d); claim ITC in 4(A)(3) after payment');
+  if(/^n_/.test(r.bk)){f.push('ITC not available per 2B'+(r.reason?' – '+r.reason:'')+' (GSTR-3B 4(D)(2))');if(r.docT)f.push('Booked in Tally – do not claim')}
+  if(r.late)f.push('Reported late by supplier ('+r.per+')');
+  const dl=pdt(r.date2b||r.dateT);r.tl=null;r.deadline='';
+  if(dl){const y=dl.getMonth()>=3?dl.getFullYear()+1:dl.getFullYear();r.deadline='30-11-'+y;r.tl=Math.round((new Date(y,10,30)-today)/864e5);
+   if(r.tl<0)f.push('ITC time-limit (s.16(4)) may have lapsed');else if(r.tl<=180)f.push('ITC time-limit: '+r.tl+' days left')}
+  if(r.tx2>0){if(Math.abs(r.cg2-r.sg2)>1)f.push('CGST and SGST differ in 2B');if(r.ig2>0&&(r.cg2>0||r.sg2>0))f.push('IGST and CGST/SGST both charged');const rt=(r.ig2+r.cg2+r.sg2)/r.tx2*100;if(rt>40.5)f.push('Effective GST rate '+rt.toFixed(1)+'% looks too high')}
+  if(r.nP>1)f.push(r.nP+' lines in 2B merged');if(r.nT>1)f.push(r.nT+' lines in Tally merged – check duplicate booking');
+  r.flags=f.join(' · ')});return cur}
+
+/* ---------- matching ---------- */
+function agg(rows){const m=new Map();for(const r of rows){const k=r.gstin+'|'+r.key,a=m.get(k);
+ if(!a)m.set(k,{...r,n:1});else{F.forEach(f=>a[f]+=r[f]);a.n++}}return m}
+function lev(a,b){const m=a.length,n=b.length;if(!m||!n)return Math.max(m,n);let p=Array.from({length:n+1},(_,i)=>i);
+ for(let i=1;i<=m;i++){const c=[i];for(let j=1;j<=n;j++)c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));p=c}return p[n]}
+const sim=(a,b)=>1-lev(a,b)/Math.max(a.length,b.length,1);
+function mk(status,p,t,remark){const q=p||t,g=(o,f)=>o?o[f]:0;
+ return{status,gstin:q.gstin,name:(p&&p.name)||(t&&t.name)||'',type:q.isNote?'Credit/Debit note':'Invoice',doc2b:p?p.doc:'',docT:t?t.doc:'',date2b:p?p.date:'',dateT:t?t.date:'',
+ tx2:g(p,'taxable'),txT:g(t,'taxable'),ig2:g(p,'igst'),igT:g(t,'igst'),cg2:g(p,'cgst'),cgT:g(t,'cgst'),sg2:g(p,'sgst'),sgT:g(t,'sgst'),ce2:g(p,'cess'),ceT:g(t,'cess'),
+ tax2:p?T(p):0,taxT:t?T(t):0,diff:(p?T(p):0)-(t?T(t):0),itc:p?p.itc:'',sheet:p?p.sheet:'',vt:t?t.vt:'',bk:p?bucket(p):'',rcm:!!(p&&p.rcm),reason:p?p.reason:'',per:p?p.per:'',fdate:p?p.fdate:'',pos:p?p.pos:'',nP:p?p.n:0,nT:t?t.n:0,remark}}
+function cmp(p,t,tolT,tolX){const bad=[];let tiny=false;
+ [['taxable','Taxable',tolT],['igst','IGST',tolX],['cgst','CGST',tolX],['sgst','SGST',tolX],['cess','Cess',tolX]].forEach(([f,n,tl])=>{const d=Math.abs(p[f]-t[f]);if(d>tl)bad.push(n+' differs by '+R(p[f]-t[f]));else if(d>0.005)tiny=true});
+ return{bad,tiny,dt:p.date&&t.date&&p.date!==t.date}}
+function recon(P,Tl,tolT,tolX){const res=[],pm=agg(P),tm=agg(Tl),usedP=new Set(),rest=[];
+ const add=(p,t,via)=>{const c=cmp(p,t,tolT,tolX),rm=[...c.bad];if(c.tiny&&!c.bad.length)rm.push('Rounding difference');if(c.dt)rm.push('Date differs');if(via)rm.push(via);res.push(mk(c.bad.length?'Mismatch':'Matched',p,t,rm.join('; ')))};
+ for(const[k,t]of tm){const p=pm.get(k);if(p){usedP.add(k);add(p,t,'')}else rest.push(t)}
+ const rest2=[];
+ for(const t of rest){const ak=t.gstin+'|'+t.alt,p=t.alt&&pm.get(ak);if(p&&!usedP.has(ak)){usedP.add(ak);add(p,t,'Matched on Tally Vch No. (Doc No. differs)')}else rest2.push(t)}
+ for(const p of [...pm].filter(([k])=>!usedP.has(k)).map(x=>x[1])){
+  const cand=rest2.map((t,i)=>({t,i})).filter(x=>x.t.gstin===p.gstin);
+  let best=cand.find(x=>Math.abs(x.t.taxable-p.taxable)<=tolT&&Math.abs(T(x.t)-T(p))<=tolX*2),why='Same GSTIN & amounts, document no. differs';
+  if(!best){const s=cand.map(x=>({...x,s:sim(p.key,x.t.key)})).filter(x=>x.s>=.75&&Math.abs(x.t.taxable-p.taxable)<=Math.max(tolT,Math.abs(p.taxable)*.02)).sort((a,b)=>b.s-a.s)[0];
+   if(s){best=s;why=`Similar document no. (${Math.round(s.s*100)}% alike), amounts close`}}
+  if(best){res.push(mk('Probable match',p,best.t,why+' – verify'));rest2.splice(rest2.indexOf(best.t),1)}
+  else res.push(mk('Only in 2B',p,null,'In GST portal, not in Tally'+(/^no$/i.test(p.itc)?' · ITC not available per 2B':'')))}
+ for(const t of rest2)res.push(mk('Only in Tally',null,t,'In Tally, not in GSTR-2B – ITC at risk'));
+ res.forEach((r,i)=>r.i=i);res.cur=finish(res,P);res.ctl=ctl(P,P.psum);return res}
+function stats(res){const s={};ST.forEach(k=>s[k]={n:0,t2:0,tT:0});res.forEach(r=>{const x=s[r.status];x.n++;x.t2+=r.tax2;x.tT+=r.taxT});
+ const sum=(f,k)=>res.filter(f).reduce((a,r)=>a+r[k],0),el=r=>/^a_(reg|cn)$/.test(r.bk),pair=r=>r.doc2b&&r.docT;
+ const claim=sum(r=>r.status==='Only in 2B'&&el(r),'tax2'),risk=s['Only in Tally'].tT,c=-sum(r=>pair(r)&&!el(r),'taxT'),d=res.filter(r=>pair(r)&&el(r)).reduce((a,r)=>a+r.tax2-r.taxT,0);
+ return{s,n:res.length,t2:sum(()=>1,'tax2'),tT:sum(()=>1,'taxT'),claim,risk,e2:sum(el,'tax2'),br:{a:claim,b:-risk,c,d},
+  rcm:sum(r=>/rcm$/.test(r.bk),'tax2'),nRcm:res.filter(r=>/rcm$/.test(r.bk)).length,na:sum(r=>/^n_/.test(r.bk),'tax2'),nNa:res.filter(r=>/^n_/.test(r.bk)).length,nLate:res.filter(r=>r.late).length,rate:res.length?s.Matched.n/res.length:0}}
+function sups(res){const m=new Map();res.forEach(r=>{const s=m.get(r.gstin)||{g:r.gstin,name:r.name,n:0,a:0,b:0,u:0};s.n++;s.a+=r.tax2;s.b+=r.taxT;if(r.status!=='Matched')s.u++;m.set(r.gstin,s)});return[...m.values()]}
+
+/* ---------- Excel report ---------- */
+const COLS=[['Status','status',15],['GSTIN','gstin',18],['Supplier','name',30],['Type','type',16],['Doc no (2B)','doc2b',20],['Doc no (Tally)','docT',20],['Date (2B)','date2b',12],['Date (Tally)','dateT',12],
+ ['Taxable 2B','tx2',15,1],['Taxable Tally','txT',15,1],['IGST 2B','ig2',13,1],['IGST Tally','igT',13,1],['CGST 2B','cg2',13,1],['CGST Tally','cgT',13,1],['SGST 2B','sg2',13,1],['SGST Tally','sgT',13,1],['Cess 2B','ce2',11,1],['Cess Tally','ceT',11,1],
+ ['Total tax 2B','tax2',15,1],['Total tax Tally','taxT',15,1],['Tax difference','diff',15,1],['ITC available (2B)','itc',12],['2B sheet','sheet',12],['Tally voucher type','vt',20],['RCM','rcmT',7],['Reason (2B)','reason',38],['GSTR-1 period','per',12],['GSTR-1 filing date','fdate',14],['Risk flags','flags',70],['Remark','remark',55]];
+const FILL=['C6EFCE','FFC7CE','FFEB9C','BDD7EE','F8CBAD'];
+function buildWB(res,EJ){const wb=new EJ.Workbook(),S=stats(res);
+ const hdr=ws=>{const r=ws.getRow(1);r.font={bold:true,color:{argb:'FFFFFFFF'}};r.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF4F46E5'}};r.height=22;ws.views=[{state:'frozen',ySplit:1}]};
+ const sm=wb.addWorksheet('Summary');sm.columns=[{width:34},{width:12},{width:20},{width:20}];
+ sm.addRows([['GSTR-2B vs Tally – Reconciliation Summary'],[],['ITC as per GSTR-2B',S.n,S.t2],['ITC as per Tally books','',S.tT],['Difference (2B − books)','',S.t2-S.tT],['Match rate','',S.rate],['ITC available in 2B, not booked (to claim)','',S.claim],['ITC in 2B but blocked (ITC = No)','',S.blocked],['Booked in Tally but not in 2B (at risk)','',S.risk],[],['Status','Documents','Tax as per 2B','Tax as per Tally']]);
+ sm.getRow(1).font={bold:true,size:14};sm.getRow(11).font={bold:true};ST.forEach((k,i)=>{const r=sm.addRow([k,S.s[k].n,S.s[k].t2,S.s[k].tT]);r.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+FILL[i]}}});
+ for(let r=3;r<=18;r++)[3,4].forEach(c=>{if(r!==6)sm.getCell(r,c).numFmt='#,##0.00'});sm.getCell(6,3).numFmt='0.0%';
+ const su=wb.addWorksheet('Supplier-wise');su.columns=[['GSTIN',18],['Supplier',34],['Documents',11],['Not fully matched',16],['Tax 2B',16],['Tax Tally',16],['Difference',16]].map(c=>({header:c[0],width:c[1]}));
+ sups(res).sort((x,y)=>Math.abs(y.a-y.b)-Math.abs(x.a-x.b)).forEach(s=>su.addRow([s.g,s.name,s.n,s.u,s.a,s.b,s.a-s.b]));hdr(su);[5,6,7].forEach(c=>su.getColumn(c).numFmt='#,##0.00');
+ const sheet=(name,rows)=>{const ws=wb.addWorksheet(name);ws.columns=COLS.map(c=>({header:c[0],key:c[1],width:c[2],style:c[3]?{numFmt:'#,##0.00'}:{}}));rows.forEach(r=>{const x=ws.addRow({...r,rcmT:r.rcm?'Yes':'No'});x.getCell(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF'+FILL[ST.indexOf(r.status)]}}});
+  hdr(ws);ws.autoFilter={from:{row:1,column:1},to:{row:1,column:COLS.length}}};
+ sheet('All',res);ST.forEach(k=>{const x=res.filter(r=>r.status===k);if(x.length)sheet(k,x)});
+ const bw=wb.addWorksheet('ITC bridge & 3B control');bw.columns=[{width:46},{width:14},{width:10},{width:16},{width:16},{width:16},{width:16},{width:16},{width:18},{width:16}];
+ bw.addRows([['Reconciliation bridge – ITC eligible per 2B vs Tally books'],['ITC eligible per 2B (regular + credit notes)',S.e2],['ITC booked in Tally',S.tT],['Difference',S.e2-S.tT],['  In 2B, not booked in Tally (to claim)',S.br.a],['  Booked in Tally, not in 2B (at risk)',S.br.b],['  Booked in Tally, but 2B says RCM / ITC not available',S.br.c],['  Amount differences on matched documents',S.br.d],[],
+  ['GSTR-3B ITC control – computed from 2B rows vs portal summary sheets'],['Bucket','GSTR-3B table','Docs','Taxable','IGST','CGST','SGST','Cess','Total tax (computed)','Portal summary','Difference']]);
+ (res.ctl||[]).filter(x=>x.n||x.pt).forEach(x=>bw.addRow([x.label,x.tb,x.n,x.tx,...x.t,x.ot,x.pt==null?'n/a':x.pt,x.diff==null?'':x.diff]));
+ bw.getRow(1).font=bw.getRow(10).font=bw.getRow(11).font={bold:true};bw.getColumn(2).numFmt='#,##0.00';for(let r=2;r<=8;r++)bw.getCell(r,2).numFmt='#,##0.00';for(let c=4;c<=11;c++)bw.getColumn(c).numFmt='#,##0.00';
+ sheet('RCM',res.filter(r=>/rcm$/.test(r.bk)));sheet('ITC not available',res.filter(r=>/^n_/.test(r.bk)));sheet('Late reported',res.filter(r=>r.late));
+ const fm=new Map();res.filter(r=>r.status==='Only in Tally').forEach(r=>{const s=fm.get(r.gstin)||{g:r.gstin,n:r.name,c:0,t:0};s.c++;s.t+=r.taxT;fm.set(r.gstin,s)});
+ const fw=wb.addWorksheet('Supplier follow-up');fw.columns=[{header:'GSTIN',width:18},{header:'Supplier',width:34},{header:'Documents booked, not in 2B',width:26},{header:'ITC at risk',width:16}];[...fm.values()].sort((a,b)=>b.t-a.t).forEach(s=>fw.addRow([s.g,s.n,s.c,s.t]));hdr(fw);fw.getColumn(4).numFmt='#,##0.00';
+ sheet('Exceptions',res.filter(r=>r.flags));return wb}
+async function dl(){const b=await buildWB(out.res,ExcelJS).xlsx.writeBuffer(),u=URL.createObjectURL(new Blob([b],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),a=document.createElement('a');a.href=u;a.download='GSTR2B_vs_Tally_Reconciliation.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(u),5000)}
+
+/* ---------- UI ---------- */
+const dotc=i=>`var(--s${i})`;
+const REPS=[['summary','Overview'],['rcm','RCM'],['na','ITC not available'],['late','Late reported'],['limit','Time-limit'],['follow','Supplier follow-up'],['notes','Credit/Debit notes'],['exc','All exceptions']];
+function repRows(k,res){return k==='rcm'?res.filter(r=>/rcm$/.test(r.bk)):k==='na'?res.filter(r=>/^n_/.test(r.bk)):k==='late'?res.filter(r=>r.late):k==='limit'?res.filter(r=>r.tl!=null&&r.tl<=180).sort((a,b)=>a.tl-b.tl):k==='notes'?res.filter(r=>r.type!=='Invoice'):k==='follow'?res.filter(r=>r.status==='Only in Tally'):k==='exc'?res.filter(r=>r.flags):[]}
+function render(){const res=out.res;if(!res)return;const S=out.S=stats(res);
+ const kp=(l,v,s,c)=>`<div class="kpi ${c||''}"><small>${l}</small><strong>${v}</strong><em>${s||''}</em></div>`,tot=S.n||1;
+ let off=25;const arcs=ST.map((k,i)=>{const p=S.s[k].n/tot*100,e=`<circle r="15.9155" cx="21" cy="21" fill="none" stroke="${dotc(i)}" stroke-width="6" stroke-dasharray="${p} ${100-p}" stroke-dashoffset="${off}"/>`;off-=p;return e}).join('');
+ const top=sups(res).sort((x,y)=>Math.abs(y.a-y.b)-Math.abs(x.a-x.b)).slice(0,8),mx=Math.max(1,...top.map(s=>Math.abs(s.a-s.b)));
+ $('app').innerHTML=`<div class="kpis">${kp('Tax as per GSTR-2B',K(S.t2),(S.n-S.s['Only in Tally'].n)+' documents')}${kp('Tax as per Tally',K(S.tT),'books')}${kp('ITC to claim',K(S.claim),'in 2B, not booked in Tally','b')}${kp('ITC at risk',K(S.risk),'booked, but not in 2B',S.risk>0?'r':'')}${kp('RCM liability',K(S.rcm),S.nRcm+' invoices · GSTR-3B 3.1(d)')}${kp('ITC not available',K(S.na),S.nNa+' documents · 4(D)(2)',S.na>0?'r':'')}${kp('Reported late',S.nLate,'supplier filed in a later period')}${kp('Match rate',(S.rate*100).toFixed(1)+'%',S.s.Matched.n+' of '+S.n+' documents','g')}</div>
+ <div class="two"><div class="card"><h3>Reconciliation status</h3><div class="donut"><svg viewBox="0 0 42 42">${arcs}</svg><div class="leg">${ST.map((k,i)=>`<div><span class="dot" style="background:${dotc(i)}"></span>${k} <b>${S.s[k].n}</b></div>`).join('')}</div></div></div>
+ <div class="card"><h3>Top suppliers by ITC difference</h3>${top.map(s=>{const d=s.a-s.b;return`<div class="bar" data-g="${s.g}" style="cursor:pointer"><span title="${esc(s.name)}">${esc(s.name||s.g)}</span><div><i class="${d<0?'n':''}" style="width:${Math.max(2,Math.abs(d)/mx*100)}%"></i></div><b>${K(d)}</b></div>`}).join('')}</div></div>
+ <div class="tb">${[['docs','Documents'],['sup','Suppliers'],['rep','Reports']].map(([v,l])=>`<button class="chip ${ui.view===v?'on':''}" data-v="${v}">${l}</button>`).join('')}<span style="width:12px"></span>
+ ${ui.view==='docs'?['All',...ST].map(s=>`<button class="chip ${ui.st===s?'on':''}" data-s="${s}">${s}${s==='All'?'':' · '+S.s[s].n}</button>`).join(''):ui.view==='rep'?REPS.map(([k,l])=>`<button class="chip ${ui.rp===k?'on':''}" data-r="${k}">${l}${k==='summary'?'':' · '+repRows(k,res).length}</button>`).join(''):''}<span class="sp"></span><input type="search" id="q" placeholder="Search supplier, GSTIN, invoice no…" value="${esc(ui.q)}"><button class="pri" id="ex">Download Excel report</button></div><div id="tbl"></div>`;
+ tbl()}
+const v2=(r,a,b)=>r[a]||r[b]||0;
+const BASE=[['Status',r=>r.status],['Supplier',r=>r.name+' · '+r.gstin],['Document',r=>r.doc2b||r.docT],['Date',r=>r.date2b||r.dateT],['Taxable',r=>v2(r,'tx2','txT'),'n'],['IGST',r=>v2(r,'ig2','igT'),'n'],['CGST',r=>v2(r,'cg2','cgT'),'n'],['SGST',r=>v2(r,'sg2','sgT'),'n'],['Total tax',r=>v2(r,'tax2','taxT'),'n']];
+const inT=r=>r.docT?'Yes – '+r.vt:'No';
+const XT={rcm:[['ITC (2B)',r=>r.itc],['Booked in Tally?',inT]],na:[['Reason (2B)',r=>r.reason],['Booked in Tally?',inT]],late:[['GSTR-1 period',r=>r.per],['Filed on',r=>r.fdate]],limit:[['Deadline',r=>r.deadline],['Days left',r=>r.tl]],notes:[['Tally voucher',r=>r.vt],['Flags',r=>r.flags]],exc:[['Risk flags',r=>r.flags]]};
+const NOTE={rcm:'Reverse-charge supplies in 2B. Tax is payable in cash under GSTR-3B 3.1(d); ITC can be claimed in 4(A)(3) only after payment. They normally sit in a separate RCM register in Tally, not the “All other ITC” register used here.',na:'Credit marked not available in 2B (reason given by the portal). Report in 4(D)(2) – do not claim in 4(A). If booked in Tally, reverse it.',late:'Documents in this 2B whose GSTR-1/IFF period is earlier than the return period. Check they were not already claimed earlier.',limit:'Invoices whose ITC time-limit under s.16(4) (30 Nov after the financial year) is within 180 days or has passed. Please verify the exact deadline for your case.',follow:'Booked in Tally but missing in 2B – the supplier has not reported them. Grouped by supplier for follow-up.',notes:'Credit/debit notes. Credit notes reduce ITC and are shown negative.',exc:'Every document with at least one risk flag (RCM, ITC not available, late, time-limit, CGST/SGST anomalies, duplicates).'};
+function gt(cols,rows,attr){const tot=cols.map(c=>c[2]==='n'?rows.reduce((a,r)=>a+(c[1](r)||0),0):null);
+ return`<div class="wrap"><table><tr>${cols.map(c=>`<th class="${c[2]==='n'?'n':''}">${c[0]}</th>`).join('')}</tr>`+rows.slice(0,600).map(r=>`<tr class="r" ${attr(r)}>${cols.map(c=>`<td class="${c[2]==='n'?'n':''}">${c[2]==='n'?R(c[1](r)||0):esc(c[1](r))}</td>`).join('')}</tr>`).join('')+
+ `<tr><td><b>Total (${rows.length})</b></td>${cols.slice(1).map((c,i)=>`<td class="n"><b>${tot[i+1]!=null?R(tot[i+1]):''}</b></td>`).join('')}</tr></table></div>`+(rows.length>600?'<div class="pg">Showing first 600 – download Excel for all</div>':'')}
+function overview(){const S=out.S,B=S.br,c=(out.res.ctl||[]).filter(x=>x.n||x.pt),L=(a,b,cl)=>`<tr><td>${a}</td><td class="n ${cl||''}">${R(b)}</td></tr>`,un=S.e2-S.tT-B.a-B.b-B.c-B.d;
+ const net=c.filter(x=>!x.k.startsWith('n')).reduce((a,x)=>a+(x.k.endsWith('cn')?-x.ot:x.ot),0),g=k=>(c.find(x=>x.k===k)||{ot:0}).ot;
+ return`<div class="two2"><div class="card"><h3>ITC bridge – eligible 2B vs Tally books</h3><table>${L('ITC eligible per 2B (regular + credit notes)',S.e2)}${L('ITC booked in Tally',S.tT)}${L('<b>Difference</b>',S.e2-S.tT)}${L('&nbsp;&nbsp;In 2B, not booked in Tally (to claim)',B.a)}${L('&nbsp;&nbsp;Booked in Tally, not in 2B (at risk)',B.b)}${L('&nbsp;&nbsp;Booked in Tally, but 2B says RCM / ITC not available',B.c)}${L('&nbsp;&nbsp;Amount differences on matched documents',B.d)}${L('<b>Unexplained</b>',un,Math.abs(un)>1?'bad':'ok')}</table></div>
+ <div class="card"><h3>GSTR-3B position as per 2B</h3><table>${L('Regular ITC – 4(A)(5)',g('a_reg'))}${L('RCM ITC (after payment) – 4(A)(3)',g('a_rcm'))}${L('Less: credit notes (net-off)',-g('a_cn'))}${L('<b>Net ITC available</b>',net)}${L('RCM tax payable in cash – 3.1(d)',g('a_rcm')+g('n_rcm'))}${L('ITC not available – 4(D)(2)',g('n_reg')+g('n_rcm'))}</table></div></div>
+ <div class="card" style="margin-top:14px"><h3>GSTR-3B ITC control – computed from 2B rows vs the portal’s own ITC summary sheets</h3><div class="wrap" style="max-height:none"><table><tr><th>Bucket</th><th>3B table</th><th class="n">Docs</th><th class="n">Taxable</th><th class="n">IGST</th><th class="n">CGST</th><th class="n">SGST</th><th class="n">Cess</th><th class="n">Total tax</th><th class="n">Portal summary</th><th>Check</th></tr>${c.map(x=>`<tr><td>${x.label}</td><td>${x.tb}</td><td class="n">${x.n}</td><td class="n">${R(x.tx)}</td>${x.t.map(v=>`<td class="n">${R(v)}</td>`).join('')}<td class="n">${R(x.ot)}</td><td class="n">${x.pt==null?'–':R(x.pt)}</td><td class="${x.diff==null?'':Math.abs(x.diff)<1?'ok':'bad'}">${x.diff==null?'n/a':Math.abs(x.diff)<1?'✓ ties':'✗ diff '+R(x.diff)}</td></tr>`).join('')}</table></div></div>`}
+function repHTML(q){const k=ui.rp,res=out.res;if(k==='summary')return overview();
+ const rows=repRows(k,res).filter(r=>!q||(r.name+r.gstin+r.doc2b+r.docT+r.flags).toLowerCase().includes(q));let body;
+ if(!rows.length)body='<div class="card">Nothing to show in this report.</div>';
+ else if(k==='follow'){const m=new Map();rows.forEach(r=>{const s=m.get(r.gstin)||{gstin:r.gstin,name:r.name,n:0,t:0};s.n++;s.t+=r.taxT;m.set(r.gstin,s)});
+  body=gt([['Supplier',s=>s.name+' · '+s.gstin],['Documents not in 2B',s=>s.n],['ITC at risk',s=>s.t,'n']],[...m.values()].sort((a,b)=>b.t-a.t),s=>`data-g="${s.gstin}"`)}
+ else body=gt([...BASE,...(XT[k]||[])],rows,r=>`data-i="${r.i}"`);
+ return`<div class="note">${NOTE[k]}</div>`+body}
+function tbl(){const res=out.res,q=ui.q.toLowerCase().trim();let h,rows,pages=1;
+ if(ui.view==='rep')return $('tbl').innerHTML=repHTML(q);
+ if(ui.view==='sup'){rows=sups(res).filter(s=>!q||(s.g+s.name).toLowerCase().includes(q));const kk={name:s=>s.name,n:s=>s.n,u:s=>s.u,a:s=>s.a,b:s=>s.b,diff:s=>Math.abs(s.a-s.b)},f=kk[ui.k]||kk.diff;
+  rows.sort((x,y)=>(f(x)>f(y)?1:-1)*ui.d);const th=(k,t,n)=>`<th class="${n?'n':''}" data-k="${k}">${t}${ui.k===k?(ui.d>0?' ▲':' ▼'):''}</th>`;
+  h=`<table><tr>${th('name','Supplier')}${th('n','Docs',1)}${th('u','Not matched',1)}${th('a','Tax 2B',1)}${th('b','Tax Tally',1)}${th('diff','Difference',1)}</tr>`+rows.map(s=>`<tr class="r" data-g="${s.g}"><td>${esc(s.name)}<small>${s.g}</small></td><td class="n">${s.n}</td><td class="n">${s.u}</td><td class="n">${R(s.a)}</td><td class="n">${R(s.b)}</td><td class="n ${Math.abs(s.a-s.b)>2?'bad':''}">${R(s.a-s.b)}</td></tr>`).join('')+'</table>'}
+ else{rows=res.filter(r=>(ui.st==='All'||r.status===ui.st)&&(!q||(r.name+r.gstin+r.doc2b+r.docT+r.remark).toLowerCase().includes(q)));
+  const kk={status:r=>ST.indexOf(r.status),name:r=>r.name,doc2b:r=>r.doc2b||r.docT,tx2:r=>r.tx2||r.txT,tax2:r=>r.tax2,taxT:r=>r.taxT,diff:r=>Math.abs(r.diff)},f=kk[ui.k]||kk.diff;
+  rows=[...rows].sort((x,y)=>(f(x)>f(y)?1:f(x)<f(y)?-1:0)*ui.d);pages=Math.ceil(rows.length/100)||1;ui.pg=Math.min(ui.pg,pages-1);
+  const th=(k,t,n)=>`<th class="${n?'n':''}" data-k="${k}">${t}${ui.k===k?(ui.d>0?' ▲':' ▼'):''}</th>`;
+  h=`<table><tr>${th('status','Status')}${th('name','Supplier')}${th('doc2b','Document no')}<th>Date</th>${th('tx2','Taxable 2B',1)}<th class="n">Taxable Tally</th>${th('tax2','Tax 2B',1)}${th('taxT','Tax Tally',1)}${th('diff','Tax diff',1)}<th>Remark</th></tr>`+
+  rows.slice(ui.pg*100,ui.pg*100+100).map(r=>`<tr class="r" data-i="${r.i}"><td><span class="st" style="background:${dotc(ST.indexOf(r.status))}">${r.status}</span></td><td>${esc(r.name)}<small>${r.gstin}</small></td><td>${esc(r.doc2b||r.docT)}${r.doc2b&&r.docT&&r.doc2b!==r.docT?`<small>Tally: ${esc(r.docT)}</small>`:''}</td><td>${r.date2b||r.dateT}</td><td class="n">${R(r.tx2)}</td><td class="n">${R(r.txT)}</td><td class="n">${R(r.tax2)}</td><td class="n">${R(r.taxT)}</td><td class="n ${Math.abs(r.diff)>2?'bad':''}">${R(r.diff)}</td><td>${esc(r.remark)}</td></tr>`).join('')+'</table>'}
+ $('tbl').innerHTML=`<div class="wrap">${h}</div>`+(ui.view==='docs'?`<div class="pg">${rows.length} documents · page ${ui.pg+1}/${pages} <button data-p="-1">‹</button><button data-p="1">›</button></div>`:'')}
+function drawer(i){const r=out.res[i];if(!r)return;const row=(l,a,b,m)=>`<tr><td>${l}</td><td class="${m?'n':''}">${m?R(a):esc(a)}</td><td class="${m?'n':''}">${m?R(b):esc(b)}</td><td class="n ${m&&Math.abs(a-b)>.005?'bad':''}">${m?R(a-b):''}</td></tr>`;
+ $('dr').innerHTML=`<button data-x="1" style="float:right">✕</button><span class="st" style="background:${dotc(ST.indexOf(r.status))}">${r.status}</span><h3 style="margin:10px 0 0">${esc(r.name)}</h3><small>${r.gstin} · ${r.type}</small>
+ <table style="margin-top:14px"><tr><th></th><th>GSTR-2B</th><th>Tally</th><th class="n">Diff</th></tr>${row('Document no',r.doc2b,r.docT)}${row('Date',r.date2b,r.dateT)}${row('Taxable value',r.tx2,r.txT,1)}${row('IGST',r.ig2,r.igT,1)}${row('CGST',r.cg2,r.cgT,1)}${row('SGST/UTGST',r.sg2,r.sgT,1)}${row('Cess',r.ce2,r.ceT,1)}${row('Total tax',r.tax2,r.taxT,1)}${row('Source',r.sheet,r.vt)}${row('ITC available (2B)',r.itc,'')}${row('Reverse charge',r.rcm?'Yes':'No','')}${row('Reason (2B)',r.reason,'')}${row('GSTR-1 period',r.per,'')}${row('Filed on',r.fdate,'')}</table>${r.flags?`<p><b>Risk flags</b><br>${esc(r.flags).split(' · ').join('<br>')}</p>`:''}<p>${esc(r.remark)}</p>${r.status==='Probable match'?`<button class="pri" data-acc="${i}">Accept as match</button>`:''}`;$('dr').classList.add('open')}
+
+document.addEventListener('click',e=>{const t=e.target.closest('[data-v],[data-s],[data-k],[data-i],[data-g],[data-p],[data-x],[data-acc],[data-r],#ex');if(!t)return;const d=t.dataset;
+ if(t.id==='ex')return dl();
+ if(d.x){$('dr').classList.remove('open');return}
+ if(d.acc){const r=out.res[+d.acc];r.status='Matched';r.remark+=' · manually accepted';$('dr').classList.remove('open');return render()}
+ if(d.i!==undefined)return drawer(+d.i);
+ if(d.g){ui.view='docs';ui.st='All';ui.q=d.g;ui.pg=0;return render()}
+ if(d.r){ui.rp=d.r;return render()}
+ if(d.v){ui.view=d.v;ui.k='diff';ui.d=-1;return render()}
+ if(d.s){ui.st=d.s;ui.pg=0;return render()}
+ if(d.p!==undefined){ui.pg=Math.max(0,ui.pg+ +d.p);return tbl()}
+ if(d.k){ui.d=ui.k===d.k?-ui.d:-1;ui.k=d.k;return tbl()}});
+document.addEventListener('input',e=>{if(e.target.id==='q'){ui.q=e.target.value;ui.pg=0;tbl()}});
+[['f1','d1','n1'],['f2','d2','n2']].forEach(([f,d,n])=>{const set=()=>{const x=$(f).files[0];if(x){$(n).textContent=x.name;$(d).classList.add('ok')}};$(f).onchange=set;
+ $(d).ondragover=e=>{e.preventDefault();$(d).classList.add('over')};$(d).ondragleave=()=>$(d).classList.remove('over');
+ $(d).ondrop=e=>{e.preventDefault();$(d).classList.remove('over');$(f).files=e.dataTransfer.files;set()}});
+
+async function run(a,b,tolT,tolX){logs=[];
+ const P=parseBook(await a.arrayBuffer(),'GST portal',true),Tl=parseBook(await b.arrayBuffer(),'Tally',false);
+ if(!P.length||!Tl.length)throw new Error('No invoice rows found in one of the files. '+logs.join(' '));
+ return{res:recon(P,Tl,tolT,tolX),P,T:Tl}}
+$('go').onclick=async()=>{const a=$('f1').files[0],b=$('f2').files[0];if(!a||!b){$('log').innerHTML='<span class="bad">Please select both files.</span>';return}
+ $('log').textContent='Reading…';
+ try{out=await run(a,b,+$('tolt').value||0,+$('tolx').value||0);$('log').innerHTML=logs.join('<br>')+`<br>Total rows: 2B ${out.P.length}, Tally ${out.T.length}.`;ui={q:'',st:'All',k:'diff',d:-1,pg:0,view:'docs',rp:'summary'};render()}
+ catch(e){$('log').innerHTML='<span class="bad">Error: '+esc(e.message)+'</span>'}};
+</script></body></html>

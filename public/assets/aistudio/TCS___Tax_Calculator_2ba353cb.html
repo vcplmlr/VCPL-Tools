@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TCS & Tax Calculator</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://vcpltools.vercel.app/tax-gst/tcs-tax-calculator">
+<script>if(window.self===window.top&&!/[?&]raw=1\b/.test(location.search))location.replace('/tax-gst/tcs-tax-calculator/full');</script>
+<style>
+:root{--bg:#f3efe6;--card:#fffdf8;--ink:#1d2a2a;--mute:#66706d;--line:#d9d2c0;--accent:#0f5c4d;--accent-ink:#fff;--hi:#e4f1ec;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141a19;--card:#1c2423;--ink:#ecefe9;--mute:#98a39f;--line:#33403d;--accent:#5fc9ac;--accent-ink:#0d1a17;--hi:#22332f}}
+:root[data-theme="dark"]{--bg:#141a19;--card:#1c2423;--ink:#ecefe9;--mute:#98a39f;--line:#33403d;--accent:#5fc9ac;--accent-ink:#0d1a17;--hi:#22332f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Source Serif 4",Georgia,"Times New Roman",serif}
+.wrap{width:100%;max-width:600px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:26px;margin:8px 0 2px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 18px;font-size:15px}
+.tabs,.modes{display:flex;gap:6px;background:var(--line);padding:4px;border-radius:10px;margin-bottom:14px}
+.tabs button,.modes button{flex:1;border:0;background:transparent;color:var(--ink);font:inherit;font-size:15px;padding:9px 8px;border-radius:7px;cursor:pointer}
+.tabs button[aria-selected="true"],.modes button[aria-selected="true"]{background:var(--card);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+label{display:block;font-size:14px;color:var(--mute);margin:0 0 4px}
+.field{margin-bottom:14px}
+.in{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--bg);overflow:hidden}
+.in span{padding:0 12px;color:var(--mute)}
+.in input{flex:1 1 0;width:100%;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;font-size:20px;padding:11px 12px 11px 0;font-variant-numeric:tabular-nums}
+.in input::placeholder{color:var(--mute);opacity:.6}
+.row2{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:12px;align-items:end}
+@media (max-width:420px){.row2{grid-template-columns:minmax(0,1fr)}.tabs button,.modes button{font-size:14px;padding:9px 4px}}
+select{width:100%;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;padding:12px 8px}
+.res{margin-top:6px;border-top:2px solid var(--ink)}
+.line{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.line .k{color:var(--mute);font-size:15px}
+.line .v{font-size:20px;font-variant-numeric:tabular-nums;font-weight:600;text-align:right;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px 0}
+.line.main{background:var(--hi);margin:0 -18px;padding:13px 18px;border-bottom:0}
+.line.main .k{color:var(--ink);font-weight:600}
+.line.main .v{color:var(--accent);font-size:24px}
+.copy{border:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;font-size:13px;border-radius:6px;padding:3px 9px;margin-left:8px;cursor:pointer}
+.note{color:var(--mute);font-size:13.5px;margin:12px 0 0}
+.in:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.in input:focus-visible{outline:none}
+select{height:49px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>TCS & Tax Calculator</h1>
+  <p class="sub">Works both ways. Type an amount and the result updates instantly.</p>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t1" aria-selected="true">TCS</button>
+    <button role="tab" id="t2" aria-selected="false">Tax / GST</button>
+  </div>
+
+  <!-- TCS -->
+  <section id="p1" class="card">
+    <div class="modes" role="tablist">
+      <button id="m1f" aria-selected="true">Sale value → Total</button>
+      <button id="m1r" aria-selected="false">Total → Sale value</button>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label id="l1" for="a1">Final sale value (A)</label>
+        <div class="in"><span>₹</span><input id="a1" inputmode="decimal" placeholder="1650000" autocomplete="off"></div>
+      </div>
+      <div class="field">
+        <label for="r1">TCS rate</label>
+        <div class="in"><input id="r1" inputmode="decimal" value="1" style="padding-left:12px"><span>%</span></div>
+      </div>
+    </div>
+    <div class="res" id="res1"></div>
+  </section>
+
+  <!-- TAX -->
+  <section id="p2" class="card" hidden>
+    <div class="modes" role="tablist">
+      <button id="m2r" aria-selected="true">Amount incl. tax → Base</button>
+      <button id="m2f" aria-selected="false">Base → Amount incl. tax</button>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label id="l2" for="a2">Amount including tax</label>
+        <div class="in"><span>₹</span><input id="a2" inputmode="decimal" placeholder="100" autocomplete="off"></div>
+      </div>
+      <div class="field">
+        <label for="s2">Tax rate</label>
+        <select id="s2">
+          <option>0.25</option><option>3</option><option>5</option><option>12</option><option selected>18</option><option>28</option><option value="custom">Custom…</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Type of supply</label>
+      <div class="modes" style="margin-bottom:0">
+        <button id="sp1" aria-selected="true">Same state (CGST + SGST)</button>
+        <button id="sp2" aria-selected="false">Interstate (IGST)</button>
+      </div>
+    </div>
+    <div class="field" id="cust" hidden>
+      <label for="r2">Custom rate</label>
+      <div class="in"><input id="r2" inputmode="decimal" value="18" style="padding-left:12px"><span>%</span></div>
+    </div>
+    <div class="res" id="res2"></div>
+  </section>
+
+  <p class="note">Amounts are shown to 2 decimals in Indian format (lakh / crore). Check the rate against the latest rules before filing.</p>
+</div>
+
+<script>
+var $=function(i){return document.getElementById(i)};
+function num(s){var n=parseFloat(String(s).replace(/,/g,""));return isFinite(n)?n:null}
+function inr(n){return n.toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function r2(n){return Math.round((n+Number.EPSILON)*100)/100}
+function row(k,v,main){return '<div class="line'+(main?' main':'')+'"><span class="k">'+k+'</span><span class="v">₹ '+inr(v)+'<button class="copy" data-v="'+v.toFixed(2)+'" aria-label="Copy '+k+'">Copy</button></span></div>'}
+function empty(){return '<div class="line"><span class="k">Enter an amount to see the result</span></div>'}
+
+var tcsRev=false, taxFwd=false, interstate=false;
+
+function calc1(){
+  var a=num($("a1").value), r=num($("r1").value), out=$("res1");
+  if(a===null||r===null||a<0||r<0){out.innerHTML=empty();return}
+  var sale,tcs,total;
+  if(!tcsRev){sale=a;tcs=r2(sale*r/100);total=r2(sale+tcs)}
+  else{total=a;sale=r2(total/(1+r/100));tcs=r2(total-sale)}
+  out.innerHTML=row("Final sale value (A)",sale,tcsRev)+row("TCS @"+r+"%",tcs)+row("Total sales price incl. TCS",total,!tcsRev);
+}
+function rate2(){return $("s2").value==="custom"?num($("r2").value):parseFloat($("s2").value)}
+function calc2(){
+  var a=num($("a2").value), r=rate2(), out=$("res2");
+  if(a===null||r===null||a<0||r<0){out.innerHTML=empty();return}
+  var base,tax,total;
+  if(!taxFwd){total=a;base=r2(total/(1+r/100));tax=r2(total-base)}
+  else{base=a;tax=r2(base*r/100);total=r2(base+tax)}
+  var h=row("Taxable amount (base)",base,!taxFwd);
+  if(interstate){h+=row("IGST @"+r+"%",tax)}
+  else{var c=r2(tax/2),s=r2(tax-c);h+=row("CGST @"+(r/2)+"%",c)+row("SGST @"+(r/2)+"%",s)}
+  h+=row("Amount including tax",total,taxFwd);
+  out.innerHTML=h;
+}
+function setSel(a,b,first){a.setAttribute("aria-selected",first);b.setAttribute("aria-selected",!first)}
+
+$("t1").onclick=function(){setSel($("t1"),$("t2"),true);$("p1").hidden=false;$("p2").hidden=true};
+$("t2").onclick=function(){setSel($("t1"),$("t2"),false);$("p1").hidden=true;$("p2").hidden=false};
+
+$("m1f").onclick=function(){tcsRev=false;setSel($("m1f"),$("m1r"),true);$("l1").textContent="Final sale value (A)";$("a1").value="";calc1()};
+$("m1r").onclick=function(){tcsRev=true;setSel($("m1f"),$("m1r"),false);$("l1").textContent="Total sales price incl. TCS";$("a1").value="";calc1()};
+$("m2r").onclick=function(){taxFwd=false;setSel($("m2r"),$("m2f"),true);$("l2").textContent="Amount including tax";$("a2").value="";calc2()};
+$("m2f").onclick=function(){taxFwd=true;setSel($("m2r"),$("m2f"),false);$("l2").textContent="Base amount (excluding tax)";$("a2").value="";calc2()};
+
+["a1","r1"].forEach(function(i){$(i).addEventListener("input",calc1)});
+["a2","r2"].forEach(function(i){$(i).addEventListener("input",calc2)});
+$("sp1").onclick=function(){interstate=false;setSel($("sp1"),$("sp2"),true);calc2()};
+$("sp2").onclick=function(){interstate=true;setSel($("sp1"),$("sp2"),false);calc2()};
+$("s2").onchange=function(){$("cust").hidden=$("s2").value!=="custom";calc2()};
+
+document.addEventListener("click",function(e){
+  var b=e.target.closest(".copy");if(!b)return;
+  try{navigator.clipboard.writeText(b.dataset.v);b.textContent="Copied";setTimeout(function(){b.textContent="Copy"},1200)}catch(x){}
+});
+calc1();calc2();
+</script>
+</body>
+</html>

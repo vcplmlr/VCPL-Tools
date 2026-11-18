@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parts Billing vs Tally Reconciliation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--tx:#1d2330;--mut:#6b7280;--bd:#e2e5ea;--pri:#1c5fd4;--ok:#0f8a4f;--warn:#b7791f;--bad:#c0392b;--hd:#eef1f6}
+@media (prefers-color-scheme:dark){:root{--bg:#14171c;--card:#1d2128;--tx:#e8eaee;--mut:#9aa3b2;--bd:#2f3541;--pri:#5b9bff;--ok:#3ec585;--warn:#e0b04c;--bad:#ef6b5c;--hd:#262c36}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+header{padding:18px 24px;background:var(--card);border-bottom:1px solid var(--bd)}
+header h1{margin:0;font-size:20px}header p{margin:4px 0 0;color:var(--mut)}
+main{max-width:1280px;margin:0 auto;padding:18px 24px 60px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.drop{border:2px dashed var(--bd);border-radius:10px;padding:16px;text-align:center}
+.drop.ok{border-color:var(--ok)}.drop b{display:block;margin-bottom:6px}
+.drop small{color:var(--mut);display:block;margin-top:6px}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
+input,select{width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit}
+button{padding:9px 16px;border:0;border-radius:7px;background:var(--pri);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button.sec{background:var(--hd);color:var(--tx);border:1px solid var(--bd)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.stat{border:1px solid var(--bd);border-radius:8px;padding:11px 13px}
+.stat span{display:block;font-size:12px;color:var(--mut)}.stat b{font-size:18px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tab{padding:6px 12px;border-radius:20px;border:1px solid var(--bd);background:var(--card);color:var(--tx);cursor:pointer;font-weight:500}
+.tab.on{background:var(--pri);border-color:var(--pri);color:#fff}
+.wrap{overflow-x:auto;border:1px solid var(--bd);border-radius:8px;max-height:560px}
+table{border-collapse:collapse;width:100%;min-width:900px}
+th,td{padding:6px 10px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
+th{position:sticky;top:0;background:var(--hd);font-size:12px}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.pill{padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600}
+.s-ok{color:var(--ok)}.s-warn{color:var(--warn)}.s-bad{color:var(--bad)}
+.msg{padding:10px 12px;border-radius:8px;background:var(--hd);margin-top:10px;color:var(--mut)}
+.msg.w{color:var(--warn)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+</style>
+</head>
+<body>
+<header>
+<h1>Parts Billing vs Tally Reconciliation — Pro</h1>
+<p>BMW Parts Billing statement (Reference / DI / E5) &nbsp;vs&nbsp; Tally register export. Everything runs in your browser — no data is uploaded.</p>
+</header>
+<main>
+<div class="card">
+<div class="grid">
+<div class="drop" id="d1"><b>1. BMW Parts Billing (.xlsx)</b><input type="file" id="f1" accept=".xlsx,.xls,.csv"><small id="i1">Columns: Reference, Doc Number, Post Date, Type, Amount INR</small></div>
+<div class="drop" id="d2"><b>2. Tally Register export (.xlsx)</b><input type="file" id="f2" accept=".xlsx,.xls,.csv" multiple><small id="i2">You can select several files (purchase register + ledger). Date, Particulars, Vch Type, Vch No., Debit, Credit</small></div>
+</div>
+<div class="grid" style="margin-top:14px">
+<div><label>Tally amount column</label><select id="amt"><option value="">— load Tally file —</option></select></div>
+<div><label>Only Tally rows whose Particulars contain (optional)</label><input id="flt" placeholder="e.g. BMW"></div>
+<div><label>Amount tolerance (₹)</label><input id="tol" type="number" step="0.01" value="1"></div>
+<div><label>Date window for amount-match (days)</label><input id="win" type="number" value="10"></div>
+</div>
+<div class="row"><button id="go">Reconcile</button><button class="sec" id="dl" disabled>Download Excel report</button><button class="sec" id="cl">Clear manual links</button><button class="sec" id="rs">Reset</button></div>
+<div id="note" class="msg" style="display:none"></div>
+</div>
+<div id="out" style="display:none">
+<div class="card"><div class="stats" id="stats"></div></div>
+<div class="card">
+<div class="tabs" id="tabs"></div>
+<input id="q" placeholder="Search in this table…" style="max-width:320px;margin-bottom:10px">
+<div class="wrap"><table id="tbl"></table></div>
+</div>
+</div>
+</main>
+<script>
+/* ---------- CORE (pure functions) ---------- */
+const r2=n=>Math.round((+n||0)*100)/100;
+const low=v=>String(v==null?'':v).trim().toLowerCase();
+function toDate(v){
+  if(v instanceof Date&&!isNaN(v)){const d=new Date(v.getTime()+43200000);return new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()))}
+  if(typeof v==='string'&&v.trim()){const m=v.trim().match(/^(\d{1,2})[-\/. ]([A-Za-z]{3}|\d{1,2})[-\/. ](\d{2,4})$/);
+    if(m){const mo=isNaN(m[2])?['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(m[2].toLowerCase()):+m[2]-1;let y=+m[3];if(y<100)y+=2000;if(mo>=0)return new Date(Date.UTC(y,mo,+m[1]))}}
+  return null}
+const dnum=d=>d?Math.floor(d.getTime()/864e5):null;
+const dstr=d=>d?String(d.getUTCDate()).padStart(2,'0')+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+d.getUTCFullYear():'';
+const num=v=>{if(typeof v==='number')return v;const x=parseFloat(String(v==null?'':v).replace(/[,₹\s]/g,'').replace(/\((.*)\)/,'-$1'));return isNaN(x)?0:x};
+
+function parseBmw(aoa){
+  let h=aoa.findIndex(r=>r.some(c=>low(c)==='reference')&&r.some(c=>low(c).startsWith('amount')));
+  if(h<0)throw new Error('BMW file: header row with "Reference" and "Amount" not found');
+  const H=aoa[h].map(low),ix=n=>H.findIndex(x=>x.startsWith(n));
+  const c={ref:ix('reference'),doc:ix('doc number'),date:ix('post date'),type:ix('type'),amt:ix('amount')};
+  const g=new Map();
+  for(const r of aoa.slice(h+1)){
+    const ref=String(r[c.ref]??'').trim();if(!ref)continue;
+    const amt=num(r[c.amt]),type=String(r[c.type]??'').trim(),doc=String(r[c.doc]??'').trim(),dt=toDate(r[c.date]);
+    if(!g.has(ref))g.set(ref,{ref,date:dt,docs:[],gross:0,adj:0,adjTypes:[]});
+    const o=g.get(ref);
+    if(type.toUpperCase()==='DI'){o.gross=r2(o.gross+amt);if(doc)o.docs.push(doc);if(dt)o.date=dt}
+    else{o.adj=r2(o.adj+amt);if(type&&!o.adjTypes.includes(type))o.adjTypes.push(type);if(doc)o.docs.push(doc)}
+  }
+  return [...g.values()].map(o=>({...o,net:r2(o.gross+o.adj),di:o.docs[0]||''}));
+}
+
+function parseTally(aoa){
+  let h=aoa.findIndex(r=>r.some(c=>low(c)==='date')&&r.some(c=>low(c)==='particulars'||low(c).startsWith('vch')));
+  if(h<0)throw new Error('Tally file: header row with "Date" and "Particulars" not found');
+  const hdr=aoa[h].map(c=>String(c??'').trim());
+  const rows=[];
+  aoa.slice(h+1).forEach((r,k)=>{
+    const d=toDate(r[0]);if(!d)return;
+    rows.push({i:k,date:d,cells:hdr.map((_,j)=>r[j]??''),part:String(r[hdr.findIndex(x=>low(x)==='particulars')]??'')});
+  });
+  return {hdr,rows};
+}
+function amtOptions(hdr){
+  const o=[];const di=hdr.findIndex(x=>low(x)==='debit'),ci=hdr.findIndex(x=>low(x)==='credit');
+  if(di>=0&&ci>=0)o.push({v:'dc',t:'Debit + Credit (whichever has value)'});
+  hdr.forEach((x,j)=>{if(/debit|credit|amount|gross|value|total|taxable/i.test(x))o.push({v:String(j),t:x})});
+  return o;
+}
+function tallyAmt(row,sel,hdr){
+  if(sel==='dc'){const di=hdr.findIndex(x=>low(x)==='debit'),ci=hdr.findIndex(x=>low(x)==='credit');return r2(Math.abs(num(row.cells[di]))+Math.abs(num(row.cells[ci])))}
+  return r2(Math.abs(num(row.cells[+sel])));
+}
+
+function reconcile(bmw,tally,opt){
+  const {hdr}=tally,tol=opt.tol,win=opt.win;
+  const flt=low(opt.flt);
+  let trs=tally.rows.filter(r=>!flt||low(r.part).includes(flt)).map(r=>({...r,amt:tallyAmt(r,opt.sel,hdr)}));
+  const zeroRows=trs.filter(r=>!r.amt).length;
+  trs=trs.filter(r=>r.amt);
+  const idx=new Map();
+  trs.forEach(t=>{const toks=new Set((t.cells.join(' ').match(/\d{8,}/g)||[]));toks.forEach(k=>{if(!idx.has(k))idx.set(k,[]);idx.get(k).push(t)})});
+  const used=new Set(),out=[];if(opt.manual)opt.manual.forEach(v=>used.add(v));
+  const best=(t,g)=>Math.min(Math.abs(t.amt-g.gross),Math.abs(t.amt-g.net));
+  for(const g of bmw){
+    let t=null,how='';const mi=opt.manual&&opt.manual.get(g.ref);if(mi!=null){const f=trs.find(x=>x.i===mi);if(f){t=f;how='Manual'}}
+    for(const k of t?[]:[g.ref,...g.docs]){const f=(idx.get(k)||[]).find(x=>!used.has(x.i));if(f){t=f;how='Reference';break}}
+    if(!t){
+      let b=null,bd=1e18;
+      for(const x of trs){if(used.has(x.i))continue;const e=best(x,g);if(e>tol)continue;
+        const dd=(g.date&&x.date)?Math.abs(dnum(x.date)-dnum(g.date)):0;if(win>=0&&dd>win)continue;
+        if(e+dd/1000<bd){bd=e+dd/1000;b=x}}
+      if(b){t=b;how='Amount'}
+    }
+    const row={...g,tally:t,how};
+    if(t){used.add(t.i);row.tAmt=t.amt;row.dGross=r2(t.amt-g.gross);row.dNet=r2(t.amt-g.net);
+      row.status=best(t,g)<=tol?(how==='Reference'?'Matched':how==='Manual'?'Matched (manual)':'Matched (by amount)'):'Amount Difference'}
+    else{row.status='Missing in Tally'}
+    out.push(row);
+  }
+  const rt=out.filter(r=>r.adj&&r.gross).map(r=>-r.adj/r.gross*100).sort((a,b)=>a-b),med=rt.length?rt[rt.length>>1]:0;
+  out.forEach(r=>{const x=r.gross?-r.adj/r.gross*100:0;r.adjChk=!r.adj?'⚠ no adj':(Math.abs(x-med)>0.005?'⚠ ':'')+x.toFixed(3)+'%'});
+  const extra=trs.filter(t=>!used.has(t.i));
+  const rset=new Set();bmw.forEach(g=>{rset.add(g.ref);g.docs.forEach(d=>rset.add(d))});
+  extra.forEach(t=>{t.dup=(t.cells.join(' ').match(/\d{8,}/g)||[]).some(k=>rset.has(k))});
+  return {rows:out,extra,trs,zeroRows,tallyCount:trs.length,tallyTotal:r2(trs.reduce((s,t)=>s+t.amt,0))};
+}
+function summarize(res){
+  const s=k=>res.rows.filter(r=>r.status===k||(k==='Matched'&&r.status.startsWith('Matched')));
+  const sum=(a,f)=>r2(a.reduce((x,r)=>x+f(r),0));
+  const m=s('Matched'),d=s('Amount Difference'),x=s('Missing in Tally');
+  return {n:res.rows.length,gross:sum(res.rows,r=>r.gross),adj:sum(res.rows,r=>r.adj),net:sum(res.rows,r=>r.net),
+    an:res.rows.filter(r=>r.adjChk&&r.adjChk.startsWith('⚠')).length,tn:res.tallyCount,tt:res.tallyTotal,m,d,x,
+    mAmt:sum(m,r=>r.gross),dAmt:sum(d,r=>r.dGross),xAmt:sum(x,r=>r.gross),eAmt:sum(res.extra,r=>r.amt)};
+}
+/* ---DOM--- */
+const $=id=>document.getElementById(id);
+let BMW=null,TAL=null,RES=null,TAB='all',SORT={c:-1,d:1};const MAN=new Map();
+const inr=n=>(n==null||n==='')?'':Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function readAoa(file){return new Promise((ok,no)=>{const fr=new FileReader();fr.onerror=no;fr.onload=e=>{try{
+  const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});let best=[];
+  wb.SheetNames.forEach(n=>{const a=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:'',blankrows:false});if(a.length>best.length)best=a});ok(best)}catch(x){no(x)}};fr.readAsArrayBuffer(file)})}
+function note(t,w){const n=$('note');n.style.display=t?'block':'none';n.className='msg'+(w?' w':'');n.innerHTML=t}
+$('f1').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{BMW=parseBmw(await readAoa(f));$('d1').classList.add('ok');$('i1').textContent=f.name+' — '+BMW.length+' invoices';run()}catch(x){BMW=null;$('d1').classList.remove('ok');note(esc(x.message),1)}};
+$('f2').onchange=async e=>{const fs=[...e.target.files];if(!fs.length)return;try{TAL=null;for(const x of fs){const p=parseTally(await readAoa(x));p.rows.forEach(r=>r.src=x.name);if(!TAL)TAL=p;else TAL.rows.push(...p.rows)}TAL.rows.forEach((r,k)=>r.i=k);const f={name:fs.length>1?fs.length+' files':fs[0].name};
+  const o=amtOptions(TAL.hdr);$('amt').innerHTML=o.map(x=>`<option value="${x.v}">${esc(x.t)}</option>`).join('');
+  $('d2').classList.add('ok');$('i2').textContent=f.name+' — '+TAL.rows.length+' vouchers';run()}catch(x){TAL=null;$('d2').classList.remove('ok');note(esc(x.message),1)}};
+['amt','flt','tol','win'].forEach(i=>$(i).onchange=run);$('go').onclick=run;
+$('rs').onclick=()=>location.reload();
+function run(){
+  if(!BMW||!TAL||!$('amt').value)return;note('');
+  RES=reconcile(BMW,TAL,{manual:MAN,sel:$('amt').value,flt:$('flt').value,tol:+$('tol').value||0,win:$('win').value===''?-1:+$('win').value});
+  const S=summarize(RES);RES.S=S;
+  // sanity warnings
+  const bd=BMW.map(r=>r.date).filter(Boolean).map(dnum),td=TAL.rows.map(r=>dnum(r.date));
+  let w=[];
+  if(bd.length&&td.length&&(Math.min(...td)>Math.max(...bd)+31||Math.max(...td)<Math.min(...bd)-31))w.push('Tally dates ('+dstr(new Date(Math.min(...td)*864e5))+' to '+dstr(new Date(Math.max(...td)*864e5))+') do not overlap the BMW billing period ('+dstr(new Date(Math.min(...bd)*864e5))+' to '+dstr(new Date(Math.max(...bd)*864e5))+'). Check you exported the right month.');
+  if(S.m.length===0&&S.n>0)w.push('Nothing matched. The Tally export must carry the BMW invoice number (Reference like 6130xxxxxx or DI no.) in Particulars / Vch No. / Narration, or the amounts must agree — a sales register will not reconcile with BMW purchase billing. Use the Tally Purchase Register / BMW party ledger with Narration.');
+  if(RES.zeroRows)w.push(RES.zeroRows+' Tally rows with zero/blank amount were ignored.');
+  note(w.join('<br>'),w.length>0);
+  $('out').style.display='block';$('dl').disabled=false;draw()}
+const fmtS=s=>`<span class="pill ${s.startsWith('Matched')?'s-ok':s==='Amount Difference'?'s-warn':'s-bad'}">${esc(s)}</span>`;
+function draw(){
+  const S=RES.S;
+  const st=[['BMW invoices',S.n],['BMW gross (DI)','₹ '+inr(S.gross)],['BMW adjustments (E5 etc.)','₹ '+inr(S.adj)],['BMW net payable','₹ '+inr(S.net)],
+    ['Tally vouchers / total',S.tn+' / ₹ '+inr(S.tt)],['Matched',S.m.length+' · ₹ '+inr(S.mAmt)],['Amount differences',S.d.length+' · Δ ₹ '+inr(S.dAmt)],
+    ['Missing in Tally',S.x.length+' · ₹ '+inr(S.xAmt)],['Only in Tally',RES.extra.length+' · ₹ '+inr(S.eAmt)],['E5 adjustment anomalies',S.an],['Manual links',MAN.size]];
+  $('stats').innerHTML=st.map(([a,b])=>`<div class="stat"><span>${a}</span><b>${b}</b></div>`).join('');
+  const tabs=[['all','All BMW invoices',S.n],['ok','Matched',S.m.length],['diff','Amount differences',S.d.length],['miss','Missing in Tally',S.x.length],['extra','Only in Tally',RES.extra.length],['date','Date-wise',dateRows().length]];
+  $('tabs').innerHTML=tabs.map(([k,t,n])=>`<button class="tab ${k===TAB?'on':''}" data-k="${k}">${t} (${n})</button>`).join('');
+  $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{TAB=b.dataset.k;SORT={c:-1,d:1};draw()});
+  table()}
+function bmwHead(){return ['Post Date','BMW Reference','DI Doc No.','Gross (DI)','Adj','Net','Tally Date','Tally Vch No.','Tally Particulars','Tally Amount','Diff vs Gross','Diff vs Net','Match By','Status','Adj % (E5)']}
+function bmwLine(r){const t=r.tally;const vn=t?t.cells[findCol('vch no')]:'';
+  return [dstr(r.date),r.ref,r.di,r.gross,r.adj,r.net,t?dstr(t.date):'',vn,t?t.part:'',t?r.tAmt:'',t?r.dGross:'',t?r.dNet:'',r.how,r.status,r.adjChk]}
+function dateRows(){const m=new Map(),g=d=>{const k=dnum(d);if(!m.has(k))m.set(k,{d,bn:0,b:0,tn:0,t:0});return m.get(k)};
+  RES.rows.forEach(r=>{if(!r.date)return;const o=g(r.date);o.bn++;o.b=r2(o.b+r.gross)});
+  RES.trs.forEach(t=>{const o=g(t.date);o.tn++;o.t=r2(o.t+t.amt)});
+  return [...m.entries()].sort((a,b)=>a[0]-b[0]).map(([k,o])=>[dstr(o.d),o.bn,o.b,o.tn,o.t,r2(o.t-o.b)])}
+function linkOpts(ref){const G=RES.rows.find(r=>r.ref===ref);
+  const l=[...RES.extra].sort((a,b)=>Math.abs(a.amt-G.gross)-Math.abs(b.amt-G.gross)).slice(0,15);
+  return '<option value="">Link to Tally…</option>'+l.map(t=>`<option value="${t.i}">${dstr(t.date)} · ${esc(t.cells[findCol('vch no')])} · ${inr(t.amt)} · ${esc(t.part.slice(0,22))}</option>`).join('')}
+function wireLink(){document.querySelectorAll('.lk').forEach(s=>s.onchange=()=>{if(s.value==='')return;MAN.set(s.dataset.ref,+s.value);run()})}
+$('cl').onclick=()=>{MAN.clear();if(RES)run()};
+function findCol(n){return TAL.hdr.findIndex(x=>low(x).startsWith(n))}
+function tallyLine(t){return [dstr(t.date),t.cells[findCol('vch no')],t.part,t.cells[findCol('vch type')],t.amt,t.dup?'Dup of BMW ref':'',t.src||'']}
+function view(){
+  if(TAB==='date')return {h:['Date','BMW invoices','BMW gross','Tally vouchers','Tally amount','Difference'],a:dateRows(),nc:[2,4,5]};
+  if(TAB==='extra')return {h:['Date','Vch No.','Particulars','Vch Type','Amount','Flag','Source'],a:RES.extra.map(tallyLine),nc:[4]};
+  const f={all:()=>true,ok:r=>r.status.startsWith('Matched'),diff:r=>r.status==='Amount Difference',miss:r=>r.status==='Missing in Tally'}[TAB];
+  const hh=bmwHead(),aa=RES.rows.filter(f).map(bmwLine);if(TAB==='miss'){hh.push('Link manually');aa.forEach(x=>x.push('@@'+x[1]))}return {h:hh,a:aa,nc:[3,4,5,9,10,11]}}
+function table(){
+  const v=view(),q=low($('q').value);
+  let a=q?v.a.filter(r=>r.join(' ').toLowerCase().includes(q)):v.a;
+  if(SORT.c>=0){const k=x=>typeof x==='string'&&/^\d\d-\d\d-\d{4}$/.test(x)?x.split('-').reverse().join('-'):x;
+    a=[...a].sort((x,y)=>{const p=k(x[SORT.c]),z=k(y[SORT.c]);return(typeof p==='number'&&typeof z==='number'?p-z:String(p).localeCompare(String(z),undefined,{numeric:true}))*SORT.d})}
+  $('tbl').innerHTML='<thead><tr>'+v.h.map((x,i)=>`<th data-c="${i}" style="cursor:pointer" class="${v.nc.includes(i)?'n':''}">${x}${SORT.c===i?(SORT.d>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead><tbody>'+
+   a.map(r=>'<tr>'+r.map((c,i)=>{if(v.h[i]==='Status')return `<td>${fmtS(c)}</td>`;if(v.h[i]==='Link manually')return `<td><select class="lk" data-ref="${esc(c.slice(2))}">${linkOpts(c.slice(2))}</select></td>`;return `<td class="${v.nc.includes(i)?'n':''}">${v.nc.includes(i)?inr(c):esc(c)}</td>`}).join('')+'</tr>').join('')+'</tbody>';$('tbl').querySelectorAll('th').forEach(h=>h.onclick=()=>{const c=+h.dataset.c;SORT=SORT.c===c?{c,d:-SORT.d}:{c,d:1};table()});wireLink()}
+$('q').oninput=table;
+$('dl').onclick=()=>{
+  const S=RES.S,wb=XLSX.utils.book_new();
+  const sh=(name,aoa,w)=>{const s=XLSX.utils.aoa_to_sheet(aoa);s['!cols']=w.map(x=>({wch:x}));XLSX.utils.book_append_sheet(wb,s,name)};
+  sh('Summary',[['Parts Billing vs Tally Reconciliation'],[],['Item','Count','Amount (₹)'],
+    ['BMW invoices (DI)',S.n,S.gross],['BMW adjustments (E5 etc.)','',S.adj],['BMW net payable','',S.net],
+    ['Tally vouchers',S.tn,S.tt],[],['Matched',S.m.length,S.mAmt],['Amount differences (Tally − BMW gross)',S.d.length,S.dAmt],
+    ['Missing in Tally (BMW gross)',S.x.length,S.xAmt],['Only in Tally',RES.extra.length,S.eAmt],['E5 adjustment anomalies',S.an,''],['Manual links',MAN.size,'']],[42,10,18]);
+  const H=bmwHead(),W=[11,14,13,14,11,14,11,18,40,14,13,13,10,20],R=RES.rows;
+  sh('All BMW',[H,...R.map(bmwLine)],W);
+  sh('Matched',[H,...R.filter(r=>r.status.startsWith('Matched')).map(bmwLine)],W);
+  sh('Amount Differences',[H,...R.filter(r=>r.status==='Amount Difference').map(bmwLine)],W);
+  sh('Missing in Tally',[H,...R.filter(r=>r.status==='Missing in Tally').map(bmwLine)],W);
+  sh('Only in Tally',[['Date','Vch No.','Particulars','Vch Type','Amount','Flag','Source'],...RES.extra.map(tallyLine)],[11,18,45,14,14,16,28]);
+  sh('Date-wise',[['Date','BMW invoices','BMW gross','Tally vouchers','Tally amount','Difference'],...dateRows()],[12,12,16,14,16,16]);
+  XLSX.writeFile(wb,'Parts_Billing_vs_Tally_Reconciliation.xlsx')};
+</script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Ledger (Purchase Only)</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://vcpltools.vercel.app/vcpl-tools/bmw-statement-reconciler">
+<script>if(window.self===window.top&&!/[?&]raw=1\b/.test(location.search))location.replace('/vcpl-tools/bmw-statement-reconciler');</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#FEF2C8;--card:#FFFDF5;--ink:#2F3E4E;--mut:#475569;--line:rgba(47,62,78,.28);--ac:#2F3E4E;--marigold:#F9C80E;--mint:#CEE5DC;--ok:#12805C;--bad:#B91C1C;--hd:#FEF2C8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "Plus Jakarta Sans","Segoe UI",Arial,sans-serif}
+main{max-width:1240px;margin:0 auto;padding:24px 18px 64px}
+h1{font-family:"Bricolage Grotesque","Plus Jakarta Sans",sans-serif;font-weight:800;font-size:24px;letter-spacing:-.02em;margin:0 0 6px;color:var(--ink)}
+h3{font-family:"Bricolage Grotesque","Plus Jakarta Sans",sans-serif;font-weight:800;margin:16px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink)}
+.mut{color:var(--mut);margin:2px 0;font-size:12.5px}
+.vcpl-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:7px;background:var(--mint);border:1.5px solid var(--ink);font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:700;color:var(--ink);margin-bottom:8px}
+.card{background:var(--card);border:1.5px solid var(--ink);border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 4px 0 var(--ink)}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:12px}
+label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--ink)}
+label.ck{flex-direction:row;align-items:center;gap:7px;color:var(--ink);padding:8px 10px;background:#fff;border:1.5px solid var(--line);border-radius:10px;cursor:pointer}
+input,select{font:inherit;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);max-width:100%}
+input[type="number"],td.n{font-family:"JetBrains Mono",monospace}
+button{font-family:"Bricolage Grotesque","Plus Jakarta Sans",sans-serif;font-weight:800;font-size:12.5px;padding:9px 16px;border:1.5px solid var(--ink);background:var(--ink);color:var(--marigold);border-radius:10px;cursor:pointer;margin:0 8px 6px 0;box-shadow:0 2px 0 #1A242F;transition:transform .1s ease}
+button:hover:not(:disabled){transform:translateY(-1px)}
+button.t{background:#fff;color:var(--ink);border-color:var(--ink);padding:7px 12px;margin:0 5px 6px 0;box-shadow:none;font-family:"Plus Jakarta Sans",sans-serif;font-weight:700}
+button.t:hover:not(:disabled){background:var(--hd)}
+button.t.on{background:var(--ink);border-color:var(--ink);color:var(--marigold);font-weight:800;box-shadow:0 2px 0 #1A242F}
+button#ex{background:var(--marigold);color:var(--ink)}
+button#csv{background:var(--mint);color:var(--ink)}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--marigold);outline-offset:1px}
+.sc{overflow:auto;max-height:70vh;border:1.5px solid var(--line);border-radius:12px;background:#fff}
+table{border-collapse:collapse;width:100%;font-size:12.5px;font-family:"JetBrains Mono",monospace}
+th,td{padding:6px 10px;border-bottom:1px solid rgba(47,62,78,.14);text-align:left;white-space:nowrap}
+th{background:var(--ink);color:var(--card);font-family:"Plus Jakarta Sans",sans-serif;font-weight:700;font-size:11.5px;position:sticky;top:0;z-index:2}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+tr:nth-child(even) td{background:var(--card)}
+tr.s td{background:var(--hd)!important;font-family:"Plus Jakarta Sans",sans-serif;font-weight:800;color:var(--ink)}
+.ok{color:var(--ok);font-weight:700}.bad{color:var(--bad);font-weight:700}
+.chip{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 8px 8px 0;display:inline-block;font-size:12px}
+@media print{.np,#tabs,#q,button{display:none!important}.sc{max-height:none;overflow:visible}.card{box-shadow:none;border:none}body{background:#fff}}
+.ban{padding:11px 14px;border-left:4px solid var(--ink);border-radius:10px;background:rgba(254,242,200,.8);margin-bottom:12px;font-size:14px;font-weight:600}
+</style></head><body><main>
+<span class="vcpl-badge">VC-06 · VCPL Tools · Browser-Local Audit</span>
+<h1>Customer Ledger (Purchase Only)</h1>
+<p class="mut">Everything runs inside your browser with local settings saved automatically. Your files are not uploaded anywhere. Click any column heading to sort.</p>
+<section class="card np">
+<div class="g">
+<label>BMW Statements of Account: add as many as needed (any quarter, any dealer code)<input type="file" id="fb" accept=".xlsx,.xls" multiple></label>
+<label>Tally ledger exports: add several files, every ledger sheet is read<input type="file" id="ft" accept=".xlsx,.xls" multiple></label>
+</div>
+<div class="g">
+<label>Amount tolerance (₹)<input id="tol" type="number" value="1" step="0.01"></label>
+<label>Date window for amount-only match (days)<input id="win" type="number" value="7"></label>
+<label>Tally opening balance (blank = detect)<input id="top" type="number" step="0.01"></label>
+<label class="ck"><input type="checkbox" id="flip"> Flip sign (Tally debit = BMW payable)</label>
+</div>
+<div id="fl"></div><div id="map"></div><p id="st" class="mut"></p>
+<button id="go">Reconcile</button><button id="clr" class="t">Clear all files</button><button id="ex" disabled>Download Excel report</button><button id="csv" disabled>Download this tab (CSV)</button><button id="pr" class="t" disabled>Print / save as PDF</button>
+</section>
+<section id="out" hidden>
+<div class="card"><div id="tabs"></div>
+<label style="margin:6px 0"><input id="q" placeholder="Search this tab: invoice no., amount, VIN, narration…"></label>
+<div id="view"></div></div></section>
+<script>
+const $=id=>document.getElementById(id),S={bf:[],tsh:[],map:{}};let R=null,tab='Summary',SO={d:1};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>(n<0?'-':'')+Math.abs(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const MON={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11},MN=Object.keys(MON).map(m=>m[0].toUpperCase()+m.slice(1));
+const d2s=ms=>{if(ms==null)return'';const d=new Date(ms);return String(d.getUTCDate()).padStart(2,'0')+'-'+MN[d.getUTCMonth()]+'-'+d.getUTCFullYear()};
+function pd(v){if(v===''||v==null)return null;if(v instanceof Date)return Date.UTC(v.getFullYear(),v.getMonth(),v.getDate());
+if(typeof v==='number')return v>20000&&v<80000?Math.floor(v-25569)*864e5:null;
+const s=String(v).trim();let m=s.match(/(\d{1,2})[-\/ ]([A-Za-z]{3})[a-z]*[-\/ ,]*(\d{2,4})/);
+if(m&&MON[m[2].toLowerCase()]!=null){let y=+m[3];if(y<100)y+=2000;return Date.UTC(y,MON[m[2].toLowerCase()],+m[1])}
+m=s.match(/(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);if(m){let y=+m[3];if(y<100)y+=2000;return Date.UTC(y,+m[2]-1,+m[1])}return null}
+const num=v=>typeof v==='number'?v:(parseFloat(String(v).replace(/[,\s]|dr|cr/gi,''))||0);
+const toks=s=>new Set((String(s).toUpperCase().match(/[A-Z0-9]{6,}/g)||[]).filter(x=>/\d/.test(x)&&!/^20\d{6}$/.test(x)));
+const msg=t=>$('st').textContent=t;
+async function rd(f){const wb=XLSX.read(await f.arrayBuffer());return wb.SheetNames.map(n=>[n,XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''})])}
+const ROLES=[['date','Date',/^date/i],['part','Particulars',/particular|ledger|account/i],['vtype','Voucher type',/vch.*type|voucher.*type/i],['vno','Voucher no.',/vch.*no|voucher.*n/i],['ref','Reference no.',/^ref|supplier inv|bill/i],['narr','Narration',/narr/i],['debit','Debit',/debit|^dr/i],['credit','Credit',/credit|^cr/i]];
+function parseB(rows,name){const hi=rows.findIndex(r=>r.some(c=>String(c).trim().toLowerCase()==='documentno'));if(hi<0)return null;
+const H=rows[hi].map(c=>String(c).trim().toLowerCase()),c=n=>H.indexOf(n);
+const x={doc:c('documentno'),ref:c('reference'),asg:c('assignment'),hdr:c('document header text'),typ:c('typ'),pdt:c('pstng date'),amt:c('amount (inr)'),clr:c('clrng doc.')};
+let code='',seg='',pf=null,pt=null;rows.slice(0,hi).forEach(r=>{const k=String(r[1]).trim(),m=String(r[6]).trim().toUpperCase();if(k==='Code')code=String(r[2]);if(String(r[3]).trim()==='Segment')seg=String(r[4]).trim();if(m==='FROM')pf=pd(r[7]);if(m==='TO')pt=pd(r[7])});
+let open=0,from=null;const out=[];
+rows.slice(hi+1).forEach(r=>{if(/opening/i.test(String(r[x.asg]))){open=num(r[x.amt]);from=pd(r[x.pdt]);return}
+if(typeof r[x.amt]==='number'&&r[x.doc]!==''){const o={doc:String(r[x.doc]),ref:String(r[x.ref]),asg:String(r[x.asg]),hdr:String(r[x.hdr]),typ:String(r[x.typ]),date:pd(r[x.pdt]),amt:r[x.amt],clr:String(r[x.clr])};
+o.file=name;o.code=code;o.seg=seg;o.k=toks([o.doc,o.ref,o.asg,o.hdr].join(' '));out.push(o)}});
+return{name,code,seg,pf,pt,open,from:from??pf??(out[0]?out[0].date:0),rows:out}}
+$('fb').onchange=async e=>{const bad=[];for(const f of e.target.files){if(S.bf.some(x=>x.name===f.name))continue;const p=parseB((await rd(f))[0][1],f.name);p?S.bf.push(p):bad.push(f.name)}
+e.target.value='';S.bf.sort((a,b)=>(a.code+a.seg).localeCompare(b.code+b.seg)||a.from-b.from);drawFiles();msg(`${S.bf.length} BMW statement(s) loaded.`+(bad.length?` Not a BMW statement (no “DocumentNo” header): ${bad.join(', ')}`:''))};
+function drawFiles(){$('fl').innerHTML=S.bf.map((f,i)=>`<div class="chip"><b>${esc(f.name)}</b><br><span class="mut">Code ${esc(f.code||'?')} ${esc(f.seg)} · ${d2s(f.from)} to ${d2s(f.pt)} · ${f.rows.length} lines · opening ${fmt(f.open)}</span><br><button class="t" data-r="${i}">Remove</button></div>`).join('');
+$('fl').querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{S.bf.splice(+b.dataset.r,1);drawFiles()})}
+$('clr').onclick=()=>{S.bf=[];S.tsh=[];S.map={};drawFiles();$('map').innerHTML='';msg('All files cleared.')};
+$('ft').onchange=async e=>{const bad=[];for(const f of e.target.files){const sh=await rd(f);let n=0;
+for(const[name,rows]of sh){const hi=rows.slice(0,60).findIndex(r=>r.some(c=>/^date/i.test(String(c).trim()))&&r.some(c=>/debit|credit/i.test(String(c))));
+if(hi>=0){S.tsh.push({name:f.name.replace(/\.xlsx?$/i,'')+' › '+name,h:rows[hi].map(c=>String(c).trim()),rows:rows.slice(hi+1),on:true});n++}}
+if(!n)bad.push(f.name)}
+e.target.value='';if(!S.tsh.length){$('map').innerHTML='';msg('No sheet with a Date column and Debit/Credit columns was found in the Tally file. Re-export the ledger from Tally with vouchers included.');return}
+if(!S.map.date){const h0=S.tsh[0].h,used=new Set();S.map={};ROLES.forEach(([k,,re])=>{const i=h0.findIndex((x,j)=>x&&!used.has(j)&&re.test(x));S.map[k]=i>=0?h0[i]:'';if(i>=0)used.add(i)})}
+drawMap();msg(`Tally: ${S.tsh.length} ledger sheet(s) loaded. Check the column mapping, then reconcile.`+(bad.length?` No ledger data in: ${bad.join(', ')}`:''))};
+function drawMap(){const o=[...new Set(S.tsh.flatMap(s=>s.h).filter(Boolean))];
+$('map').innerHTML='<h3>Tally columns</h3><div class="g">'+ROLES.map(([k,l])=>`<label>${l}<select data-k="${k}"><option value="">(none)</option>${o.map(x=>`<option${x===S.map[k]?' selected':''}>${esc(x)}</option>`).join('')}</select></label>`).join('')+'</div><div class="g">'+S.tsh.map((s,i)=>`<label class="ck"><input type="checkbox" data-s="${i}" checked> ${esc(s.name)} (${s.rows.length} rows)</label>`).join('')+'</div>';
+$('map').querySelectorAll('select').forEach(s=>s.onchange=()=>S.map[s.dataset.k]=s.value);
+$('map').querySelectorAll('[data-s]').forEach(c=>c.onchange=()=>S.tsh[c.dataset.s].on=c.checked)}
+function parseT(fl){const T=[];let open=0;
+for(const sh of S.tsh){if(!sh.on)continue;const ix={};ROLES.forEach(([k])=>ix[k]=S.map[k]?sh.h.indexOf(S.map[k]):-1);
+for(const row of sh.rows){const g=k=>ix[k]>=0?row[ix[k]]:'',part=String(g('part')),dr=num(g('debit')),cr=num(g('credit'));
+if(/opening balance/i.test(part)){open+=(cr-dr)*fl;continue}
+const dt=pd(g('date'));if(dt==null||/^(closing balance|grand total)/i.test(part))continue;
+const t={sheet:sh.name,date:dt,part,vtype:String(g('vtype')),vno:String(g('vno')),ref:String(g('ref')),narr:String(g('narr')),amt:(cr-dr)*fl,dr,cr};
+t.k=toks([t.vno,t.ref,t.narr,t.part].join(' '));T.push(t)}}
+return{T,open}}
+const CAUSE={F4:'Payment/suspense receipt not booked in Tally',E4:'TDS 194Q (vehicle) not booked in Tally',E5:'TDS 194Q (parts) not booked in Tally',DL:'Vehicle invoice not booked in Tally',DI:'Parts invoice not booked in Tally'};
+const r2=n=>Math.round(n*100)/100,sm=a=>r2(a.reduce((s,x)=>s+x.amt,0)),mk=d=>d==null?'n/a':new Date(d).toISOString().slice(0,7);
+function run(){if(!S.bf.length||!S.tsh.length){msg('Add the BMW statement(s) and a valid Tally export first.');return}
+const tol=+$('tol').value||0,win=(+$('win').value||0)*864e5,fl=$('flip').checked?-1:1;
+const B=S.bf.flatMap(f=>f.rows.map(r=>({...r,m:null}))),{T,open}=parseT(fl);
+if(!T.length){msg('No dated Tally entries were read. Check the column mapping.');return}
+const gp={};S.bf.forEach(f=>{const k=f.code+'|'+f.seg;(gp[k]=gp[k]||[]).push(f)});const ob=r2(Object.values(gp).reduce((s,a)=>s+a[0].open,0)),ot=$('top').value!==''?+$('top').value:open,idx=new Map();
+T.forEach(t=>t.k.forEach(k=>{if(!idx.has(k))idx.set(k,[]);idx.get(k).push(t)}));
+const M=[],pair=(b,t,kind)=>{b.m=t;t.m=b;M.push({kind,b,t})},best=(c,f)=>c.reduce((a,x)=>!a||f(x)<f(a)?x:a,null);
+const cand=b=>[...b.k].flatMap(k=>idx.get(k)||[]).filter(t=>!t.m),dd=(b,t)=>b.date==null||t.date==null?9e15:Math.abs(b.date-t.date);
+B.forEach(b=>{const t=best(cand(b).filter(t=>Math.abs(b.amt-t.amt)<=tol),t=>dd(b,t));if(t)pair(b,t,'Reference + amount')});
+B.forEach(b=>{if(b.m||Math.abs(b.amt)<=tol*10)return;const t=best(T.filter(t=>!t.m&&Math.abs(b.amt-t.amt)<=tol&&dd(b,t)<=win),t=>dd(b,t));if(t)pair(b,t,'Amount + date')});
+B.forEach(b=>{if(b.m)return;const t=best(cand(b).filter(t=>Math.sign(t.amt)===Math.sign(b.amt)),t=>Math.abs(b.amt-t.amt));if(t)pair(b,t,'Reference only (amount differs)')});
+const G=[];for(const k of new Set(B.filter(b=>!b.m).flatMap(b=>[...b.k]))){const bs=B.filter(b=>!b.m&&b.k.has(k)),ts=(idx.get(k)||[]).filter(t=>!t.m);if(!bs.length||!ts.length)continue;
+const nb=sm(bs),nt=sm(ts);if(Math.abs(nb-nt)<=tol){const g={k,bs,ts,nb,nt};bs.forEach(b=>b.m=g);ts.forEach(t=>t.m=g);G.push(g)}}
+const oB=B.filter(b=>!b.m),oT=T.filter(t=>!t.m),ok=M.filter(x=>x.kind[0]!=='R'||x.kind[10]==='+'),df=M.filter(x=>!ok.includes(x));
+const mh=['Match basis','BMW doc no.','BMW reference','Type','BMW date','BMW amount','Tally date','Tally voucher','Tally amount','Difference','Date gap (days)'];
+const mr=x=>[x.kind,x.b.doc,x.b.ref,x.b.typ,d2s(x.b.date),x.b.amt,d2s(x.t.date),x.t.vno||x.t.ref||x.t.part,x.t.amt,r2(x.b.amt-x.t.amt),x.b.date==null||x.t.date==null?'':String(Math.round((x.t.date-x.b.date)/864e5))];
+const rg={};B.forEach(b=>{const k=[...toks(b.ref)][0]||b.doc;(rg[k]=rg[k]||[]).push(b)});
+const RF=Object.keys(rg).map(k=>{const bs=rg[k],ts=[...new Set(idx.get(k)||[])],nb=sm(bs),nt=sm(ts),d=r2(nb-nt);return[k,String(bs.length),nb,String(ts.length),nt,d,!ts.length?'Not in Tally':Math.abs(d)<=tol?'OK':'Differs']}).sort((a,b)=>Math.abs(b[5])-Math.abs(a[5]));
+const end=Math.max(...B.map(b=>b.date||0)),bk=a=>a<=30?'0-30':a<=60?'31-60':a<=90?'61-90':'90+';
+const OP=B.filter(b=>b.clr===''||b.clr==='0').map(b=>{const a=Math.round((end-b.date)/864e5);return[b.doc,b.ref,b.typ,d2s(b.date),String(a),b.amt,bk(a)]});
+const dc={},dk=(s,d,r,a)=>{const k=[s,d,r,a].join('|');(dc[k]=dc[k]||{s,d,r,a,n:0}).n++};
+B.forEach(b=>dk('BMW',d2s(b.date),b.ref+' ('+b.typ+')',b.amt));T.forEach(t=>dk('Tally',d2s(t.date),(t.vno||t.ref)+' '+t.part,t.amt));
+const DU=Object.values(dc).filter(o=>o.n>1).map(o=>[o.s,o.d,o.r,o.a,String(o.n)]);
+const sB=sm(oB),sT=sm(oT),mD=r2(M.reduce((s,x)=>s+x.b.amt-x.t.amt,0)+G.reduce((s,g)=>s+g.nb-g.nt,0)),cb=r2(ob+sm(B)),ct=r2(ot+sm(T)),diff=r2(cb-ct),un=r2(diff-(ob-ot+sB-sT+mD));
+const cat=t=>({DL:'Vehicle invoices (DL)',DI:'Parts invoices (DI)',E4:'TDS 194Q on vehicles (E4)',E5:'TDS 194Q on parts (E5)',F4:'Payments and suspense receipts (F4)'})[t]||'Other BMW entries ('+t+')';
+const ck={};oB.forEach(b=>{const k=cat(b.typ);(ck[k]=ck[k]||[]).push(b)});
+const RS=[['Closing balance as per BMW statement(s)','',cb],...Object.keys(ck).sort().map(k=>['Less: in BMW, not in Tally: '+k,String(ck[k].length),-sm(ck[k])]),['Add: in Tally, not in BMW',String(oT.length),sT],['Less: amount differences on paired and grouped entries',String(df.length+G.length),-mD],['Less: opening balance difference','',-r2(ob-ot)],['Closing balance as per Tally','',ct],['Check: should be 0.00','',r2(cb-sm(oB)+sT-mD-(ob-ot)-ct)]];
+const BS=S.bf.map(f=>{const rs=B.filter(b=>b.file===f.name),u=rs.filter(b=>!b.m);return[f.name,f.code+' '+f.seg,d2s(f.from)+' to '+d2s(f.pt),f.open,r2(sm(rs.filter(b=>b.amt>0))),r2(sm(rs.filter(b=>b.amt<0))),r2(f.open+sm(rs)),String(rs.length),String(rs.length-u.length),String(u.length),r2(sm(u))]});
+const TL={};T.forEach(t=>{const o=TL[t.sheet]=TL[t.sheet]||{n:0,dr:0,cr:0,u:0,ut:0};o.n++;o.dr+=t.dr;o.cr+=t.cr;if(!t.m){o.u++;o.ut+=t.amt}});
+const TR=Object.keys(TL).map(k=>{const o=TL[k];return[k,String(o.n),r2(o.dr),r2(o.cr),r2(o.cr-o.dr),String(o.n-o.u),String(o.u),r2(o.ut)]});
+const sum=[['BMW statement',''],['Opening balance',ob],['Invoices and debits (+)',r2(sm(B.filter(b=>b.amt>0)))],['Payments, TDS and credits (−)',r2(sm(B.filter(b=>b.amt<0)))],['Closing balance (BMW)',cb],
+['Tally ledgers',''],['Opening balance'+($('top').value===''&&!open?' (none found, taken as 0)':''),ot],['Net movement',sm(T)],['Closing balance (Tally)',ct],
+['Difference (BMW − Tally)',diff],['What explains the difference',''],['Opening balance difference',r2(ob-ot)],['Entries only in BMW (+)',sB],['Entries only in Tally (−)',-sT],['Amount differences on paired entries',mD],['Unexplained (should be 0.00)',un],
+['Match counts',''],['BMW lines / Tally lines',`${B.length} / ${T.length}`],['Matched by reference + amount',String(M.filter(x=>x.kind[0]==='R'&&x.kind[10]==='+').length)],['Matched by amount + date',String(M.filter(x=>x.kind[0]==='A').length)],['Matched as a group (several lines, net equal)',String(G.length)],['Reference found, amount differs',String(df.length)],['Only in BMW',String(oB.length)],['Only in Tally',String(oT.length)],['Open items on BMW statement (no clearing document), by age',''],...['0-30','31-60','61-90','90+'].map(k=>['Open items aged '+k+' days',r2(OP.filter(x=>x[6]===k).reduce((s,x)=>s+x[5],0))]),['Statement continuity',''],
+...Object.values(gp).flatMap(a=>a.slice(0,-1).flatMap((f,i)=>{const n=a[i+1],g=f.pt!=null&&n.from!=null?Math.round((n.from-f.pt)/864e5)-1:0;return[[`${f.name} closing vs ${n.name} opening (should be 0.00)`,r2(f.open+sm(f.rows)-n.open)],[`Gap or overlap between ${f.name} and ${n.name} (days, should be 0)`,String(g)]]}))];
+const ty={};B.forEach(b=>{const o=ty[b.typ]=ty[b.typ]||{n:0,t:0,u:0,ut:0};o.n++;o.t+=b.amt;if(!b.m){o.u++;o.ut+=b.amt}});
+const mo={};B.forEach(b=>{const o=mo[mk(b.date)]=mo[mk(b.date)]||{b:0,t:0,u:0};o.b+=b.amt;if(!b.m)o.u++});T.forEach(t=>{const o=mo[mk(t.date)]=mo[mk(t.date)]||{b:0,t:0,u:0};o.t+=t.amt});
+R={sum,diff,un,sets:{
+'Reconciliation statement':{h:['Particulars','Lines','Amount'],r:RS},
+'By statement':{h:['Statement','Code / segment','Period','Opening','Invoices (+)','Payments and credits (−)','Closing','Lines','Matched','Unmatched','Unmatched amount'],r:BS},
+'By Tally ledger':{h:['Tally ledger sheet','Entries','Debit total','Credit total','Net (credit − debit)','Matched','Unmatched','Unmatched amount'],r:TR},
+'Matched':{h:mh,r:ok.map(mr)},'Amount differences':{h:mh,r:df.map(mr)},
+'Only in BMW':{h:['BMW doc no.','Reference','Assignment','Type','Posting date','Header text','Amount','Clearing doc','Likely cause','Statement'],r:oB.map(b=>[b.doc,b.ref,b.asg,b.typ,d2s(b.date),b.hdr,b.amt,b.clr,CAUSE[b.typ]||'Check manually',b.file])},
+'Only in Tally':{h:['Ledger sheet','Date','Particulars','Voucher type','Voucher no.','Narration','Amount','Note'],r:oT.map(t=>[t.sheet,d2s(t.date),t.part,t.vtype,t.vno,t.narr,t.amt,'Not on BMW statement: check period, ledger or posting'])},
+'Group matches':{h:['Key','BMW lines','BMW net','Tally lines','Tally net','Difference','Types'],r:G.map(g=>[g.k,String(g.bs.length),g.nb,String(g.ts.length),g.nt,r2(g.nb-g.nt),[...new Set(g.bs.map(b=>b.typ))].join(', ')])},
+'By reference':{h:['Reference','BMW lines','BMW net','Tally lines','Tally net','Difference','Status'],r:RF},
+'Open items':{h:['Doc no.','Reference','Type','Posting date','Age (days)','Amount','Age bucket'],r:OP},
+'Duplicates':{h:['Source','Date','Reference / voucher','Amount','Count'],r:DU},
+'By type':{h:['Type','Lines','Total amount','Unmatched lines','Unmatched amount'],r:Object.keys(ty).sort().map(k=>[k,String(ty[k].n),r2(ty[k].t),String(ty[k].u),r2(ty[k].ut)])},
+'By month':{h:['Month','BMW net','Tally net','Difference','BMW lines unmatched'],r:Object.keys(mo).sort().map(k=>[k,r2(mo[k].b),r2(mo[k].t),r2(mo[k].b-mo[k].t),String(mo[k].u)])}}};
+$('out').hidden=false;$('ex').disabled=$('csv').disabled=$('pr').disabled=false;tab='Summary';msg(`Done: ${M.length} pairs matched, ${oB.length} only in BMW, ${oT.length} only in Tally.`);draw()}
+function tbl(h,r,q){q=q.toLowerCase();let rows=q?r.filter(x=>x.join(' ').toLowerCase().includes(q)):r;if(SO.t===tab&&SO.c!=null){const nv=v=>typeof v==='number'?v:/^-?\d+(\.\d+)?$/.test(v)?+v:null;rows=[...rows].sort((a,b)=>{const x=nv(a[SO.c]),y=nv(b[SO.c]);return SO.d*(x!=null&&y!=null?x-y:String(a[SO.c]).localeCompare(String(b[SO.c])))})}
+const cellHtml=c=>{if(typeof c==='number')return`<td class="n">${fmt(c)}</td>`;const s=String(c),cls=s==='OK'?' class="ok"':(s==='Not in Tally'||s==='Differs')?' class="bad"':'';return`<td${cls}>${esc(c)}</td>`};
+return`<div class="sc"><table><thead><tr>${h.map((x,i)=>`<th data-c="${i}" style="cursor:pointer">${esc(x)}${SO.t===tab&&SO.c===i?(SO.d>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead><tbody>${rows.map(x=>`<tr${x[1]===''&&h[1]==='Amount / count'?' class="s"':''}>${x.map(cellHtml).join('')}</tr>`).join('')}</tbody></table></div><p class="mut">${rows.length} of ${r.length} rows</p>`}
+function draw(){const names=['Summary',...Object.keys(R.sets)];
+$('tabs').innerHTML=names.map(n=>`<button class="t${n===tab?' on':''}" data-n="${n}">${n}${n==='Summary'?'':' ('+R.sets[n].r.length+')'}</button>`).join('');
+$('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{tab=b.dataset.n;draw()});
+const q=$('q').value;$('view').innerHTML=tab==='Summary'?`<div class="ban">Closing difference: <b>${fmt(R.diff)}</b>. Unexplained: <b class="${Math.abs(R.un)<0.01?'ok':'bad'}">${fmt(R.un)}</b></div>`+tbl(['Item','Amount / count'],R.sum,q):tbl(R.sets[tab].h,R.sets[tab].r,q);$('view').querySelectorAll('th').forEach(th=>th.onclick=()=>{const c=+th.dataset.c;SO={t:tab,c,d:SO.t===tab&&SO.c===c?-SO.d:1};draw()})}
+$('csv').onclick=()=>{const t=tab==='Summary'?{h:['Item','Amount / count'],r:R.sum}:R.sets[tab],c=v=>'"'+String(v).replace(/"/g,'""')+'"',a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+[t.h,...t.r].map(r=>r.map(c).join(',')).join('\n')],{type:'text/csv'}));a.download=tab.replace(/\W+/g,'_')+'.csv';a.click()};
+$('pr').onclick=()=>window.print();
+$('q').oninput=()=>R&&draw();$('go').onclick=run;
+$('ex').onclick=()=>{const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Item','Amount / count'],...R.sum]),'Summary');
+for(const k in R.sets)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([R.sets[k].h,...R.sets[k].r]),k);XLSX.writeFile(wb,'BMW_vs_Tally_Reconciliation.xlsx')};
+const PREF_KEY='vcpl_bmw_stmt_prefs_v1';
+try{const p=JSON.parse(localStorage.getItem(PREF_KEY)||'null');if(p){if(p.tol!=null)$('tol').value=p.tol;if(p.win!=null)$('win').value=p.win;if(p.top!=null)$('top').value=p.top;if(typeof p.flip==='boolean')$('flip').checked=p.flip}}catch{}
+const savePrefs=()=>{try{localStorage.setItem(PREF_KEY,JSON.stringify({tol:$('tol').value,win:$('win').value,top:$('top').value,flip:$('flip').checked}))}catch{}};
+['tol','win','top','flip'].forEach(id=>$(id).addEventListener('change',savePrefs));
+</script></main></body></html>

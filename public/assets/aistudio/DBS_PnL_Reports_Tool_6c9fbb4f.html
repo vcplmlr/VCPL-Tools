@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DBS P&amp;L and Reports Tool</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://vcpltools.vercel.app/vcpl-tools/dbs-pnl-reports">
+<script>if(window.self===window.top&&!/[?&]raw=1\b/.test(location.search))location.replace('/vcpl-tools/dbs-pnl-reports');</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--ink:#14213d;--mut:#5b6475;--line:#d8dce4;--bg:#f3f5f8;--panel:#fff;--acc:#0e7c86;--acc2:#0a5c64;--sec:#e3e9f4;--tot:#eef1f6;--neg:#b3261e;--warn:#fff4d6}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Arial,sans-serif;font-size:14px;color:var(--ink);background:var(--bg)}
+header{background:var(--ink);color:#fff;padding:18px 28px}
+header h1{margin:0;font-size:20px;font-weight:600}
+header p{margin:4px 0 0;color:#b9c3d9;font-size:13px}
+main{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
+#drop{border:2px dashed #9aa6bf;border-radius:10px;background:var(--panel);padding:34px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+#drop.over,#drop:hover{border-color:var(--acc);background:#eef8f9}
+#drop strong{font-size:16px}
+#drop span{display:block;color:var(--mut);margin-top:6px}
+#drop:focus-visible,button:focus-visible,.tab:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+#msg{margin:12px 0;color:var(--mut)}
+#msg.err{color:var(--neg);font-weight:600}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:16px 0 8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 16px}
+.bar label{display:flex;gap:8px;align-items:center;cursor:pointer}
+.bar .sp{flex:1}
+button{font:inherit;background:var(--acc);color:#fff;border:0;border-radius:6px;padding:8px 16px;cursor:pointer;font-weight:600}
+button:hover{background:var(--acc2)}
+button.alt{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.tabs{display:flex;flex-wrap:wrap;gap:2px;border-bottom:2px solid var(--ink);margin-top:14px}
+.tab{background:#dfe4ee;border:0;border-radius:6px 6px 0 0;color:var(--ink);padding:9px 16px;font-weight:600}
+.tab[aria-selected=true]{background:var(--ink);color:#fff}
+.panel{background:var(--panel);border:1px solid var(--line);border-top:0;padding:18px;overflow-x:auto}
+h2{font-size:16px;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 14px;font-size:13px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{background:var(--ink);color:#fff;text-align:right;padding:7px 10px;font-weight:600;font-size:12.5px;position:sticky;top:0}
+th:first-child,td:first-child{text-align:left}
+td{padding:5px 10px;border-bottom:1px solid #eceff4;text-align:right;white-space:nowrap}
+td:first-child{white-space:normal;min-width:260px}
+tr.hdr td{background:var(--sec);font-weight:700;text-align:left}
+tr.tot td{background:var(--tot);font-weight:700;border-top:1px solid #9aa6bf}
+tr.np td{background:var(--tot);font-weight:700;border-top:1px solid #9aa6bf;border-bottom:3px double var(--ink)}
+tr.calc td{font-weight:600}
+.n{color:var(--neg)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:18px}
+.kpi{border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.kpi b{display:block;font-size:20px;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi small{color:var(--mut)}
+.note{background:var(--warn);border-radius:8px;padding:12px 14px;margin:14px 0;line-height:1.5}
+.small{color:var(--mut);font-size:12.5px;line-height:1.5;margin-top:12px}
+.empty{color:var(--mut);padding:30px 0;text-align:center}
+@media print{header,#drop,.bar,.tabs,#msg{display:none}.panel{border:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1>DBS P&amp;L and Reports Tool</h1>
+  <p>BMW dealer DBS monthly data in, P&amp;L, departmental P&amp;L, model margins and Excel report out. Runs in your browser; nothing is uploaded anywhere.</p>
+</header>
+<main>
+  <div id="drop" tabindex="0" role="button" aria-label="Choose or drop the DBS file">
+    <strong>Drop the DBS file here, or click to choose</strong>
+    <span>Accepts the .zip you download (even zip inside zip) or the .CSV directly</span>
+    <input id="file" type="file" accept=".zip,.csv,.CSV,.ZIP" hidden>
+  </div>
+  <div id="msg" aria-live="polite"></div>
+  <div id="app" hidden>
+    <div class="bar">
+      <label><input type="checkbox" id="stk" checked> Include stock adjustment in cost of sales</label>
+      <span class="sp"></span>
+      <button id="xl">Download Excel report</button>
+      <button id="pr" class="alt">Print this tab</button>
+    </div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="panel" id="panel"></div>
+  </div>
+</main>
+<script>
+"use strict";
+const DEPT={'00':'Admin / Back Office','01':'New Vehicles','02':'Used Vehicles','03':'Service','04':'Body & Paint','05':'Parts'};
+const DEPTS=['New Vehicles','Used Vehicles','Service','Body & Paint','Parts','Admin / Back Office'];
+const GN={'400':'Vehicle sales (new cars)','410':'Discounts on cars','420':'Sales: used cars / labour / spares / accessories','430':'Other vehicle income (430)','440':'Facilitation charges, payouts & other vehicle income','443':'Service provided under agreement','450':'Service packages (BSI) revenue','460':'Insurance & finance commissions','463':'Other commissions','470':'RSA / BMW Secure commission & parts support','480':'BMW support income','483':'BMW support income (Joy)','81x':'Interest on cars (40% GST), net debit','87x':'Other income & BMW un-billed accruals','88x':'Other (88x)','520':'Direct costs (520)','530':'Freight & delivery costs','533':'Direct costs (533)','540':'Co-dealer incentives, USL interest, job work & consumables','550':'BSI / BRI package costs','621':'Sales / service incentives','625':'FOC allowed','629':'Staff welfare, maintenance & security','63x':'Salaries, wages & overtime','641':'Business promotion & events','651':'Demo fuel / refurbishment','657':'Interest on cars / spares','659':'Other dept. costs (659)','671':'Training','672':'Conveyance & travelling','711':'PF contributions','712':'Admin (712)','713':'Back-office incentives','731':'IT, internet & computer maintenance','741':'Rent','743':'Repairs, maintenance & VAS vendor','744':'Electricity & generator fuel','746':'Admin (746)','753':'Vehicle running, PDI, claims & vehicle insurance','760':'Professional & BMW system charges','762':'Admin (762)','764':'Insurance on assets','766':'Printing, postage, communication & office','767':'Bank charges','768':'Admin (768)','769':'General, ESIC, RTO, shared electricity','779':'Admin (779)','782':'Interest on directors unsecured loan','786':'Interest on car loan','920':'Purchases (cars / spares / paints) net of incentives','923':'Purchases (923)'};
+const OTHER='Other / unallocated';
+const SERIES=['2 Series','3 Series','5 Series','7 Series','M Series','X1','X3','X5','X6','X7','iX1',OTHER];
+const SMAP={'2 series':'2 Series','2 tourer series':'2 Series','3 series':'3 Series','5 series':'5 Series','7 series':'7 Series','m series':'M Series','x1':'X1','x3':'X3','x5':'X5','x6':'X6','x7':'X7','ix1':'iX1'};
+const seriesOf=p=>p?(SMAP[p.trim().toLowerCase()]||OTHER):'';
+
+function lineOf(g,d){
+  if(['400','420','450'].includes(g))return 'Sales & service revenue';
+  if(g==='410')return 'Discounts & allowances';
+  if(['430','440','443','460','463','470'].includes(g))return 'F&I, commissions & other operating income';
+  if(['480','483'].includes(g))return 'BMW support & incentive income';
+  if(g==='87x'&&d.includes('Un Billed Revenue'))return 'BMW un-billed revenue accruals';
+  if(['81x','87x','88x'].includes(g))return 'Other income / (expense), net';
+  if(['920','923'].includes(g))return d.includes('Incentive')?'BMW incentives netted in purchases':'Purchases (cost of sales, as booked)';
+  if(['520','530','533','540','550'].includes(g))return 'Direct & variable selling costs';
+  if(['621','63x'].includes(g))return 'Salaries, wages & incentives';
+  if(['625','629'].includes(g))return 'Staff welfare, maintenance & security';
+  if(g==='641')return 'Marketing & business promotion';
+  if(g==='651')return 'Demo vehicle running costs';
+  if(g==='657')return 'Interest on stock (cars / spares)';
+  if(['659','671','672'].includes(g))return 'Training, travel & conveyance';
+  if(['711','712','713'].includes(g))return 'Statutory contributions & back-office staff';
+  if(g==='731')return 'IT & computer expenses';
+  if(g==='741')return 'Rent';
+  if(g==='743')return 'Repairs, maintenance & VAS vendor';
+  if(g==='744')return 'Electricity & generator fuel';
+  if(g==='753')return 'Vehicle running, PDI & internal claims';
+  if(['760','762'].includes(g))return 'Professional & BMW system charges';
+  if(g==='764')return 'Insurance on assets';
+  if(g==='766')return 'Office, printing & communication';
+  if(['767','768'].includes(g))return 'Bank charges';
+  if(['769','779','746'].includes(g))return 'General & other expenses';
+  if(['782','786'].includes(g))return 'Interest & finance charges';
+  return null;
+}
+
+const SPEC=[
+['hdr','REVENUE'],['rev','Sales & service revenue'],['rev','Discounts & allowances'],
+['sum','Net sales',['Sales & service revenue','Discounts & allowances']],
+['rev','F&I, commissions & other operating income'],['rev','BMW support & incentive income'],
+['tot','TOTAL OPERATING REVENUE',['Net sales','F&I, commissions & other operating income','BMW support & incentive income']],
+['hdr','COST OF SALES'],['cost','Purchases (cost of sales, as booked)'],['cost','BMW incentives netted in purchases'],
+['stock','Change in stock (balance-sheet stock accounts)'],
+['tot','TOTAL COST OF SALES',['Purchases (cost of sales, as booked)','BMW incentives netted in purchases','Change in stock (balance-sheet stock accounts)']],
+['gp','GROSS PROFIT'],
+['hdr','DIRECT & VARIABLE COSTS'],['cost','Direct & variable selling costs'],['gc','GROSS CONTRIBUTION'],
+['hdr','DEPARTMENTAL EXPENSES'],['cost','Salaries, wages & incentives'],['cost','Staff welfare, maintenance & security'],['cost','Marketing & business promotion'],['cost','Demo vehicle running costs'],['cost','Interest on stock (cars / spares)'],['cost','Training, travel & conveyance'],
+['tot','Total departmental expenses',['Salaries, wages & incentives','Staff welfare, maintenance & security','Marketing & business promotion','Demo vehicle running costs','Interest on stock (cars / spares)','Training, travel & conveyance']],
+['dc','DEPARTMENTAL CONTRIBUTION'],
+['hdr','ADMIN & OVERHEAD EXPENSES'],['cost','Statutory contributions & back-office staff'],['cost','IT & computer expenses'],['cost','Rent'],['cost','Repairs, maintenance & VAS vendor'],['cost','Electricity & generator fuel'],['cost','Vehicle running, PDI & internal claims'],['cost','Professional & BMW system charges'],['cost','Insurance on assets'],['cost','Office, printing & communication'],['cost','Bank charges'],['cost','General & other expenses'],['cost','Interest & finance charges'],
+['tot','Total admin & overheads',['Statutory contributions & back-office staff','IT & computer expenses','Rent','Repairs, maintenance & VAS vendor','Electricity & generator fuel','Vehicle running, PDI & internal claims','Professional & BMW system charges','Insurance on assets','Office, printing & communication','Bank charges','General & other expenses','Interest & finance charges']],
+['op','OPERATING PROFIT'],
+['hdr','OTHER INCOME / (EXPENSE)'],['rev','BMW un-billed revenue accruals'],['rev','Other income / (expense), net'],
+['tot','Net other income',['BMW un-billed revenue accruals','Other income / (expense), net']],
+['np','NET PROFIT BEFORE DEPRECIATION & TAX']];
+
+let D=null, current='Summary';
+
+/* ---------- file reading ---------- */
+async function collectCsv(buf,name,out,depth){
+  if(depth>4)return;
+  const lower=name.toLowerCase();
+  if(lower.endsWith('.zip')){
+    const z=await JSZip.loadAsync(buf);
+    for(const f of Object.values(z.files)){
+      if(f.dir)continue;
+      const l=f.name.toLowerCase();
+      if(l.endsWith('.zip'))await collectCsv(await f.async('arraybuffer'),f.name,out,depth+1);
+      else if(l.endsWith('.csv')||l.endsWith('.txt'))out.push({name:f.name,text:await f.async('string')});
+    }
+  }else out.push({name,text:new TextDecoder('utf-8').decode(buf)});
+}
+function parse(text){
+  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(l=>l.trim());
+  const head=lines[0].split('\t').map(s=>s.trim());
+  const ix=n=>head.indexOf(n);
+  const need=['Line Identifier','Description','OP Amount','Clg Amount','Account Class','Base Account'];
+  for(const n of need)if(ix(n)<0)throw new Error('Column "'+n+'" not found. This does not look like a DBS data file (tab-separated with a header row).');
+  const c={li:ix('Line Identifier'),de:ix('Description'),op:ix('OP Amount'),cl:ix('Clg Amount'),cls:ix('Account Class'),ba:ix('Base Account'),pr:ix('Product-Code'),mo:ix('Month'),yr:ix('Year'),dn:ix('Dealer No.')};
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const p=lines[i].split('\t');
+    if(p.length<head.length-2)continue;
+    const base=(p[c.ba]||'').trim();
+    rows.push({code:p[c.li].split('|')[0],ledger:p[c.de].split('|')[0].trim(),cls:p[c.cls].trim(),base,
+      group:base.slice(5),dcode:base.slice(2,4),prod:c.pr>=0?(p[c.pr]||'').trim():'',
+      op:parseFloat(p[c.op])||0,clg:parseFloat(p[c.cl])||0});
+  }
+  const first=lines[1].split('\t');
+  return{rows,month:c.mo>=0?first[c.mo]:'',year:c.yr>=0?first[c.yr]:'',dealer:c.dn>=0?first[c.dn]:''};
+}
+function build(parsed){
+  const pl=[],stock=[];let bsMov=0,tbMov=0,unmapped=[];
+  for(const r of parsed.rows){
+    tbMov+=r.clg-r.op;
+    if(r.cls==='Income'||r.cls==='Expenses'){
+      const dept=DEPT[r.dcode]||'Admin / Back Office';
+      const line=lineOf(r.group,r.ledger);
+      if(!line){if(r.clg!==0)unmapped.push(r.group+' '+r.ledger);continue;}
+      pl.push({...r,dept,line,impact:-r.clg,series:dept==='New Vehicles'?seriesOf(r.prod):''});
+    }else{
+      bsMov+=r.clg-r.op;
+      const sd={'0100x141':'New Vehicles','0100x142':'Used Vehicles','0100x143':'Parts'}[r.base];
+      if(sd&&(r.op!==0||r.clg!==0)){
+        const k=r.ledger.split('Stock-').pop().trim().toLowerCase();
+        stock.push({dept:sd,series:sd==='New Vehicles'?(SMAP[k]||OTHER):'',mov:r.clg-r.op});
+      }
+    }
+  }
+  return{pl,stock,bsMov,tbMov,unmapped,month:parsed.month,year:parsed.year,dealer:parsed.dealer,n:parsed.rows.length};
+}
+
+/* ---------- calculations ---------- */
+const on=()=>document.getElementById('stk').checked?1:0;
+const agg=(line,dept)=>D.pl.reduce((s,r)=>(r.line===line&&(!dept||r.dept===dept))?s+r.impact:s,0);
+const stockMov=dept=>D.stock.reduce((s,r)=>(!dept||r.dept===dept)?s+r.mov:s,0);
+function statement(depts){ // depts: array of dept name or null (total)
+  const out=[];const idx={};
+  for(const sp of SPEC){
+    const [k,label,parts]=sp;
+    const row={kind:k,label,v:[]};idx[label]=row;
+    if(k!=='hdr'){
+      depts.forEach((d,j)=>{
+        let v=0;
+        if(k==='rev')v=agg(label,d);
+        else if(k==='cost')v=-agg(label,d);
+        else if(k==='stock')v=-stockMov(d)*on();
+        else if(k==='sum'||k==='tot')v=parts.reduce((s,x)=>s+idx[x].v[j],0);
+        else if(k==='gp')v=idx['TOTAL OPERATING REVENUE'].v[j]-idx['TOTAL COST OF SALES'].v[j];
+        else if(k==='gc')v=idx['GROSS PROFIT'].v[j]-idx['Direct & variable selling costs'].v[j];
+        else if(k==='dc')v=idx['GROSS CONTRIBUTION'].v[j]-idx['Total departmental expenses'].v[j];
+        else if(k==='op')v=idx['DEPARTMENTAL CONTRIBUTION'].v[j]-idx['Total admin & overheads'].v[j];
+        else if(k==='np')v=idx['OPERATING PROFIT'].v[j]+idx['Net other income'].v[j];
+        row.v.push(v);
+      });
+    }
+    out.push(row);
+  }
+  return{rows:out,idx};
+}
+function nvModels(){
+  const rows=SERIES.map(s=>{
+    const sum=(g)=>D.pl.reduce((a,r)=>(r.dept==='New Vehicles'&&r.group===g&&r.series===s)?a+r.impact:a,0);
+    const sales=sum('400'),disc=sum('410');
+    const purch=-D.pl.reduce((a,r)=>(r.dept==='New Vehicles'&&r.line==='Purchases (cost of sales, as booked)'&&r.series===s)?a+r.impact:a,0);
+    const stk=-D.stock.reduce((a,r)=>(r.dept==='New Vehicles'&&r.series===s)?a+r.mov:a,0)*on();
+    const net=sales+disc,cogs=purch+stk;
+    return{s,sales,disc,net,purch,stk,cogs,m:net-cogs};
+  });
+  const tot={s:'TOTAL NEW VEHICLES'};
+  ['sales','disc','net','purch','stk','cogs','m'].forEach(k=>tot[k]=rows.reduce((a,r)=>a+r[k],0));
+  const comb={s:'3 Series + M Series combined'};
+  ['sales','disc','net','purch','stk','cogs','m'].forEach(k=>comb[k]=rows[1][k]+rows[4][k]);
+  return{rows,tot,comb};
+}
+function analysis(cls){
+  const groups=[...new Set(D.pl.filter(r=>r.cls===cls).map(r=>r.group))].sort((a,b)=>a.replace('x','~').localeCompare(b.replace('x','~')));
+  const rows=[];
+  for(const g of groups){
+    const v=DEPTS.map(d=>D.pl.reduce((s,r)=>(r.cls===cls&&r.group===g&&r.dept===d)?s+(cls==='Income'?r.impact:-r.impact):s,0));
+    const t=v.reduce((a,b)=>a+b,0);
+    if(v.every(x=>Math.abs(x)<0.005))continue;
+    rows.push({g,name:GN[g]||g,v,t});
+  }
+  const tot=DEPTS.map((_,j)=>rows.reduce((s,r)=>s+r.v[j],0));
+  return{rows,tot,all:tot.reduce((a,b)=>a+b,0)};
+}
+
+/* ---------- formatting ---------- */
+const fmt=n=>{if(n==null||isNaN(n))return '';if(Math.abs(n)<0.5)return '-';const s=Math.abs(n).toLocaleString('en-IN',{maximumFractionDigits:0});return n<0?'('+s+')':s;};
+const cell=n=>'<td'+(n<-0.5?' class="n"':'')+'>'+fmt(n)+'</td>';
+const pct=(a,b)=>b?((a/b*100).toFixed(1)+'%'):'-';
+const lakh=n=>(n/100000).toLocaleString('en-IN',{minimumFractionDigits:1,maximumFractionDigits:1});
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const MON=['','January','February','March','April','May','June','July','August','September','October','November','December'];
+const period=()=>(MON[parseInt(D.month)]||('Month '+D.month))+' '+D.year;
+
+function stmtTable(heads,rows,withPct){
+  let h='<table><thead><tr><th>Particulars (INR)</th>'+heads.map(x=>'<th>'+esc(x)+'</th>').join('')+(withPct?'<th>% of operating revenue</th>':'')+'</tr></thead><tbody>';
+  const base=withPct?rows.find(r=>r.label==='TOTAL OPERATING REVENUE').v[0]:0;
+  for(const r of rows){
+    if(r.kind==='hdr'){h+='<tr class="hdr"><td colspan="'+(heads.length+1+(withPct?1:0))+'">'+esc(r.label)+'</td></tr>';continue;}
+    const cls=['tot','gp','gc','dc','op'].includes(r.kind)?'tot':r.kind==='np'?'np':r.kind==='sum'?'calc':'';
+    h+='<tr class="'+cls+'"><td>'+esc(r.label)+'</td>'+r.v.map(cell).join('')+(withPct?'<td>'+pct(r.v[0],base)+'</td>':'')+'</tr>';
+  }
+  return h+'</tbody></table>';
+}
+
+/* ---------- tabs ---------- */
+const TABS=['Summary','P&L','Dept P&L','NV Models','Revenue Analysis','Expense Analysis','Checks'];
+function render(){
+  if(!D)return;
+  document.getElementById('tabs').innerHTML=TABS.map(t=>'<button class="tab" role="tab" aria-selected="'+(t===current)+'" data-t="'+esc(t)+'">'+esc(t)+'</button>').join('');
+  document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{current=b.dataset.t;render();});
+  const P=document.getElementById('panel');
+  P.innerHTML=({'Summary':vSummary,'P&L':vPL,'Dept P&L':vDept,'NV Models':vNV,'Revenue Analysis':()=>vAn('Income'),'Expense Analysis':()=>vAn('Expenses'),'Checks':vChecks})[current]();
+}
+function head(t,s){return '<h2>'+t+' - '+esc(period())+'</h2><p class="sub">Dealer '+esc(D.dealer)+' | '+s+'</p>';}
+function vSummary(){
+  const T=statement([null]).idx,g=l=>T[l].v[0];
+  const rev=g('TOTAL OPERATING REVENUE'),np=g('NET PROFIT BEFORE DEPRECIATION & TAX');
+  const booked=D.pl.reduce((s,r)=>s+r.impact,0),adj=booked+stockMov(null);
+  const K=(l,v)=>'<div class="kpi"><small>'+l+'</small><b>'+fmt(v)+'</b><small>INR '+lakh(v)+' lakh | '+pct(v,rev)+'</small></div>';
+  let h=head('Summary','amounts in INR')+'<div class="kpis">'+K('Operating revenue',rev)+K('Gross profit',g('GROSS PROFIT'))+K('Departmental contribution',g('DEPARTMENTAL CONTRIBUTION'))+K('Admin & overheads',g('Total admin & overheads'))+K('Net profit before depreciation & tax',np)+'</div>';
+  h+='<h2>Profit reconciliation</h2><table><tbody>'+
+   '<tr><td>Net profit as per DBS P&amp;L accounts (Income less Expenses)</td>'+cell(booked)+'</tr>'+
+   '<tr><td>Net change in stock accounts (decrease reduces profit)</td>'+cell(stockMov(null))+'</tr>'+
+   '<tr class="tot"><td>Net profit after stock adjustment</td>'+cell(adj)+'</tr>'+
+   '<tr><td>Net movement in all balance-sheet accounts (should equal profit if books are complete)</td>'+cell(D.bsMov)+'</tr>'+
+   '<tr><td>Unexplained difference</td>'+cell(adj-D.bsMov)+'</tr></tbody></table>';
+  const dt=statement(DEPTS).rows;const R=l=>dt.find(r=>r.label===l);
+  h+='<h2 style="margin-top:22px">Department snapshot</h2><table><thead><tr><th>Department</th><th>Operating revenue</th><th>Gross profit</th><th>Gross profit %</th><th>Contribution after dept. costs</th></tr></thead><tbody>';
+  DEPTS.slice(0,5).forEach((d,j)=>{const rv=R('TOTAL OPERATING REVENUE').v[j],gp=R('GROSS PROFIT').v[j];h+='<tr><td>'+d+'</td>'+cell(rv)+cell(gp)+'<td>'+pct(gp,rv)+'</td>'+cell(R('DEPARTMENTAL CONTRIBUTION').v[j])+'</tr>';});
+  h+='<tr><td>Admin overheads less other income (not allocated)</td><td></td><td></td><td></td>'+cell(R('NET PROFIT BEFORE DEPRECIATION & TAX').v[5])+'</tr>';
+  h+='<tr class="tot"><td>Total / net profit</td>'+cell(rev)+cell(g('GROSS PROFIT'))+'<td>'+pct(g('GROSS PROFIT'),rev)+'</td>'+cell(np)+'</tr></tbody></table>';
+  h+='<div class="note"><b>How to read this.</b> P&amp;L ledgers in the DBS file have zero opening balances, so closing amounts are treated as one month. The DBS P&amp;L accounts hold purchases but no stock-change entry, so the tool adds the movement in the stock accounts to cost of sales. Untick the box above to see the P&amp;L exactly as extracted. Profit is before depreciation, tax and year-end provisions, which are not in the file.</div>';
+  if(D.unmapped.length)h+='<div class="note"><b>Unmapped accounts.</b> These P&amp;L accounts have balances but are not in the tool\'s mapping and are left out: '+esc(D.unmapped.slice(0,10).join('; '))+'</div>';
+  return h;
+}
+function vPL(){const s=statement([null]);return head('Profit & Loss Statement','stock adjustment '+(on()?'included':'not included'))+stmtTable(['Amount'],s.rows,true);}
+function vDept(){const s=statement([...DEPTS,null]);return head('Departmental P&L','department taken from the account code')+stmtTable([...DEPTS,'Total'],s.rows,false)+'<p class="small">Admin / Back Office carries shared overheads (rent, utilities, finance costs) and is not allocated to departments.</p>';}
+function vNV(){
+  const m=nvModels();
+  let h=head('New Vehicle Margin by Model Series','sales, discounts, purchases and stock movement')+'<table><thead><tr><th>Model series</th><th>Car sales</th><th>Discounts</th><th>Net sales</th><th>Purchases</th><th>Stock decrease (+) / increase (-)</th><th>Cost of sales</th><th>Vehicle margin</th><th>Margin %</th></tr></thead><tbody>';
+  const row=(r,c)=>'<tr class="'+(c||'')+'"><td>'+esc(r.s)+'</td>'+[r.sales,r.disc,r.net,r.purch,r.stk,r.cogs,r.m].map(cell).join('')+'<td>'+pct(r.m,r.net)+'</td></tr>';
+  m.rows.forEach(r=>h+=row(r));h+=row(m.tot,'tot')+row(m.comb,'calc');
+  return h+'</tbody></table><p class="small">"Other / unallocated" holds the generic Discounts on Cars ledger and purchases of cars not tagged to a series. M-series cars usually sit in the 3 Series stock account, so read the combined row. With the stock adjustment off, model margins show purchases only and are not meaningful. Unit counts are not in the DBS file.</p>';
+}
+function vAn(cls){
+  const a=analysis(cls);
+  let h=head(cls==='Income'?'Revenue Analysis':'Expense Analysis',cls==='Income'?'credits positive, debits negative':'as booked in DBS, before stock adjustment')+'<table><thead><tr><th>Account group</th>'+DEPTS.map(d=>'<th>'+d+'</th>').join('')+'<th>Total</th></tr></thead><tbody>';
+  a.rows.forEach(r=>h+='<tr><td>'+esc(r.g+'  '+r.name)+'</td>'+r.v.map(cell).join('')+cell(r.t)+'</tr>');
+  return h+'<tr class="tot"><td>TOTAL</td>'+a.tot.map(cell).join('')+cell(a.all)+'</tr></tbody></table>';
+}
+function vChecks(){
+  const inc=D.pl.filter(r=>r.cls==='Income').reduce((s,r)=>s+r.impact,0),exp=D.pl.filter(r=>r.cls==='Expenses').reduce((s,r)=>s+r.clg,0);
+  return head('Checks','data and tie-out')+'<table><tbody>'+
+  '<tr><td>Rows read from file</td><td>'+D.n.toLocaleString('en-IN')+'</td></tr>'+
+  '<tr><td>P&amp;L ledgers used</td><td>'+D.pl.length+'</td></tr>'+
+  '<tr><td>Total income (net credit)</td>'+cell(inc)+'</tr>'+
+  '<tr><td>Total expenses (net debit)</td>'+cell(exp)+'</tr>'+
+  '<tr><td>Trial balance movement, all accounts (0 if complete)</td>'+cell(D.tbMov)+'</tr>'+
+  '<tr><td>Stock accounts movement</td>'+cell(stockMov(null))+'</tr>'+
+  '<tr><td>Trial balance gap left after stock movement</td>'+cell(D.tbMov+stockMov(null)*-1+0)+'</tr></tbody></table>'+
+  '<p class="small">If the trial balance gap equals the stock movement, the only missing piece is the stock entry, which this tool adds. Anything left over is worth checking with whoever prepares the DBS data.</p>';
+}
+
+/* ---------- export ---------- */
+function exportXlsx(){
+  const wb=XLSX.utils.book_new();
+  const add=(n,aoa,w)=>{const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=w.map(x=>({wch:x}));XLSX.utils.book_append_sheet(wb,ws,n);};
+  const sAoa=(heads,rows,withPct)=>{
+    const base=withPct?rows.find(r=>r.label==='TOTAL OPERATING REVENUE').v[0]:0;
+    const a=[['Particulars (INR)',...heads,...(withPct?['% of operating revenue']:[])]];
+    rows.forEach(r=>a.push(r.kind==='hdr'?[r.label]:[r.label,...r.v.map(x=>Math.round(x*100)/100),...(withPct?[base?r.v[0]/base:0]:[])]));
+    return a;
+  };
+  const tot=statement([null]).rows,dep=statement([...DEPTS,null]).rows;
+  const booked=D.pl.reduce((s,r)=>s+r.impact,0);
+  add('Summary',[['DBS P&L report - '+period()],['Dealer '+D.dealer],['Stock adjustment included',on()?'Yes':'No'],[],
+    ['Net profit as per DBS P&L accounts',booked],['Net change in stock accounts',stockMov(null)],['Net profit after stock adjustment',booked+stockMov(null)],
+    ['Net movement in balance-sheet accounts',D.bsMov],['Unexplained difference',booked+stockMov(null)-D.bsMov],[],
+    ['Net profit shown in this report',tot.find(r=>r.kind==='np').v[0]]],[48,18]);
+  add('P&L',sAoa(['Amount'],tot,true),[52,18,16]);
+  add('Dept P&L',sAoa([...DEPTS,'Total'],dep,false),[52,...Array(7).fill(18)]);
+  const m=nvModels();
+  add('NV Models',[['Model series','Car sales','Discounts','Net sales','Purchases','Stock decrease (+)','Cost of sales','Vehicle margin','Margin %'],...[...m.rows,m.tot,m.comb].map(r=>[r.s,r.sales,r.disc,r.net,r.purch,r.stk,r.cogs,r.m,r.net?r.m/r.net:0])],[34,...Array(8).fill(16)]);
+  for(const [n,c] of [['Revenue Analysis','Income'],['Expense Analysis','Expenses']]){
+    const a=analysis(c);
+    add(n,[['Group','Account group',...DEPTS,'Total'],...a.rows.map(r=>[r.g,r.name,...r.v,r.t]),['','TOTAL',...a.tot,a.all]],[9,52,...Array(7).fill(18)]);
+  }
+  add('PL_Data',[['Account code','Ledger','Class','Department','Group','P&L line','Series','DBS closing (Dr+/Cr-)','Profit impact'],...D.pl.map(r=>[r.code,r.ledger,r.cls,r.dept,r.group,r.line,r.series,r.clg,r.impact])],[24,44,10,20,8,40,16,18,16]);
+  XLSX.writeFile(wb,'DBS_PnL_Report_'+D.year+'_'+String(D.month).padStart(2,'0')+'.xlsx');
+}
+
+/* ---------- wiring ---------- */
+const msg=(t,e)=>{const m=document.getElementById('msg');m.textContent=t;m.className=e?'err':'';};
+async function handle(file){
+  try{
+    msg('Reading '+file.name+'...');
+    const out=[];await collectCsv(await file.arrayBuffer(),file.name,out,0);
+    const ok=out.filter(o=>o.text.indexOf('Line Identifier')>=0);
+    if(!ok.length)throw new Error('No DBS data CSV found in this file. Expected a tab-separated file with a "Line Identifier" column.');
+    D=build(parse(ok[0].text));
+    if(!D.pl.length)throw new Error('The file was read but has no Income or Expenses rows.');
+    document.getElementById('app').hidden=false;current='Summary';render();
+    msg('Loaded '+ok[0].name+': '+D.n.toLocaleString('en-IN')+' rows, '+period()+'.');
+  }catch(e){D=null;document.getElementById('app').hidden=true;msg(e.message,true);}
+}
+const drop=document.getElementById('drop'),inp=document.getElementById('file');
+drop.onclick=()=>inp.click();
+drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();inp.click();}};
+inp.onchange=()=>{if(inp.files[0])handle(inp.files[0]);inp.value='';};
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{if(e.dataTransfer.files[0])handle(e.dataTransfer.files[0]);});
+document.getElementById('stk').onchange=render;
+document.getElementById('xl').onclick=()=>{if(D)exportXlsx();};
+document.getElementById('pr').onclick=()=>window.print();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "VCPL Tools",
+  "description": "Free offline browser-based banking deposit slips, Form 26AS & GSTR-2B tax utilities, PDF suite, image studio, and all-in-one calculator. Designed by Arjun Bangera with ideas by Kaushik Bangera.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

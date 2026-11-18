@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Swatchbook – Advanced Colour Picker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&family=DM+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eceef2;--panel:#fff;--ink:#171a23;--mute:#5d6577;--line:#d6dae3;--r:14px;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161c;--panel:#1d2029;--ink:#eef0f5;--mute:#9aa2b5;--line:#2e3340;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14161c;--panel:#1d2029;--ink:#eef0f5;--mute:#9aa2b5;--line:#2e3340;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 "Bricolage Grotesque",system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+.mono{font-family:"DM Mono",ui-monospace,Menlo,monospace}
+#band{padding:28px clamp(16px,4vw,48px) 24px;transition:background .15s}
+#band h1{margin:0;font-weight:800;font-size:clamp(44px,12vw,128px);line-height:.95;letter-spacing:-.03em}
+#band p{margin:6px 0 16px;opacity:.8;max-width:60ch}
+.bar{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1.5px solid currentColor;background:transparent;border-radius:999px;padding:7px 16px;cursor:pointer;font-weight:600}
+.btn:hover{background:rgba(127,127,127,.18)}
+.btn:focus-visible,input:focus-visible,select:focus-visible,#sv:focus-visible,textarea:focus-visible{outline:3px solid #3b82f6;outline-offset:2px}
+main{padding:20px clamp(16px,4vw,48px) 48px;display:grid;gap:20px;max-width:1200px;margin:0 auto}
+.two{display:grid;gap:20px;grid-template-columns:minmax(0,420px) minmax(0,1fr)}
+@media(max-width:820px){.two{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+h2{margin:0 0 12px;font-size:18px;font-weight:800}
+.sub{color:var(--mute);font-size:14px;margin:-6px 0 12px}
+#sv{position:relative;width:100%;aspect-ratio:1/0.8;border-radius:10px;cursor:crosshair;touch-action:none;margin-bottom:14px}
+#knob{position:absolute;width:20px;height:20px;margin:-10px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1.5px #000,inset 0 0 0 1.5px #000;pointer-events:none}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:16px;border-radius:8px;margin:6px 0 12px;border:1px solid var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid #222;cursor:pointer}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid #222}
+#hue{background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+.txt{width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg)}
+.rows{display:grid;gap:6px}
+.row{display:grid;grid-template-columns:84px 1fr auto;gap:10px;align-items:center;width:100%;text-align:left;background:var(--bg);border:1px solid transparent;border-radius:10px;padding:8px 12px;cursor:pointer}
+.row:hover{border-color:var(--ink)}
+.row b{font-weight:600;color:var(--mute);font-size:14px}.row span{overflow-wrap:anywhere;font-size:14px}.row i{font-style:normal;font-size:12px;color:var(--mute)}
+.sw{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;background:var(--bg);padding:0;width:84px;text-align:center}
+.chip div{height:52px}.chip small{display:block;padding:4px 0;font-size:11px}
+.scale{display:grid;grid-template-columns:repeat(11,1fr);border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.scale button{border:0;height:64px;cursor:pointer;font-size:10px;padding:0}
+.grp{margin-bottom:14px}.grp h3{margin:0 0 6px;font-size:14px;font-weight:600;color:var(--mute)}
+.ctr{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:700px){.ctr{grid-template-columns:1fr}}
+#prev{border-radius:10px;padding:18px;min-height:130px}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:600;margin:0 6px 6px 0}
+.ok{background:#16a34a;color:#fff}.no{background:#dc2626;color:#fff}
+textarea{width:100%;min-height:150px;padding:12px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);font-size:13px;resize:vertical}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#171a23;color:#fff;padding:9px 18px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast.on{opacity:1}
+.ctl{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.ctl input[type=color]{width:46px;height:38px;border:1.5px solid var(--line);border-radius:8px;background:none;padding:2px}
+.ctl select{padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg)}
+.btn.d{color:var(--ink);border-color:var(--line)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<section id="band">
+  <h1 id="big" class="mono">#000000</h1>
+  <p id="nm"></p>
+  <div class="bar">
+    <button class="btn" id="eye">Pick from screen</button>
+    <button class="btn" id="rnd">Random colour</button>
+    <button class="btn" id="save">Save to palette</button>
+  </div>
+</section>
+<main>
+  <div class="two">
+    <div class="card">
+      <h2>Picker</h2>
+      <div id="sv" tabindex="0" role="slider" aria-label="Saturation and brightness. Use arrow keys."><div id="knob"></div></div>
+      <label for="hue" class="sub">Hue</label><input type="range" id="hue" min="0" max="360">
+      <label for="alpha" class="sub">Opacity</label><input type="range" id="alpha" min="0" max="100">
+      <label for="any" class="sub">Type any CSS colour: hex, rgb(), hsl(), oklch() or a name</label>
+      <input class="txt mono" id="any" spellcheck="false" autocomplete="off">
+    </div>
+    <div class="card">
+      <h2>Formats and code</h2>
+      <p class="sub">Click any row to copy it.</p>
+      <div class="rows" id="fmts"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Harmonies</h2>
+    <p class="sub">Built by rotating the hue. Click a swatch to load it.</p>
+    <div id="harm"></div>
+  </div>
+
+  <div class="card">
+    <h2>Tints and shades</h2>
+    <p class="sub">Eleven lightness steps with the same hue and saturation, light to dark.</p>
+    <div class="scale" id="scale"></div>
+  </div>
+
+  <div class="card">
+    <h2>Contrast checker</h2>
+    <p class="sub">Your picked colour is the background. Choose a text colour to test.</p>
+    <div class="ctr">
+      <div>
+        <div class="ctl"><label for="fg">Text colour</label><input type="color" id="fg" value="#ffffff">
+          <button class="btn d" id="best">Use best of black or white</button></div>
+        <div id="ratio" style="font-size:44px;font-weight:800"></div>
+        <div id="badges"></div>
+      </div>
+      <div id="prev"><div style="font-size:28px;font-weight:800">Large heading text</div><div>Body copy shows how readable this pairing feels at normal size.</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Palette from an image</h2>
+    <p class="sub">Choose a picture to pull its dominant colours. Nothing is uploaded.</p>
+    <div class="ctl"><input type="file" id="img" accept="image/*"></div>
+    <div class="sw" id="extr"></div>
+  </div>
+
+  <div class="card">
+    <h2>Saved palette and export</h2>
+    <div class="sw" id="pal"></div>
+    <p class="sub" id="palempty">No colours saved yet. Use “Save to palette” at the top.</p>
+    <div class="ctl" style="margin-top:14px"><label for="xf">Export as</label>
+      <select id="xf"><option value="css">CSS variables</option><option value="scss">SCSS</option><option value="tw">Tailwind config</option><option value="json">JSON</option></select>
+      <button class="btn d" id="xc">Copy export</button><button class="btn d" id="clr">Clear palette</button></div>
+    <textarea id="xo" class="mono" readonly aria-label="Export output"></textarea>
+  </div>
+</main>
+<div id="toast" role="status"></div>
+<script>
+const $=s=>document.querySelector(s),cl=(x,a,b)=>Math.min(b,Math.max(a,x)),R=Math.round;
+let S={h:210,s:70,v:90,a:1},pal=[];
+try{pal=JSON.parse(localStorage.getItem('sb-pal')||'[]')}catch(e){}
+const cx=document.createElement('canvas').getContext('2d');
+function hsv2rgb(h,s,v){s/=100;v/=100;const f=n=>{const k=(n+h/60)%6;return v-v*s*Math.max(0,Math.min(k,4-k,1))};return[f(5),f(3),f(1)].map(x=>R(x*255))}
+function rgb2hsv(r,g,b){r/=255;g/=255;b/=255;const M=Math.max(r,g,b),m=Math.min(r,g,b),d=M-m;let h=0;if(d){h=M==r?((g-b)/d)%6:M==g?(b-r)/d+2:(r-g)/d+4;h*=60;if(h<0)h+=360}return[h,M?d/M*100:0,M*100]}
+function rgb2hsl(r,g,b){const[h]=rgb2hsv(r,g,b);r/=255;g/=255;b/=255;const M=Math.max(r,g,b),m=Math.min(r,g,b),d=M-m,l=(M+m)/2;return[h,d?d/(1-Math.abs(2*l-1))*100:0,l*100]}
+function hsl2rgb(h,s,l){s/=100;l/=100;const a=s*Math.min(l,1-l),f=n=>{const k=(n+h/30)%12;return l-a*Math.max(-1,Math.min(k-3,9-k,1))};return[f(0),f(8),f(4)].map(x=>R(x*255))}
+function oklch(r,g,b){const L=c=>{c/=255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4},[a,c,d]=[r,g,b].map(L);
+const l=Math.cbrt(.4122214708*a+.5363325363*c+.0514459929*d),m=Math.cbrt(.2119034982*a+.6806995451*c+.1073969566*d),s=Math.cbrt(.0883024619*a+.2817188376*c+.6299787005*d);
+const A=1.9779984951*l-2.428592205*m+.4505937099*s,B=.0259040371*l+.7827717662*m-.808675766*s;
+return[.2104542553*l+.793617785*m-.0040720468*s,Math.hypot(A,B),(Math.atan2(B,A)*180/Math.PI+360)%360]}
+const hex=rgb=>'#'+rgb.map(x=>x.toString(16).padStart(2,'0')).join('');
+const lum=rgb=>{const[r,g,b]=rgb.map(c=>{c/=255;return c<=.03928?c/12.92:((c+.055)/1.055)**2.4});return .2126*r+.7152*g+.0722*b};
+const contrast=(a,b)=>{const x=lum(a),y=lum(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+const hexRgb=h=>{h=h.replace('#','');return[0,2,4].map(i=>parseInt(h.substr(i,2),16))};
+const rgbNow=()=>hsv2rgb(S.h,S.s,S.v);
+function parse(str){str=str.trim();if(/^[0-9a-f]{3,8}$/i.test(str))str='#'+str;
+cx.fillStyle='#000';cx.fillStyle=str;const a=cx.fillStyle;cx.fillStyle='#fff';cx.fillStyle=str;if(a!==cx.fillStyle)return null;
+if(a[0]==='#')return{rgb:hexRgb(a),a:1};const n=a.match(/[\d.]+/g).map(Number);return{rgb:n.slice(0,3),a:n[3]??1}}
+function setRgb(rgb,a){const[h,s,v]=rgb2hsv(...rgb);S={h:s&&v?h:S.h,s,v,a:a??S.a}}
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),1400)}
+function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Copied '+t.slice(0,28)),()=>{const x=document.createElement('textarea');x.value=t;document.body.appendChild(x);x.select();try{document.execCommand('copy');toast('Copied')}catch(e){toast('Copy failed')}x.remove()})}
+const f1=x=>+x.toFixed(1),f3=x=>+x.toFixed(3);
+function render(){
+const rgb=rgbNow(),[r,g,b]=rgb,hx=hex(rgb),al=S.a<1,ah=hx+(al?R(S.a*255).toString(16).padStart(2,'0'):''),[hh,ss,ll]=rgb2hsl(r,g,b),
+k=1-Math.max(r,g,b)/255,cm=k>=1?[0,0,0]:[r,g,b].map(x=>R((1-x/255-k)/(1-k)*100)),[ol,oc,oh]=oklch(r,g,b),A=f3(S.a);
+$('#sv').style.background=`linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,hsl(${S.h},100%,50%))`;
+$('#knob').style.left=S.s+'%';$('#knob').style.top=(100-S.v)+'%';
+$('#hue').value=S.h;$('#alpha').value=R(S.a*100);
+$('#alpha').style.background=`linear-gradient(90deg,transparent,${hx}),repeating-conic-gradient(#bbb 0 25%,#fff 0 50%) 0 0/12px 12px`;
+const band=$('#band');band.style.background=`rgba(${r},${g},${b},${S.a})`;
+const onB=contrast(rgb,[255,255,255])>=contrast(rgb,[0,0,0])?'#fff':'#000';band.style.color=S.a<.5?'var(--ink)':onB;
+$('#big').textContent=ah.toUpperCase();
+$('#nm').textContent=`rgb(${r}, ${g}, ${b}) · hsl(${R(hh)}, ${R(ss)}%, ${R(ll)}%)`;
+if(document.activeElement!==$('#any'))$('#any').value=ah;
+const H=Math.round(hh),Sx=Math.round(ss),Lx=Math.round(ll),up=ah.slice(1).toUpperCase(),a8=R(S.a*255).toString(16).padStart(2,'0').toUpperCase();
+const F=[['HEX',ah.toUpperCase()],['RGB',al?`rgba(${r}, ${g}, ${b}, ${A})`:`rgb(${r}, ${g}, ${b})`],['HSL',al?`hsla(${H}, ${Sx}%, ${Lx}%, ${A})`:`hsl(${H}, ${Sx}%, ${Lx}%)`],
+['HSV',`hsv(${R(S.h)}, ${R(S.s)}%, ${R(S.v)}%)`],['CMYK',`cmyk(${cm[0]}%, ${cm[1]}%, ${cm[2]}%, ${R(k*100)}%)`],
+['OKLCH',`oklch(${f3(ol)} ${f3(oc)} ${f1(oh)}${al?' / '+A:''})`],['CSS var',`--color: ${ah};`],['Tailwind',`bg-[${ah}]`],
+['Swift',`UIColor(red: ${f3(r/255)}, green: ${f3(g/255)}, blue: ${f3(b/255)}, alpha: ${A})`],['Flutter',`Color(0x${a8}${hx.slice(1).toUpperCase()})`],['Android',`#${a8}${hx.slice(1).toUpperCase()}`],['Decimal',String(r*65536+g*256+b)]];
+$('#fmts').innerHTML=F.map(([l,v])=>`<button class="row" data-c="${v.replace(/"/g,'&quot;')}"><b>${l}</b><span class="mono">${v}</span><i>Copy</i></button>`).join('');
+const rot=d=>hex(hsl2rgb((hh+d+360)%360,ss,ll));
+const HM={Complementary:[0,180],'Split complementary':[0,150,210],Analogous:[-30,0,30],Triadic:[0,120,240],Tetradic:[0,90,180,270],Square:[0,60,180,240]};
+const chip=h=>`<button class="chip" data-h="${h}"><div style="background:${h}"></div><small class="mono">${h}</small></button>`;
+const mono=[15,30,45,60,75].map(l=>hex(hsl2rgb(hh,ss,l)));
+$('#harm').innerHTML=Object.entries(HM).map(([n,d])=>`<div class="grp"><h3>${n}</h3><div class="sw">${d.map(x=>chip(rot(x))).join('')}</div></div>`).join('')+`<div class="grp"><h3>Monochromatic</h3><div class="sw">${mono.map(chip).join('')}</div></div>`;
+const st=[95,85,75,65,55,45,35,25,15,10,5];
+$('#scale').innerHTML=st.map(l=>{const c=hex(hsl2rgb(hh,ss,l));return`<button data-h="${c}" style="background:${c};color:${l>50?'#000':'#fff'}" title="${c}" class="mono">${c.slice(1)}</button>`}).join('');
+contr();
+$('#extr').innerHTML=extr.map(chip).join('');
+$('#pal').innerHTML=pal.map(c=>chip(c)).join('');$('#palempty').style.display=pal.length?'none':'';
+xport();
+}
+let extr=[];
+function contr(){const bg=rgbNow(),fg=hexRgb($('#fg').value),c=contrast(bg,fg),p=(v,t)=>`<span class="badge ${c>=v?'ok':'no'}">${t}: ${c>=v?'Pass':'Fail'}</span>`;
+$('#ratio').textContent=c.toFixed(2)+' : 1';
+$('#badges').innerHTML=p(4.5,'AA normal text')+p(3,'AA large text')+p(7,'AAA normal text')+p(4.5,'AAA large text').replace('Fail','Fail')+p(3,'UI components');
+$('#badges').lastChild.previousSibling&&0;
+$('#prev').style.background=hex(bg);$('#prev').style.color=hex(fg)}
+function xport(){const t=$('#xf').value,P=pal.length?pal:[hex(rgbNow())];
+$('#xo').value=t=='css'?':root {\n'+P.map((c,i)=>`  --color-${i+1}: ${c};`).join('\n')+'\n}':t=='scss'?P.map((c,i)=>`$color-${i+1}: ${c};`).join('\n'):
+t=='tw'?'module.exports = {\n  theme: { extend: { colors: {\n'+P.map((c,i)=>`    'brand-${i+1}': '${c}',`).join('\n')+'\n  } } }\n}':JSON.stringify(P.map((c,i)=>({name:'color-'+(i+1),hex:c,rgb:hexRgb(c)})),null,2)}
+function loadHex(h){const p=parse(h);if(p){setRgb(p.rgb,1);render()}}
+/* events */
+const sv=$('#sv');let drag=false;
+function svMove(e){const r=sv.getBoundingClientRect();S.s=cl((e.clientX-r.left)/r.width*100,0,100);S.v=cl(100-(e.clientY-r.top)/r.height*100,0,100);render()}
+sv.addEventListener('pointerdown',e=>{drag=true;sv.setPointerCapture(e.pointerId);svMove(e)});
+sv.addEventListener('pointermove',e=>drag&&svMove(e));sv.addEventListener('pointerup',()=>drag=false);
+sv.addEventListener('keydown',e=>{const d={ArrowLeft:['s',-1],ArrowRight:['s',1],ArrowUp:['v',1],ArrowDown:['v',-1]}[e.key];if(d){e.preventDefault();S[d[0]]=cl(S[d[0]]+d[1]*(e.shiftKey?10:1),0,100);render()}});
+$('#hue').oninput=e=>{S.h=+e.target.value;render()};
+$('#alpha').oninput=e=>{S.a=e.target.value/100;render()};
+$('#any').oninput=e=>{const p=parse(e.target.value);e.target.style.borderColor=p?'':'#dc2626';if(p){setRgb(p.rgb,p.a);render()}};
+$('#any').onblur=render;
+document.addEventListener('click',e=>{const c=e.target.closest('[data-c]'),h=e.target.closest('[data-h]');if(c)copy(c.dataset.c);else if(h)loadHex(h.dataset.h)});
+$('#rnd').onclick=()=>{S={h:Math.random()*360,s:40+Math.random()*60,v:50+Math.random()*50,a:1};render()};
+$('#save').onclick=()=>{const h=hex(rgbNow());if(!pal.includes(h))pal.push(h);try{localStorage.setItem('sb-pal',JSON.stringify(pal))}catch(e){}render();toast('Saved '+h)};
+$('#clr').onclick=()=>{pal=[];try{localStorage.removeItem('sb-pal')}catch(e){}render()};
+$('#xf').onchange=xport;$('#xc').onclick=()=>copy($('#xo').value);
+$('#fg').oninput=contr;
+$('#best').onclick=()=>{const b=rgbNow();$('#fg').value=contrast(b,[255,255,255])>=contrast(b,[0,0,0])?'#ffffff':'#000000';contr()};
+if(window.EyeDropper)$('#eye').onclick=async()=>{try{const r=await new EyeDropper().open();loadHex(r.sRGBHex)}catch(e){}};
+else $('#eye').style.display='none';
+$('#img').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),w=c.width=64,h=c.height=64,x=c.getContext('2d');x.drawImage(im,0,0,w,h);
+const d=x.getImageData(0,0,w,h).data,m={};for(let i=0;i<d.length;i+=4){if(d[i+3]<128)continue;const k=[d[i],d[i+1],d[i+2]].map(v=>v>>4).join(',');m[k]=(m[k]||0)+1}
+const top=Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k])=>k.split(',').map(v=>v*16+8)),out=[];
+for(const c of top){if(out.every(o=>Math.hypot(o[0]-c[0],o[1]-c[1],o[2]-c[2])>60))out.push(c);if(out.length>=8)break}
+extr=out.map(hex);URL.revokeObjectURL(im.src);render()};im.src=URL.createObjectURL(f)};
+render();
+</script>
+</body>
+</html>

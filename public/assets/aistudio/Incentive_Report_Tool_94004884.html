@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Incentive Report Tool</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="canonical" href="https://vcpltools.vercel.app/vcpl-tools/incentive-report-tool">
+<script>if(window.self===window.top&&!/[?&]raw=1\b/.test(location.search))location.replace('/vcpl-tools/incentive-report-tool');</script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f7f9;--card:#fff;--tx:#1b1f27;--mut:#5d6675;--bd:#d9dde5;--ac:#1f4fd8;--acx:#fff;--ok:#d9f2df;--md:#fff1c2;--bad:#fbd5d5}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171c;--card:#1d2128;--tx:#e8ebf0;--mut:#9aa3b2;--bd:#323946;--ac:#6f93ff;--acx:#0d1220;--ok:#1d3b27;--md:#463c14;--bad:#4a2323}}
+:root[data-theme="dark"]{--bg:#14171c;--card:#1d2128;--tx:#e8ebf0;--mut:#9aa3b2;--bd:#323946;--ac:#6f93ff;--acx:#0d1220;--ok:#1d3b27;--md:#463c14;--bad:#4a2323}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 Arial,Helvetica,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 14px 60px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:15px;margin:0 0 8px}p.s{color:var(--mut);margin:0 0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px}
+.drop{border:2px dashed var(--bd);border-radius:8px;padding:18px 10px;text-align:center;cursor:pointer;color:var(--mut)}
+.drop.on{border-color:var(--ac);color:var(--tx)}.drop input{display:none}
+.files{font-size:12px;color:var(--mut);margin-top:8px;max-height:90px;overflow:auto;word-break:break-all}
+button{font:inherit;background:var(--ac);color:var(--acx);border:0;border-radius:8px;padding:10px 16px;cursor:pointer;font-weight:bold}
+button.g{background:transparent;color:var(--ac);border:1px solid var(--ac)}button:disabled{opacity:.45;cursor:default}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:12px 0}label.c{display:flex;gap:6px;align-items:center;font-size:13px}
+input[type=text],input[type=number]{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px;width:100%}
+.wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{border-bottom:1px solid var(--bd);padding:6px 8px;text-align:left;vertical-align:top}th{color:var(--mut);white-space:nowrap}
+.pill{padding:2px 8px;border-radius:10px;font-size:11.5px;white-space:nowrap}.High{background:var(--ok)}.Medium{background:var(--md)}.Missing{background:var(--bad)}
+.thumb{width:90px;border-radius:4px;border:1px solid var(--bd);cursor:zoom-in}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9;overflow:auto;padding:12px}#modal img{max-width:none;width:1100px}
+.stat{display:inline-block;margin-right:18px}.stat b{font-size:20px;display:block}
+textarea{font:12.5px Arial,sans-serif;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px}details{margin:8px 0}summary{cursor:pointer;font-weight:bold}
+.Edited{background:#c9dcff;color:#10203f}.sc{display:grid;grid-template-columns:130px 1fr 300px;gap:10px;align-items:center;margin:5px 0;font-size:12.5px}
+.bar{display:flex;height:14px;background:var(--bg);border:1px solid var(--bd);border-radius:7px;overflow:hidden}.bar i{display:block}.b1{background:#e45757}.b2{background:#3fa968}.b3{background:#9aa3b2}
+.al{padding:6px 10px;border-radius:6px;margin:4px 0;font-size:12.5px}code{background:var(--bg);padding:1px 4px;border-radius:4px}
+@media(max-width:640px){.sc{grid-template-columns:1fr}}
+#log{color:var(--mut);font-size:12.5px;white-space:pre-wrap}
+</style></head><body><main>
+<h1>Incentive Report Tool</h1>
+<p class="s">Upload your incentive Excel (optional), the Tally ledger PDFs and the deal-sheet screenshots. Everything is processed inside your browser, and no file leaves your device.</p>
+
+<div class="grid">
+ <div class="card"><h2>1. Incentive Excel <span style="font-weight:normal;color:var(--mut)">(optional)</span></h2>
+  <label class="drop" id="z1">Click or drop .xlsx here<input type="file" accept=".xlsx"></label><div class="files" id="f1">No file. A new sheet is built from your ledgers and screenshots.</div></div>
+ <div class="card"><h2>2. Tally ledger PDFs</h2>
+  <label class="drop" id="z2">Click to choose PDFs, or drop them here<br><small>Select many at once (Ctrl/Shift), or add more any time</small><input type="file" accept=".pdf,application/pdf" multiple></label><div class="files" id="f2">Name files after the customer. Put “Aftersales” in the name for aftersales ledgers.</div></div>
+ <div class="card"><h2>3. Deal-sheet screenshots</h2>
+  <label class="drop" id="z3">Click to choose screenshots or deal-sheet PDFs, or drop them here<br><small>Images and PDFs, many at once. You can also paste a screenshot with Ctrl+V</small><input type="file" accept="image/*,.pdf,application/pdf" multiple></label><div class="files" id="f3">Each screenshot (or PDF page) gets a row below for you to check and type its values.</div></div>
+</div>
+
+<div class="card" id="shots" style="margin-top:12px;display:none"><h2>Deal-sheet values <button class="g" id="clr" style="float:right;padding:4px 10px;font-size:12px">Remove all</button></h2>
+ <p class="s" style="margin-bottom:8px">Click a thumbnail to enlarge it, then check or type the VIN, VCPL discount and Total Retained Margin shown on it. For PDFs the tool tries to read the VIN, customer and margin itself, so please verify those. Leave a value blank if the sheet is empty, and it will be flagged as missing instead of guessed.</p>
+ <div class="wrap"><table><thead><tr><th>Image</th><th>VIN</th><th>Customer (if no Excel)</th><th>VCPL discount ₹</th><th>Total retained margin ₹</th><th></th></tr></thead><tbody id="sb"></tbody></table></div></div>
+
+<div class="card" style="margin-top:12px"><h2>Or paste instead of uploading</h2>
+ <p class="s" style="margin-bottom:8px">Copy and paste works everywhere on this page. Press Ctrl+V to paste a screenshot or a copied file anywhere outside a text box (images go to deal sheets, PDFs to ledgers). The boxes below take pasted text.</p>
+ <details><summary>Paste the incentive list from Excel</summary><p class="s">Copy the cells in Excel, including the header row (VIN, Delivered To, Sold By …), and paste here. Used only when no Excel file is uploaded.</p><textarea id="pt1" rows="4" style="width:100%"></textarea></details>
+ <details><summary>Paste Tally ledger text</summary><div class="row"><input type="text" id="pn" placeholder="Customer name" style="max-width:260px"><label class="c"><input type="checkbox" id="pa"> This is an aftersales ledger</label></div><textarea id="pt2" rows="5" style="width:100%" placeholder="Each voucher must stay on one line, e.g. 27-Nov-25 Cr Life Tax Paid Journal JV/2526/11/248 14,26,238.00"></textarea><div class="row"><button class="g" id="addl">Add ledger text</button></div></details>
+ <details><summary>Paste deal-sheet text</summary><textarea id="pt3" rows="4" style="width:100%" placeholder="Paste the text of a deal sheet (VIN, customer, Total Retained Margin)"></textarea><div class="row"><button class="g" id="addd">Add deal sheet</button></div></details></div>
+
+<div class="card" style="margin-top:12px"><div class="row">
+ <label class="c">Margin limit ₹ <input type="number" id="lim" value="50000" style="width:100px"></label>
+ <label class="c"><input type="checkbox" id="ovr"> Overwrite filled cells</label>
+ <label class="c"><input type="checkbox" id="irf"> Also fill finance and insurance columns</label>
+ <label class="c">Name match ≥ <input type="number" id="thr" value="60" min="30" max="100" style="width:64px">%</label></div>
+ <details><summary>Advanced rules</summary>
+ <div class="row"><label class="c">If BSI or EW is not billed, write <select id="o_none"><option value="FOC">FOC</option><option value="">leave blank</option><option value="No">No</option></select></label>
+ <label class="c"><input type="checkbox" id="o_spares" checked> Count “Sale of Spares” as accessories</label></div>
+ <p class="s" style="margin:4px 0">Extra ledger keywords, one per line as field=regex, for example <code>accessories=GA sale|accessory</code>. Fields: car_sale, tcs, road_tax, fastag, ew, bsi, insurance, facilitation, trade_in, finance, dsa, acc_discount, accessories, booking, receipt. Your rules are checked first and are remembered on this device.</p>
+ <textarea id="o_rules" rows="3" style="width:100%"></textarea></details>
+ <button id="go">Generate report</button> <span id="log"></span></div>
+
+<div class="card" id="out" style="margin-top:12px;display:none">
+ <div id="stats"></div><div id="dash" style="margin:12px 0"></div><div id="al" style="margin:12px 0"></div>
+ <div class="row"><button id="dl">Download Excel</button><label class="c"><input type="checkbox" id="only" checked> Show only items needing attention</label>
+  <select id="cf" style="font:inherit;padding:6px;border-radius:6px"><option value="">All confidence</option><option>Missing</option><option>Medium</option><option>High</option><option>Edited</option></select>
+  <input type="text" id="q" placeholder="Search customer or field" style="max-width:220px"></div>
+ <p class="s" style="margin:0 0 6px">Click any value to correct it. Edited cells are written into the Excel and marked “Edited”.</p>
+ <div class="wrap"><table><thead><tr><th>Customer</th><th>Field</th><th>Value (editable)</th><th>Confidence</th><th>Evidence and note</th></tr></thead><tbody id="rb"></tbody></table></div></div>
+</main>
+<div id="modal" onclick="this.style.display='none'"><img id="mi"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+const $=s=>document.querySelector(s), st={tpl:null,pdfs:[],texts:[],imgs:[],result:null};
+const HM={"booking date":"booking_date","booking amount":"booking_amount","tr/pr date":"trpr_date","vcpl discount if any":"vcpl_discount","accessories discount if any":"acc_discount","accessories sold- amount":"acc_amount","bsi- foc or customer paid":"bsi","ew - foc or customer paid":"ew","trade in":"trade_in","dsa case yes/no":"dsa","whether margin retention is below 50k":"margin_flag","finance - full cash/ inhouse- irfan":"finance_type","finance amount-irfan":"finance_amount","insurance - inhouse (insurance company)- irfan":"insurance_co"};
+const IRF=new Set(["finance_type","finance_amount","insurance_co"]);
+const IDX={"vin":"vin","delivered to":"customer","sold by":"sc","model":"model"};
+const STD=["SL No.","Model ","VIN","Exterior Color","Delivered To","Sold By","Vehicle received date-","Delivery date-","DMS invoice date-","Booking date","Booking amount","TR/PR date","vcpl discount if any","ACCessories discount if any","Accessories sold- Amount","BSI- FOC or customer paid","EW - FOC or customer paid","Trade IN ","Finance - Full cash/ Inhouse- Irfan","Finance Amount-Irfan","Insurance - Inhouse (Insurance company)- Irfan","DSA case YES/NO","Whether Margin retention is below 50K"];
+const RULES=[["car_sale",/car sales/i],["tcs",/tax collection at source|tcs/i],["road_tax",/life tax|road tax|registration|\brto\b|tr\/pr/i],["fastag",/fast ?tag|hsrp/i],["ew",/extended warranty|\bEW\b|warranty/i],["bsi",/\bBSI\b|basic service inclusive|service inclusive/i],["insurance",/insurance|allianz|icici lombard|tata aig|hdfc ergo|new india|oriental|national ins|reliance gen|bajaj/i],["facilitation",/facilitation/i],["trade_in",/used car|trade[- ]?in|exchange|pre[- ]?owned/i],["finance",/bmw fs|loan disb|disbursement|finance|hdfc bank|icici bank|\bsbi\b|axis bank|kotak|bank of/i],["dsa",/\bDSA\b|dsa commission|payout/i],["acc_discount",/accessor\w* discount|discount.*accessor/i],["accessories",/accessor|sale of spares|spares|genuine/i],["booking",/booking|advance|token/i],["receipt",/cash-in-hand|phonepe|bank|cheque|neft|rtgs|upi|receipt|paytm/i]];
+const VT=["Cash Receipt","PhonePe Receipt","Bank Receipt","Car Sales","Sales Service","VAS - Sales","Journal","Others","Sales","Receipt","Payment","Contra","Credit Note","Debit Note"].sort((a,b)=>b.length-a.length);
+const RCT=new Set(["cash receipt","phonepe receipt","bank receipt","receipt"]);
+const MON={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+const INR='[>=10000000]##\\,##\\,##\\,##0;[>=100000]##\\,##\\,##0;##,##0';
+const norm=s=>String(s??"").replace(/\u00a0/g," ").replace(/\s+/g," ").trim().toLowerCase();
+const txt=v=>v==null?"":v.richText?v.richText.map(r=>r.text).join(""):v.result!==undefined?v.result:v.text||String(v);
+const fd=d=>d?d.toLocaleDateString("en-GB",{timeZone:"UTC",day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g,"-"):"";
+const esc=s=>String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+function zone(id,fid,cb){const z=$(id),i=z.querySelector("input");
+ i.onchange=()=>cb([...i.files]);
+ z.ondragover=e=>{e.preventDefault();z.classList.add("on")};z.ondragleave=()=>z.classList.remove("on");
+ z.ondrop=e=>{e.preventDefault();z.classList.remove("on");cb([...e.dataTransfer.files])}}
+zone("#z1","#f1",async fs=>{const f=fs[0];if(!f)return;st.tpl=f;$("#f1").textContent="✓ "+f.name;});
+zone("#z2","#f2",fs=>{fs=fs.filter(f=>/\.pdf$/i.test(f.name));const m=new Map(st.pdfs.map(f=>[f.name,f]));fs.forEach(f=>m.set(f.name,f));st.pdfs=[...m.values()];drawPdfs()});
+function drawPdfs(){const a=st.pdfs.map((f,i)=>`✓ ${esc(f.name)} <a href="#" data-rp="${i}" style="color:var(--ac)">remove</a>`).concat(st.texts.map((t,i)=>`✓ ${esc(t.file)} (${t.rows.length} lines) <a href="#" data-rt="${i}" style="color:var(--ac)">remove</a>`));$("#f2").innerHTML=a.length?a.join("<br>"):"No ledgers added yet."}
+$("#f2").addEventListener("click",e=>{const d=e.target.dataset;if(d.rp!==undefined){e.preventDefault();st.pdfs.splice(+d.rp,1);drawPdfs()}if(d.rt!==undefined){e.preventDefault();st.texts.splice(+d.rt,1);drawPdfs()}});
+const newShot=(f,u,x={})=>st.imgs.push({f,u,vin:"",cust:"",vcpl:"",mar:"",...x});
+async function addPdfShots(file){
+ try{const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  for(let p=1;p<=pdf.numPages;p++){const pg=await pdf.getPage(p),vp=pg.getViewport({scale:1.6}),cv=document.createElement("canvas");cv.width=vp.width;cv.height=vp.height;
+   await pg.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;
+   const tc=await pg.getTextContent(),t=tc.items.map(i=>i.str).join(" ").replace(/\s+/g," "),x={};
+   const v=t.toUpperCase().replace(/\s/g,"").match(/W[A-Z0-9]{2}[A-Z0-9]{14}/);if(v)x.vin=v[0];
+   const c=t.match(/Customer Name:?\s*(.+?)\s+(?:Road Tax|Ex-showroom|BMW|VCPL|$)/i);if(c)x.cust=c[1].trim();
+   const m=t.match(/Total Retained Margin\s*₹?\s*([\d,]+)/i);if(m)x.mar=m[1].replace(/,/g,"");
+   newShot({name:file.name+(pdf.numPages>1?" p"+p:"")},cv.toDataURL("image/png"),x)}}
+ catch(e){alert("Could not open "+file.name+": "+e.message)}}
+zone("#z3","#f3",async fs=>{$("#f3").textContent="Reading files…";
+ for(const f of fs){if(f.type.startsWith("image/"))newShot(f,URL.createObjectURL(f));else if(/\.pdf$/i.test(f.name))await addPdfShots(f)}
+ drawShots()});
+const dealFromText=t=>{const s=t.replace(/\s+/g," "),x={},v=s.toUpperCase().replace(/\s/g,"").match(/W[A-Z0-9]{2}[A-Z0-9]{14}/);if(v)x.vin=v[0];
+ const c=s.match(/Customer Name:?\s*(.+?)\s+(?:Road Tax|Ex-showroom|BMW|VCPL|$)/i);if(c)x.cust=c[1].trim();
+ const m=s.match(/Total Retained Margin\s*₹?\s*([\d,]+)/i);if(m)x.mar=m[1].replace(/,/g,"");return x};
+document.addEventListener("paste",async e=>{if(/^(TEXTAREA|INPUT)$/.test(e.target.tagName))return;
+ const fs=[...(e.clipboardData?.files||[])];if(!fs.length)return;e.preventDefault();let n=0;
+ for(const f of fs){if(f.type.startsWith("image/")){newShot({name:f.name&&f.name!=="image.png"?f.name:"pasted-"+(st.imgs.length+1)+".png"},URL.createObjectURL(f));n++}
+  else if(/\.pdf$/i.test(f.name)){const m=new Map(st.pdfs.map(x=>[x.name,x]));m.set(f.name,f);st.pdfs=[...m.values()];n++}}
+ if(n){drawShots();drawPdfs()}});
+$("#addl").onclick=()=>{const t=$("#pt2").value,n=$("#pn").value.trim(),af=$("#pa").checked;if(!t.trim())return;
+ const lines=t.replace(/\t/g," ").split(/\r?\n/).map(s=>s.replace(/\s+/g," ").trim()).filter(Boolean),r=parseLines(lines,(n||"Pasted ledger")+(af?" Aftersales":"")+" (pasted)",af);
+ if(!r.rows.length){alert("No voucher lines were found. Each voucher must be on one line (date, Dr/Cr, particulars, voucher no., amount). If your paste splits lines apart, upload the PDF instead.");return}
+ r.header=n||r.header;st.texts.push(r);$("#pt2").value="";drawPdfs()};
+$("#addd").onclick=()=>{const t=$("#pt3").value;if(!t.trim())return;newShot({name:"pasted text"},"",dealFromText(t));$("#pt3").value="";drawShots()};
+drawPdfs();
+$("#clr").onclick=()=>{st.imgs=[];drawShots()};
+
+function drawShots(){$("#shots").style.display=st.imgs.length?"block":"none";$("#f3").textContent=st.imgs.length?st.imgs.length+" deal sheet(s) added. Add more any time.":"No deal sheets added yet.";
+ $("#sb").innerHTML=st.imgs.map((m,i)=>`<tr><td>${m.u?`<img class="thumb" src="${m.u}" data-i="${i}">`:`<div style="font-size:11px;color:var(--mut)">pasted text</div>`}<div style="font-size:11px;color:var(--mut)">${esc(m.f.name.slice(0,20))}</div></td>
+ <td><input type="text" data-i="${i}" data-k="vin" value="${esc(m.vin)}" placeholder="WBA…" style="min-width:150px"></td>
+ <td><input type="text" data-i="${i}" data-k="cust" value="${esc(m.cust)}" style="min-width:140px"></td>
+ <td><input type="number" data-i="${i}" data-k="vcpl" value="${esc(m.vcpl)}"></td>
+ <td><input type="number" data-i="${i}" data-k="mar" value="${esc(m.mar)}"></td><td><a href="#" data-rs="${i}" style="color:var(--ac)">remove</a></td></tr>`).join("")}
+$("#sb").addEventListener("input",e=>{const t=e.target;if(t.dataset.k)st.imgs[t.dataset.i][t.dataset.k]=t.dataset.k==="vin"?t.value.trim().toUpperCase():t.value});
+$("#sb").addEventListener("click",e=>{if(e.target.dataset.rs!==undefined){e.preventDefault();st.imgs.splice(+e.target.dataset.rs,1);drawShots();return}if(e.target.classList.contains("thumb")){$("#mi").src=e.target.src;$("#modal").style.display="block"}});
+
+/* ---------- ledger parsing ---------- */
+async function parsePdf(file){
+ const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,lines=[];
+ for(let p=1;p<=pdf.numPages;p++){const tc=await(await pdf.getPage(p)).getTextContent(),rows=[];
+  for(const it of tc.items){if(!it.str.trim())continue;const y=it.transform[5];let r=rows.find(r=>Math.abs(r.y-y)<3);if(!r){r={y,t:[]};rows.push(r)}r.t.push({x:it.transform[4],s:it.str.trim()})}
+  rows.sort((a,b)=>b.y-a.y).forEach(r=>lines.push(r.t.sort((a,b)=>a.x-b.x).map(t=>t.s).join(" ")))}
+ return parseLines(lines,file.name)}
+function parseLines(lines,fname,af){let header="";const li=lines.findIndex(l=>/Ledger Account/.test(l));
+ for(let j=li-1;j>=Math.max(0,li-4);j--)if(lines[j]&&lines[j].trim()){header=lines[j].trim();break}
+ const out=[];let cur=null;
+ for(const ln of lines){const dm=ln.match(/^\s*(\d{1,2})-([A-Za-z]{3})-(\d{2})\b/);if(dm)cur=new Date(Date.UTC(2000+ +dm[3],MON[dm[2].toLowerCase()],+dm[1]));
+  const s=ln.match(/^\s*(?:\d{1,2}-[A-Za-z]{3}-\d{2}\s+)?(Dr|Cr)\s+(.*)$/);if(!s)continue;
+  const a=s[2].match(/\s([\d,]+\.\d{2})\s*$/);if(!a)continue;
+  let body=s[2].slice(0,a.index).trim();const v=body.match(/(\S*\d\S*)$/);const vno=v?v[1]:"";if(v)body=body.slice(0,v.index).trim();
+  let vt="";for(const t of VT)if(body.toLowerCase().endsWith(t.toLowerCase())){vt=t;body=body.slice(0,-t.length).trim();break}
+  out.push({date:cur,side:s[1],part:body,vt,vno,amt:parseFloat(a[1].replace(/,/g,"")),src:fname,after:af??/after ?sales|service/i.test(fname)})}
+ return{file:fname,header,rows:out,after:af??/after ?sales|service/i.test(fname)}}
+let CUSTOM=[];const FIELDS=new Set(RULES.map(r=>r[0])),opt=()=>({none:$("#o_none").value,spares:$("#o_spares").checked});
+function parseCustom(){CUSTOM=[];$("#o_rules").value.split(/\n/).forEach(s=>{const i=s.indexOf("=");if(i<1)return;const f=s.slice(0,i).trim(),q=s.slice(i+1).trim();if(!FIELDS.has(f)||!q)return;try{CUSTOM.push([f,new RegExp(q,"i")])}catch(_){}})}
+function classify(l){for(const[f,rx]of[...CUSTOM,...RULES])if(rx.test(l.part)){if(f==="insurance"&&/\bEW\b|warranty/i.test(l.part))return"ew";if(f==="accessories"&&!opt().spares&&!/accessor/i.test(l.part))continue;return f}return"other"}
+
+/* ---------- matching ---------- */
+const NOISE=new Set("dr mr mrs ms shri smt pvt ltd private limited and co ledger vouchers aftersales after sales s o late of the".split(" "));
+const toks=s=>String(s||"").toLowerCase().replace(/\(\d+\)|[_\-&.,]/g," ").split(/\s+/).filter(t=>t&&!NOISE.has(t)&&!/^\d+$/.test(t));
+function lcs(a,b){const m=a.length,n=b.length;if(!m||!n)return 0;let prev=Array(n+1).fill(0);for(let i=1;i<=m;i++){const cur=[0];for(let j=1;j<=n;j++)cur[j]=a[i-1]===b[j-1]?prev[j-1]+1:Math.max(prev[j],cur[j-1]);prev=cur}return 2*prev[n]/(m+n)}
+function score(a,b){const ta=toks(a),tb=toks(b);if(!ta.length||!tb.length)return 0;const sa=new Set(ta),sb=new Set(tb);let o=0;sa.forEach(t=>{if(sb.has(t))o++});
+ return Math.max(.9*o/Math.min(sa.size,sb.size),lcs([...ta].sort().join(" "),[...tb].sort().join(" ")))}
+
+/* ---------- deal building ---------- */
+function build(lines){const ev={},O=opt();lines.forEach(l=>l.f=(l.after&&["accessories","other"].includes(classify(l))&&(O.spares||/accessor/i.test(l.part)))?"accessories":classify(l));
+ const by=f=>lines.filter(l=>l.f===f),sum=a=>a.reduce((t,l)=>t+l.amt,0),
+ fm=a=>a.map(l=>`${l.vno} ${fd(l.date)} ${l.part.slice(0,38)} ${l.amt.toLocaleString("en-IN")}`).join("; ");
+ const sale=by("car_sale"),sd=sale.length?Math.min(...sale.map(l=>+l.date)):null;
+ const rt=by("road_tax");if(rt.length)ev.trpr_date=[new Date(Math.min(...rt.map(l=>+l.date))),fm(rt),"High","Date of Life Tax / Registration voucher"];
+ const ti=by("trade_in");ev.trade_in=[sum(ti),ti.length?fm(ti):"No used-car voucher",(ti.length?"High":"Medium"),ti.length?"":"Assumed 0, no trade-in voucher"];
+ for(const f of["bsi","ew"]){const a=by(f),L=f.toUpperCase();ev[f]=a.length?["Yes - Customer Paid",fm(a),"High",L+" billed to customer"]:[O.none,"No "+L+" voucher","Medium",L+" not billed, written as ‘"+(O.none||"blank")+"’. Confirm with the sales team"]}
+ const acc=by("accessories");ev.acc_amount=[sum(acc),acc.length?fm(acc):"No accessory voucher","Medium","Sale of Spares / Accessories vouchers. Verify these are accessories"];
+ const ad=by("acc_discount");if(ad.length)ev.acc_discount=[sum(ad),fm(ad),"High",""];
+ const bk=lines.filter(l=>l.f==="booking"||(RCT.has(l.vt.toLowerCase())&&(!sd||+l.date<=sd)));
+ if(bk.length){const first=Math.min(...bk.map(l=>+l.date)),same=bk.filter(l=>+l.date===first);ev.booking_date=[new Date(first),fm(same),"Medium","Earliest receipt on or before invoice date"];ev.booking_amount=[sum(same),fm(same),"Medium","Amount received on that date"]}
+ const ds=by("dsa");ev.dsa=[ds.length?"YES":"NO",ds.length?fm(ds):"No DSA voucher",ds.length?"High":"Medium",""];
+ const fin=by("finance");ev.finance_type=[fin.length?"Inhouse":"Full cash",fin.length?fm(fin):"No finance voucher",fin.length?"High":"Medium",""];ev.finance_amount=[sum(fin),fm(fin),fin.length?"High":"Medium",""];
+ const ins=by("insurance");ev.insurance_co=[ins.length?ins[0].part.replace(/\(.*?\)/g,"").split(/\s-\s/)[0].replace(/[ .-]+$/,""):"Outside / not in ledger",ins.length?fm(ins):"No insurance voucher",ins.length?"High":"Medium",""];
+ return ev}
+
+/* ---------- run ---------- */
+$("#go").onclick=async()=>{const log=m=>$("#log").textContent=m;$("#go").disabled=true;parseCustom();
+ try{const lim=+$("#lim").value||50000,thr=+$("#thr").value/100,ovr=$("#ovr").checked,irf=$("#irf").checked;
+  log("Reading ledgers…");const L=[];for(const f of st.pdfs)L.push(await parsePdf(f));L.push(...st.texts);const pl=!st.tpl&&$("#pt1").value.trim();
+  const wb=new ExcelJS.Workbook();let ws;
+  if(st.tpl){log("Reading Excel…");await wb.xlsx.load(await st.tpl.arrayBuffer());ws=wb.worksheets[0]}
+  else if(pl){ws=wb.addWorksheet("requested");pl.split(/\r?\n/).forEach(r=>ws.addRow(r.split("\t").map(c=>c.trim())))}else{ws=wb.addWorksheet("requested");ws.addRow(STD)}
+  const hdr={};ws.getRow(1).eachCell({includeEmpty:false},(c,n)=>{const k=norm(txt(c.value));if(HM[k])hdr[HM[k]]=n;if(IDX[k])hdr[IDX[k]]=n});
+  const shots=st.imgs.filter(m=>m.vin||m.cust);let deals=[];
+  if(st.tpl||pl){if(!hdr.vin||!hdr.customer){alert("The list needs ‘VIN’ and ‘Delivered To’ headers.");return}
+   for(let r=2;r<=ws.rowCount;r++){const v=txt(ws.getCell(r,hdr.vin).value).trim().toUpperCase(),c=txt(ws.getCell(r,hdr.customer).value).trim();if(v&&c)deals.push({row:r,vin:v,cust:c,sc:hdr.sc?txt(ws.getCell(r,hdr.sc).value):""})}}
+  else{const used=new Set();shots.forEach(m=>{deals.push({vin:m.vin,cust:m.cust||"(name from ledger)",sc:""})});
+   L.filter(x=>!x.after).forEach(x=>{if(!deals.some(d=>score(d.cust,x.header)>=thr||score(d.cust,x.file)>=thr))deals.push({vin:"",cust:x.header||x.file,sc:""})});
+   deals.forEach((d,i)=>{d.row=i+2;ws.getCell(d.row,hdr.vin).value=d.vin;ws.getCell(d.row,hdr.customer).value=d.cust;ws.getCell(d.row,hdr.sc).value=d.sc;ws.getCell(d.row,1).value=i+1})}
+  const usedL=new Set(),review=[],lines=[];
+  for(const d of deals){const scr=st.imgs.find(m=>m.vin&&m.vin===d.vin),names=[d.cust,scr&&scr.cust].filter(Boolean);
+   const mine=L.filter(x=>names.some(n=>Math.max(score(n,x.header),score(n,x.file.replace(/\.pdf$/i,"")))>=thr));mine.forEach(x=>usedL.add(x.file));
+   const seen=new Set(),uniq=[];mine.forEach(x=>x.rows.forEach(l=>{const k=l.vno+"|"+l.amt+"|"+l.part;if(!seen.has(k)){seen.add(k);uniq.push(l)}}));
+   const ev=uniq.length?build(uniq):{};d.ev=ev;d.nl=mine.length;uniq.forEach(l=>lines.push([d.vin,d.cust,l.src,l.date,l.vno,l.vt,l.part,l.side,l.amt,l.f]));
+   if(scr){if(scr.vcpl!=="")ev.vcpl_discount=[+scr.vcpl,"Deal sheet "+scr.f.name,"High",""];
+    if(scr.mar!==""){ev.margin_flag=[+scr.mar<lim?"Less 50K":"Above 50K","Total retained margin "+(+scr.mar).toLocaleString("en-IN"),"High","Limit "+lim.toLocaleString("en-IN")]}}
+   for(const[f,col]of Object.entries(hdr)){if(Object.values(IDX).includes(f)||!ev[f]||(IRF.has(f)&&!irf))continue;const v=ev[f][0];if(v===""||v==null)continue;
+    const c=ws.getCell(d.row,col);if(c.value!=null&&c.value!==""&&!ovr)continue;c.value=v;if(v instanceof Date)c.numFmt="dd-mm-yyyy";else if(typeof v==="number")c.numFmt=INR}
+   for(const f of Object.values(HM)){if(!(f in hdr)||(IRF.has(f)&&!irf))continue;const e=ev[f];
+    review.push({row:d.row,col:hdr[f],cust:d.cust,f,v:e?(e[0] instanceof Date?fd(e[0]):e[0]):"",c:e?e[2]:"Missing",n:e?(e[1]+(e[3]?" — "+e[3]:"")):"Not found in "+(["vcpl_discount","margin_flag"].includes(f)?"screenshot values":"ledger")})}}
+  ["Review","Ledger_Lines","Unmatched"].forEach(n=>{const x=wb.getWorksheet(n);if(x)wb.removeWorksheet(x.id)});
+  const hs=(w,cols)=>{w.addRow(cols);const r=w.getRow(1);r.font={bold:true,color:{argb:"FFFFFFFF"},name:"Arial"};r.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF1F3864"}};w.views=[{state:"frozen",ySplit:1}]};
+  const rv=wb.addWorksheet("Review");hs(rv,["Customer","Field","Value","Confidence","Evidence and note"]);review.forEach(r=>rv.addRow([r.cust,r.f,r.v,r.c,r.n]));[28,18,22,12,90].forEach((w,i)=>rv.getColumn(i+1).width=w);
+  const ll=wb.addWorksheet("Ledger_Lines");hs(ll,["VIN","Customer","File","Date","Voucher No","Voucher Type","Particulars","Dr/Cr","Amount","Classified as"]);lines.forEach(r=>{const x=ll.addRow(r);x.getCell(4).numFmt="dd-mm-yyyy";x.getCell(9).numFmt=INR});[20,26,36,12,20,16,50,7,15,14].forEach((w,i)=>ll.getColumn(i+1).width=w);
+  const um=wb.addWorksheet("Unmatched");hs(um,["Type","Detail"]);L.filter(x=>!usedL.has(x.file)).forEach(x=>um.addRow(["Ledger PDF matched no customer",x.file+" (header: "+x.header+")"]));
+  const dv=new Set(deals.map(d=>d.vin));st.imgs.filter(m=>m.vin&&!dv.has(m.vin)).forEach(m=>um.addRow(["Screenshot VIN not in list",m.vin]));um.getColumn(1).width=38;um.getColumn(2).width=70;
+  
+  const checks=L.map(x=>{const dr=x.rows.filter(l=>l.side==="Dr").reduce((t,l)=>t+l.amt,0),cr=x.rows.filter(l=>l.side==="Cr").reduce((t,l)=>t+l.amt,0);return{file:x.file,n:x.rows.length,dr,cr,ok:x.rows.length>0&&Math.abs(dr-cr)<1}});
+  const alerts=[],N=v=>v.toLocaleString("en-IN");
+  checks.forEach(c=>{if(!c.n)alerts.push(["High","No voucher lines could be read from "+c.file]);else if(!c.ok)alerts.push(["High",`${c.file}: debits (${N(c.dr)}) and credits (${N(c.cr)}) differ, so a line may have been missed. Compare with the PDF.`])});
+  const seenV={};deals.forEach(d=>{if(seenV[d.vin])alerts.push(["High","Duplicate VIN "+d.vin+" in the list"]);seenV[d.vin]=1;
+   if(!d.nl)alerts.push(["High","No ledger matched for "+d.cust]);const e=d.ev||{};
+   if(e.booking_date&&e.trpr_date&&e.trpr_date[0]<e.booking_date[0])alerts.push(["Medium",d.cust+": TR/PR date is before the booking date"]);
+   if(!e.margin_flag&&!(hdr.margin_flag&&ws.getCell(d.row,hdr.margin_flag).value))alerts.push(["Medium",d.cust+": no Total Retained Margin entered, so the margin flag is blank"])});
+  const ck=wb.addWorksheet("Checks");hs(ck,["Severity","Check"]);alerts.forEach(a=>ck.addRow(a));checks.forEach(c=>ck.addRow([c.ok?"OK":"High",`${c.file}: ${c.n} lines, Dr ${N(c.dr)}, Cr ${N(c.cr)}`]));ck.getColumn(1).width=12;ck.getColumn(2).width=110;
+  if(hdr.sc){const sc=wb.addWorksheet("SC_Summary");hs(sc,["Sold By","Cars sold","Margin below limit","Margin above limit","Total VCPL discount"]);
+   const last=Math.max(ws.rowCount,...deals.map(d=>d.row)),col=n=>ws.getColumn(n).letter,rg=n=>`'${ws.name}'!$${col(n)}$2:$${col(n)}$${last}`,names=[...new Set(deals.map(d=>String(d.sc||"").trim()))];
+   names.forEach((s,i)=>{const r=i+2;sc.addRow([s,{formula:`COUNTIF(${rg(hdr.sc)},A${r})`},hdr.margin_flag?{formula:`COUNTIFS(${rg(hdr.sc)},A${r},${rg(hdr.margin_flag)},"Less*")`}:"",hdr.margin_flag?{formula:`COUNTIFS(${rg(hdr.sc)},A${r},${rg(hdr.margin_flag)},"Above*")`}:"",hdr.vcpl_discount?{formula:`SUMIF(${rg(hdr.sc)},A${r},${rg(hdr.vcpl_discount)})`}:""]);sc.getCell(r,5).numFmt=INR});
+   const t=names.length+2;sc.addRow(["Total",...[2,3,4,5].map(c=>({formula:`SUM(${sc.getColumn(c).letter}2:${sc.getColumn(c).letter}${t-1})`}))]);sc.getRow(t).font={bold:true};sc.getCell(t,5).numFmt=INR;[20,12,18,18,20].forEach((w,i)=>sc.getColumn(i+1).width=w)}
+  wb.calcProperties={fullCalcOnLoad:true};
+  st.result={wb,ws,hdr,rv,review,deals,alerts,checks,unmatched:um.rowCount-1,usedL:usedL.size,total:L.length};draw();$("#out").scrollIntoView({behavior:"smooth"});log("")}
+ catch(e){console.error(e);$("#log").textContent="Error: "+e.message}finally{$("#go").disabled=false}};
+
+function draw(){const r=st.result,miss=r.review.filter(x=>x.c==="Missing").length,med=r.review.filter(x=>x.c==="Medium").length;$("#out").style.display="block";
+ $("#stats").innerHTML=`<span class="stat"><b>${r.deals.length}</b>cars</span><span class="stat"><b>${r.usedL}/${r.total}</b>ledgers matched</span><span class="stat"><b>${med}</b>to verify</span><span class="stat"><b>${miss}</b>missing</span><span class="stat"><b>${r.alerts.length}</b>alerts</span>`;
+ drawAlerts();drawDash();renderRows()}
+function renderRows(){const r=st.result;if(!r)return;const only=$("#only").checked,cf=$("#cf").value,q=$("#q").value.toLowerCase();
+ $("#rb").innerHTML=r.review.map((x,i)=>[x,i]).filter(([x])=>(!only||(x.c!=="High"&&x.c!=="Edited"))&&(!cf||x.c===cf)&&(!q||(x.cust+" "+x.f+" "+x.n).toLowerCase().includes(q)))
+  .map(([x,i])=>`<tr><td>${esc(x.cust)}</td><td>${x.f}</td><td><input type="text" class="ev" data-i="${i}" value="${esc(x.v)}" style="min-width:110px"></td><td><span class="pill ${x.c}">${x.c}</span></td><td>${esc(x.n)}</td></tr>`).join("")||"<tr><td colspan=5>Nothing to show.</td></tr>"}
+function drawAlerts(){const r=st.result,cs=r.checks.map(c=>`<div style="font-size:12px;color:var(--mut)">${c.ok?"✓":"✗"} ${esc(c.file)}: ${c.n} lines, debits ${c.dr.toLocaleString("en-IN")}, credits ${c.cr.toLocaleString("en-IN")}</div>`).join("");
+ $("#al").innerHTML=`<h2>Checks (${r.alerts.length} alert${r.alerts.length===1?"":"s"})</h2>`+(r.alerts.map(a=>`<div class="al ${a[0]==="High"?"Missing":"Medium"}">${esc(a[1])}</div>`).join("")||'<div class="al High">All checks passed.</div>')+(cs?`<details><summary>Ledger balance checks</summary>${cs}</details>`:"")}
+function drawDash(){const r=st.result,ws=r.ws,h=r.hdr,m={};
+ r.deals.forEach(d=>{const k=String(d.sc||"").trim()||"(no name)",o=m[k]||(m[k]={n:0,l:0,a:0,v:0});o.n++;const f=h.margin_flag?txt(ws.getCell(d.row,h.margin_flag).value):"";if(/less/i.test(f))o.l++;else if(/above/i.test(f))o.a++;
+  const v=h.vcpl_discount?Number(ws.getCell(d.row,h.vcpl_discount).value):0;if(v>0)o.v+=v});
+ const mx=Math.max(1,...Object.values(m).map(o=>o.n));
+ $("#dash").innerHTML="<h2>By sales consultant</h2>"+Object.entries(m).sort((a,b)=>b[1].n-a[1].n).map(([k,o])=>`<div class="sc"><span>${esc(k)}</span><div class="bar"><i class="b1" style="width:${o.l/mx*100}%"></i><i class="b2" style="width:${o.a/mx*100}%"></i><i class="b3" style="width:${(o.n-o.l-o.a)/mx*100}%"></i></div><span>${o.n} cars, ${o.l} below limit, VCPL ₹${o.v.toLocaleString("en-IN")}</span></div>`).join("")
+  +'<div style="font-size:11.5px;color:var(--mut)"><span style="color:#e45757">■</span> margin below limit &nbsp;<span style="color:#3fa968">■</span> margin above limit &nbsp;<span style="color:#9aa3b2">■</span> margin unknown</div>'}
+const DATEF=new Set(["booking_date","trpr_date"]),NUMF=new Set(["booking_amount","vcpl_discount","acc_discount","acc_amount","trade_in","finance_amount"]);
+$("#rb").addEventListener("change",e=>{const t=e.target;if(!t.classList.contains("ev"))return;const r=st.result,x=r.review[+t.dataset.i],s=t.value.trim();let v=s||null;
+ if(s&&DATEF.has(x.f)){const m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);if(!m){alert("Use the date format dd-mm-yyyy");return}v=new Date(Date.UTC(+m[3],m[2]-1,+m[1]))}
+ else if(s&&NUMF.has(x.f)){const n=Number(s.replace(/,/g,""));if(!isFinite(n)){alert("Enter a number");return}v=n}
+ const c=r.ws.getCell(x.row,x.col);c.value=v;c.numFmt=v instanceof Date?"dd-mm-yyyy":typeof v==="number"?INR:"General";
+ x.v=s;x.c="Edited";const pl=t.closest("tr").querySelector(".pill");pl.className="pill Edited";pl.textContent="Edited";drawDash()});
+["#only","#cf"].forEach(s=>$(s).onchange=renderRows);$("#q").oninput=renderRows;
+$("#dl").onclick=async()=>{const R=st.result;R.review.forEach((x,i)=>{const w=R.rv.getRow(i+2);w.getCell(3).value=x.v;w.getCell(4).value=x.c});const b=await R.wb.xlsx.writeBuffer(),a=document.createElement("a");a.href=URL.createObjectURL(new Blob([b],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));a.download="Incentive_report_filled.xlsx";a.click()};
+const KEYS=["lim","thr","o_none","o_spares","o_rules","ovr","irf"];
+try{const s=JSON.parse(localStorage.getItem("incRules")||"{}");KEYS.forEach(k=>{const e=$("#"+k);if(e&&k in s){if(e.type==="checkbox")e.checked=s[k];else e.value=s[k]}})}catch(_){}
+document.addEventListener("change",()=>{try{const s={};KEYS.forEach(k=>{const e=$("#"+k);s[k]=e.type==="checkbox"?e.checked:e.value});localStorage.setItem("incRules",JSON.stringify(s))}catch(_){}});
+</script></body></html>

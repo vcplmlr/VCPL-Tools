@@ -1,0 +1,555 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Textlift OCR</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: a two-column workbench. Left: drop zone, options, file queue. Right: extracted text with per-page tabs. */
+:root {
+  --bg: #f3f6f7;
+  --surface: #ffffff;
+  --surface-2: #e9eef0;
+  --fg: #11202a;
+  --muted: #5a6b76;
+  --line: #d3dde1;
+  --accent: #0b7a75;
+  --accent-fg: #ffffff;
+  --accent-soft: #d6efec;
+  --good: #1a7f45;
+  --warn: #a35f00;
+  --bad: #b3261e;
+  --mark: #ffe58a;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e171c; --surface: #15222a; --surface-2: #1d2e37; --fg: #e6eef1; --muted: #97a9b3;
+    --line: #2a3d47; --accent: #3fc1b8; --accent-fg: #06201e; --accent-soft: #14393a;
+    --good: #5bd08a; --warn: #f0b04a; --bad: #ff8a80; --mark: #5a4d12; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e171c; --surface: #15222a; --surface-2: #1d2e37; --fg: #e6eef1; --muted: #97a9b3;
+  --line: #2a3d47; --accent: #3fc1b8; --accent-fg: #06201e; --accent-soft: #14393a;
+  --good: #5bd08a; --warn: #f0b04a; --bad: #ff8a80; --mark: #5a4d12; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.5;
+  padding-block: 20px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1240px; margin: 0 auto; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; margin-bottom: 18px; }
+h1 { font-family: var(--font-display); font-size: 28px; line-height: 1.1; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.sub { color: var(--muted); max-width: 62ch; margin: 6px 0 0; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 8px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); background: var(--surface); }
+.grid { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
+.panel h2 { font-family: var(--font-display); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 12px; font-weight: 500; }
+#drop {
+  border: 2px dashed var(--line); border-radius: 8px; padding: 26px 14px; text-align: center; cursor: pointer;
+  background: var(--surface); transition: border-color .15s, background .15s;
+}
+#drop:hover, #drop.over, #drop:focus-visible { border-color: var(--accent); background: var(--accent-soft); outline: none; }
+#drop strong { display: block; font-family: var(--font-display); font-size: 17px; margin-bottom: 4px; }
+#drop small { color: var(--muted); }
+.fmts { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.fmts i { font-style: normal; font-family: var(--font-mono); font-size: 11px; padding: 2px 7px; border-radius: 3px; background: var(--surface-2); color: var(--fg); }
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; min-width: 0; }
+.field label, .lbl { font-size: 12px; font-weight: 600; }
+select, button, textarea, input[type=range] { font: inherit; color: inherit; }
+select { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; width: 100%; min-width: 0; }
+.check { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; cursor: pointer; }
+.check input { margin-top: 3px; accent-color: var(--accent); }
+.check small { display: block; color: var(--muted); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; cursor: pointer; font-weight: 500; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#queue { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.empty { color: var(--muted); padding: 8px 0; }
+.item { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; background: var(--surface); }
+.item[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.thumb { width: 44px; height: 44px; border-radius: 4px; background: var(--surface-2); object-fit: cover; display: grid; place-items: center; font-family: var(--font-mono); font-size: 10px; color: var(--muted); overflow: hidden; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.iname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imeta { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar { height: 4px; background: var(--surface-2); border-radius: 2px; margin-top: 5px; overflow: hidden; }
+.bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.x { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 4px 6px; border-radius: 4px; }
+.x:hover { color: var(--bad); }
+.status-done { color: var(--good); } .status-error { color: var(--bad); }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+.tab { font-family: var(--font-mono); font-size: 12px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.tab .c { opacity: .7; margin-left: 4px; }
+.stats { display: flex; gap: 6px 18px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.stats b { color: var(--fg); font-weight: 500; }
+#out {
+  width: 100%; min-height: 380px; resize: vertical; background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  padding: 12px; font-family: var(--font-mono); font-size: 13px; line-height: 1.6; tab-size: 4;
+}
+.finder { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.finder input[type=text] { flex: 1 1 130px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; }
+.note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+.placeholder { border: 1px dashed var(--line); border-radius: 6px; padding: 40px 16px; text-align: center; color: var(--muted); }
+.placeholder b { display: block; color: var(--fg); font-family: var(--font-display); font-size: 16px; margin-bottom: 4px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 6px; font-size: 13px; z-index: 20; max-width: calc(100% - 32px); }
+.pre { max-height: 190px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 10px; background: var(--surface-2); display: grid; place-items: center; }
+.pre img { max-width: 100%; max-height: 190px; display: block; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Text<span>lift</span> OCR</h1>
+      <p class="sub">Pull text out of photos, screenshots, scans and PDFs. Everything runs inside this page, so your files never leave your device.</p>
+    </div>
+    <div class="badges"><span class="badge">JPG</span><span class="badge">PNG</span><span class="badge">WebP</span><span class="badge">PDF</span><span class="badge">EN · हिं · ಕನ್ನಡ</span></div>
+  </header>
+
+  <div class="grid">
+    <div class="col">
+      <div id="drop" tabindex="0" role="button" aria-label="Choose files to extract text from">
+        <strong>Drop files here, or click to choose</strong>
+        <small>You can also paste an image with Ctrl/Cmd + V</small>
+        <div class="fmts"><i>.jpg</i><i>.png</i><i>.webp</i><i>.gif</i><i>.bmp</i><i>.avif</i><i>.pdf</i></div>
+        <input id="file" type="file" multiple accept="image/*,.pdf,application/pdf" hidden>
+      </div>
+
+      <section class="panel" aria-labelledby="h-opt">
+        <h2 id="h-opt">Settings</h2>
+        <div class="field">
+          <label for="lang">Language in the file</label>
+          <select id="lang">
+            <option value="eng">English</option>
+            <option value="hin">Hindi</option>
+            <option value="kan">Kannada</option>
+            <option value="eng+hin">English + Hindi</option>
+            <option value="eng+kan">English + Kannada</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="psm">Layout</label>
+          <select id="psm">
+            <option value="3">Automatic (columns, mixed layouts)</option>
+            <option value="6">Single block of text</option>
+            <option value="4">Single column, varied sizes</option>
+            <option value="11">Sparse text (signs, labels, receipts)</option>
+            <option value="7">One line only</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="pdfmode">PDF pages</label>
+          <select id="pdfmode">
+            <option value="auto">Use built-in text, scan only if missing</option>
+            <option value="ocr">Always scan pages as images</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="scale">Scan quality: <span id="scaleV">2.0×</span></label>
+          <input id="scale" type="range" min="1" max="3" step="0.5" value="2">
+        </div>
+        <label class="check"><input id="enh" type="checkbox" checked><span>Enhance image before reading<small>Grayscale, contrast stretch and upscaling of small images</small></span></label>
+        <label class="check"><input id="bin" type="checkbox"><span>Black and white clean-up<small>Helps with shadows or uneven lighting</small></span></label>
+        <label class="check"><input id="para" type="checkbox"><span>Join wrapped lines into paragraphs</span></label>
+        <label class="check"><input id="hyph" type="checkbox"><span>Repair words split by hyphens at line ends</span></label>
+        <label class="check"><input id="marks" type="checkbox" checked><span>Add page markers for PDFs</span></label>
+      </section>
+
+      <section class="panel" aria-labelledby="h-q">
+        <h2 id="h-q">Files</h2>
+        <ul id="queue"><li class="empty">No files yet.</li></ul>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="run" disabled>Extract text</button>
+          <button class="btn" id="stop" disabled>Stop</button>
+          <button class="btn" id="clear" disabled>Clear all</button>
+        </div>
+        <div class="note" id="engine">First run loads the reading engine and language data, which can take a few seconds.</div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-labelledby="h-r">
+        <h2 id="h-r">Extracted text</h2>
+        <div id="result"><div class="placeholder"><b>Nothing extracted yet</b>Add a file, then choose Extract text.</div></div>
+      </section>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="vendor/tesseract.min.js"></script>
+<script src="vendor/pdf.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var BASE = document.baseURI;
+  var abs = function (p) { return new URL(p, BASE).href; };
+
+  var files = [];          // {id, name, kind, size, file, status, pct, msg, pages:[{n,text,conf,method}], thumb, edited}
+  var current = null;      // selected file id
+  var page = 'all';        // selected tab: 'all' or page number
+  var running = false, cancelled = false;
+  var worker = null, workerKey = '', onProgress = null;
+  var nextId = 1;
+  var downloads = null;
+
+  if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = abs('vendor/pdf.worker.min.js');
+  if (window.claude && claude.use) claude.use('downloads').then(function (d) { downloads = d; renderResult(); }).catch(function () {});
+
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.hidden = true; }, 2600);
+  }
+  function fmtSize(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  /* ---------- adding files ---------- */
+  var drop = $('drop'), input = $('file');
+  drop.addEventListener('click', function () { input.click(); });
+  drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+  input.addEventListener('change', function () { addFiles(input.files); input.value = ''; });
+  ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { if (e.dataTransfer) addFiles(e.dataTransfer.files); });
+  document.addEventListener('paste', function (e) {
+    var items = (e.clipboardData && e.clipboardData.files) || [];
+    if (items.length) { addFiles(items); }
+  });
+
+  function addFiles(list) {
+    var added = 0, skipped = 0;
+    Array.prototype.forEach.call(list, function (f) {
+      var isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+      var isImg = /^image\//.test(f.type) || /\.(jpe?g|png|webp|gif|bmp|avif)$/i.test(f.name);
+      if (!isPdf && !isImg) { skipped++; return; }
+      var name = f.name && f.name !== 'image.png' ? f.name : 'pasted-image-' + nextId + '.png';
+      var it = { id: nextId++, name: name, kind: isPdf ? 'pdf' : 'img', size: f.size, file: f, status: 'queued', pct: 0, msg: 'Ready', pages: [], thumb: null, edited: null };
+      if (isImg) it.thumb = URL.createObjectURL(f);
+      files.push(it); added++;
+    });
+    if (skipped) toast(skipped + ' file' + (skipped > 1 ? 's' : '') + ' skipped. Use JPG, PNG, WebP, GIF, BMP, AVIF or PDF.');
+    if (added && current == null) current = files[0].id;
+    renderQueue(); renderResult();
+  }
+
+  /* ---------- queue UI ---------- */
+  function renderQueue() {
+    var q = $('queue'); q.textContent = '';
+    if (!files.length) { q.appendChild(el('li', 'empty', 'No files yet.')); }
+    files.forEach(function (f) {
+      var li = el('li', 'item'); li.tabIndex = 0;
+      li.setAttribute('aria-current', f.id === current ? 'true' : 'false');
+      var th = el('div', 'thumb');
+      if (f.thumb) { var im = new Image(); im.alt = ''; im.src = f.thumb; th.appendChild(im); } else th.textContent = 'PDF';
+      var mid = el('div'); mid.style.minWidth = '0';
+      mid.appendChild(el('div', 'iname', f.name));
+      var meta = el('div', 'imeta status-' + f.status, fmtSize(f.size) + ' · ' + f.msg);
+      mid.appendChild(meta);
+      var bar = el('div', 'bar'); var fill = el('div'); fill.style.width = Math.round(f.pct * 100) + '%'; bar.appendChild(fill); mid.appendChild(bar);
+      var x = el('button', 'x', '×'); x.title = 'Remove'; x.setAttribute('aria-label', 'Remove ' + f.name);
+      x.addEventListener('click', function (e) { e.stopPropagation(); if (running) return; removeFile(f.id); });
+      li.appendChild(th); li.appendChild(mid); li.appendChild(x);
+      var sel = function () { current = f.id; page = 'all'; renderQueue(); renderResult(); };
+      li.addEventListener('click', sel);
+      li.addEventListener('keydown', function (e) { if (e.key === 'Enter') sel(); });
+      q.appendChild(li);
+    });
+    $('run').disabled = running || !files.some(function (f) { return f.status !== 'done'; });
+    $('stop').disabled = !running;
+    $('clear').disabled = running || !files.length;
+  }
+  function removeFile(id) {
+    var i = files.findIndex(function (f) { return f.id === id; });
+    if (i < 0) return;
+    if (files[i].thumb) URL.revokeObjectURL(files[i].thumb);
+    files.splice(i, 1);
+    if (current === id) current = files.length ? files[0].id : null;
+    page = 'all'; renderQueue(); renderResult();
+  }
+  $('clear').addEventListener('click', function () { files.forEach(function (f) { if (f.thumb) URL.revokeObjectURL(f.thumb); }); files = []; current = null; renderQueue(); renderResult(); });
+  $('scale').addEventListener('input', function () { $('scaleV').textContent = parseFloat($('scale').value).toFixed(1) + '×'; });
+  ['para', 'hyph', 'marks'].forEach(function (id) { $(id).addEventListener('change', function () { var f = cur(); if (f) f.edited = null; renderResult(); }); });
+
+  function setStatus(f, status, msg, pct) { f.status = status; if (msg != null) f.msg = msg; if (pct != null) f.pct = pct; renderQueue(); }
+
+  /* ---------- image preparation ---------- */
+  function otsu(gray) {
+    var hist = new Array(256).fill(0), i;
+    for (i = 0; i < gray.length; i++) hist[gray[i]]++;
+    var total = gray.length, sum = 0; for (i = 0; i < 256; i++) sum += i * hist[i];
+    var sB = 0, wB = 0, best = 0, th = 128;
+    for (i = 0; i < 256; i++) {
+      wB += hist[i]; if (!wB) continue; var wF = total - wB; if (!wF) break;
+      sB += i * hist[i]; var mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) * (mB - mF);
+      if (v > best) { best = v; th = i; }
+    }
+    return th;
+  }
+  function prepare(canvas) {
+    var enh = $('enh').checked, bin = $('bin').checked;
+    var w = canvas.width, h = canvas.height;
+    if (enh) {
+      var longest = Math.max(w, h), target = 2200, s = 1;
+      if (longest < 1400) s = Math.min(3, target / longest);
+      if (longest * s > 4200) s = 4200 / longest;
+      if (s !== 1) {
+        var c2 = document.createElement('canvas'); c2.width = Math.round(w * s); c2.height = Math.round(h * s);
+        var x2 = c2.getContext('2d'); x2.imageSmoothingQuality = 'high'; x2.drawImage(canvas, 0, 0, c2.width, c2.height);
+        canvas = c2; w = c2.width; h = c2.height;
+      }
+    }
+    if (enh || bin) {
+      var ctx = canvas.getContext('2d', { willReadFrequently: true });
+      var img = ctx.getImageData(0, 0, w, h), d = img.data, n = w * h, gray = new Uint8Array(n), i, lo = 255, hi = 0;
+      for (i = 0; i < n; i++) { var g = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0; gray[i] = g; }
+      var hist = new Array(256).fill(0); for (i = 0; i < n; i++) hist[gray[i]]++;
+      var cut = n * 0.005, acc = 0; for (i = 0; i < 256; i++) { acc += hist[i]; if (acc > cut) { lo = i; break; } }
+      acc = 0; for (i = 255; i >= 0; i--) { acc += hist[i]; if (acc > cut) { hi = i; break; } }
+      if (hi - lo < 20) { lo = 0; hi = 255; }
+      var range = hi - lo;
+      for (i = 0; i < n; i++) { var v = (gray[i] - lo) * 255 / range; gray[i] = v < 0 ? 0 : v > 255 ? 255 : v; }
+      if (bin) { var t = otsu(gray); for (i = 0; i < n; i++) gray[i] = gray[i] > t ? 255 : 0; }
+      for (i = 0; i < n; i++) { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = gray[i]; d[i * 4 + 3] = 255; }
+      ctx.putImageData(img, 0, 0);
+    }
+    return canvas;
+  }
+  function fileToCanvas(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file), im = new Image();
+      im.onload = function () {
+        var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+        var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0);
+        URL.revokeObjectURL(url); resolve(c);
+      };
+      im.onerror = function () { URL.revokeObjectURL(url); reject(new Error('This browser could not open the image. Try saving it as PNG or JPG.')); };
+      im.src = url;
+    });
+  }
+
+  /* ---------- OCR engine ---------- */
+  function getWorker() {
+    var key = $('lang').value + '|' + $('psm').value;
+    if (worker && workerKey === key) return Promise.resolve(worker);
+    var old = worker; worker = null;
+    return Promise.resolve(old ? old.terminate().catch(function () {}) : null).then(function () {
+      $('engine').textContent = 'Loading reading engine and language data…';
+      return Tesseract.createWorker($('lang').value.split('+'), 1, {
+        workerPath: abs('vendor/worker-wrap.js'),
+        corePath: abs('vendor/core'),
+        langPath: abs('vendor/lang'),
+        workerBlobURL: false,
+        cacheMethod: 'none',
+        gzip: true,
+        logger: function (m) { if (onProgress) onProgress(m); }
+      });
+    }).then(function (w) {
+      return w.setParameters({ tessedit_pageseg_mode: $('psm').value, preserve_interword_spaces: '1' }).then(function () {
+        worker = w; workerKey = key; $('engine').textContent = 'Engine ready.'; return w;
+      });
+    });
+  }
+  function ocrCanvas(canvas, label, f, base, span) {
+    return getWorker().then(function (w) {
+      onProgress = function (m) {
+        if (m.status === 'recognizing text') setStatus(f, 'working', label + ' · reading ' + Math.round(m.progress * 100) + '%', base + span * m.progress);
+        else if (/loading|initializ/.test(m.status)) setStatus(f, 'working', label + ' · ' + m.status);
+      };
+      return w.recognize(canvas);
+    }).then(function (r) { onProgress = null; return { text: (r.data.text || '').replace(/\s+$/g, ''), conf: Math.round(r.data.confidence) }; });
+  }
+
+  /* ---------- per-file processing ---------- */
+  function processImage(f) {
+    setStatus(f, 'working', 'Preparing image', 0.05);
+    return fileToCanvas(f.file).then(function (c) {
+      return ocrCanvas(prepare(c), 'Image', f, 0.1, 0.88);
+    }).then(function (r) { f.pages = [{ n: 1, text: r.text, conf: r.conf, method: 'OCR' }]; });
+  }
+  function pageText(tc) {
+    var out = '', lastY = null;
+    tc.items.forEach(function (it) {
+      if (!it.str && !it.hasEOL) return;
+      var y = it.transform ? it.transform[5] : null;
+      if (lastY !== null && y !== null && Math.abs(y - lastY) > 2 && out && !/\n$/.test(out)) out += '\n';
+      out += it.str; if (it.hasEOL) out += '\n';
+      if (y !== null) lastY = y;
+    });
+    return out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+  function processPdf(f) {
+    if (!window.pdfjsLib) return Promise.reject(new Error('PDF reader did not load.'));
+    setStatus(f, 'working', 'Opening PDF', 0.02);
+    return f.file.arrayBuffer().then(function (buf) {
+      return pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+    }).then(function (pdf) {
+      var total = pdf.numPages, scale = parseFloat($('scale').value), always = $('pdfmode').value === 'ocr';
+      f.pages = [];
+      var chain = Promise.resolve();
+      var _loop = function (n) {
+        chain = chain.then(function () {
+          if (cancelled) throw new Error('Stopped');
+          var base = (n - 1) / total, span = 1 / total, label = 'Page ' + n + '/' + total;
+          setStatus(f, 'working', label, base);
+          return pdf.getPage(n).then(function (p) {
+            return p.getTextContent().then(function (tc) {
+              var t = always ? '' : pageText(tc);
+              if (t.replace(/\s/g, '').length >= 25) { f.pages.push({ n: n, text: t, conf: null, method: 'Text layer' }); renderResultSoon(f); return; }
+              var vp = p.getViewport({ scale: scale * 1.5 });
+              var c = document.createElement('canvas'); c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+              var cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, c.width, c.height);
+              return p.render({ canvasContext: cx, viewport: vp }).promise.then(function () {
+                return ocrCanvas(prepare(c), label, f, base, span * 0.95);
+              }).then(function (r) { f.pages.push({ n: n, text: r.text, conf: r.conf, method: 'OCR' }); renderResultSoon(f); });
+            });
+          });
+        });
+      };
+      for (var n = 1; n <= total; n++) _loop(n);
+      return chain;
+    });
+  }
+  var rrT = null;
+  function renderResultSoon(f) { if (f.id !== current) return; clearTimeout(rrT); rrT = setTimeout(renderResult, 120); }
+
+  $('run').addEventListener('click', function () {
+    if (running) return;
+    running = true; cancelled = false; renderQueue();
+    var todo = files.filter(function (f) { return f.status !== 'done'; });
+    var chain = Promise.resolve();
+    todo.forEach(function (f) {
+      chain = chain.then(function () {
+        if (cancelled) return;
+        f.pages = []; f.edited = null;
+        return (f.kind === 'pdf' ? processPdf(f) : processImage(f)).then(function () {
+          var chars = f.pages.reduce(function (a, p) { return a + p.text.length; }, 0);
+          setStatus(f, 'done', chars ? f.pages.length + (f.pages.length > 1 ? ' pages' : ' page') + ' done' : 'No text found', 1);
+          if (current == null) current = f.id; renderResult();
+        }).catch(function (e) {
+          if (cancelled) { setStatus(f, 'queued', 'Stopped', 0); return; }
+          console.error(e);
+          setStatus(f, 'error', 'Failed: ' + (e && e.message ? e.message : e), 0);
+          $('engine').textContent = 'Something failed. If the reading engine did not start, reload the page and try again.';
+          if (worker) { worker.terminate().catch(function () {}); worker = null; workerKey = ''; }
+        });
+      });
+    });
+    chain.then(function () { running = false; onProgress = null; renderQueue(); renderResult(); if (!cancelled) $('engine').textContent = 'Finished.'; });
+  });
+  $('stop').addEventListener('click', function () {
+    cancelled = true;
+    if (worker) { worker.terminate().catch(function () {}); worker = null; workerKey = ''; }
+    $('engine').textContent = 'Stopping…';
+  });
+  ['lang', 'psm'].forEach(function (id) { $(id).addEventListener('change', function () { files.forEach(function (f) { if (f.status === 'done') { f.status = 'queued'; f.msg = 'Settings changed. Extract again.'; f.pct = 0; } }); renderQueue(); }); });
+
+  /* ---------- text assembly ---------- */
+  function clean(t) {
+    if ($('hyph').checked) t = t.replace(/(\p{L})-\n(\p{Ll})/gu, '$1$2');
+    if ($('para').checked) t = t.split(/\n{2,}/).map(function (p) { return p.replace(/\s*\n\s*/g, ' '); }).join('\n\n');
+    return t;
+  }
+  function cur() { return files.find(function (f) { return f.id === current; }); }
+  function assemble(f, which) {
+    var pages = which === 'all' ? f.pages : f.pages.filter(function (p) { return p.n === which; });
+    var marks = $('marks').checked && which === 'all' && f.kind === 'pdf' && f.pages.length > 1;
+    return pages.map(function (p) { return (marks ? '——— Page ' + p.n + ' ———\n\n' : '') + clean(p.text); }).join('\n\n');
+  }
+  function words(t) { var m = t.match(/\S+/g); return m ? m.length : 0; }
+
+  /* ---------- results UI ---------- */
+  function renderResult() {
+    var box = $('result'), f = cur(); box.textContent = '';
+    if (!f) { var p = el('div', 'placeholder'); p.appendChild(el('b', null, 'Nothing extracted yet')); p.appendChild(document.createTextNode('Add a file, then choose Extract text.')); box.appendChild(p); return; }
+    if (f.kind === 'img' && f.thumb) { var pre = el('div', 'pre'); var im = new Image(); im.alt = 'Preview of ' + f.name; im.src = f.thumb; pre.appendChild(im); box.appendChild(pre); }
+    if (!f.pages.length) {
+      var ph = el('div', 'placeholder'); ph.appendChild(el('b', null, f.status === 'working' ? 'Reading ' + f.name + '…' : f.status === 'error' ? 'This file could not be read' : 'Ready to read ' + f.name));
+      ph.appendChild(document.createTextNode(f.status === 'error' ? f.msg : f.status === 'working' ? f.msg : 'Choose Extract text to start.')); box.appendChild(ph); return;
+    }
+    if (f.pages.length > 1) {
+      var tabs = el('div', 'tabs'); tabs.setAttribute('role', 'tablist');
+      var mk = function (id, label, conf) {
+        var t = el('button', 'tab', label); t.setAttribute('role', 'tab'); t.setAttribute('aria-selected', page === id ? 'true' : 'false');
+        if (conf != null) t.appendChild(el('span', 'c', conf + '%'));
+        t.addEventListener('click', function () { page = id; f.edited = null; renderResult(); }); tabs.appendChild(t);
+      };
+      mk('all', 'All pages');
+      f.pages.forEach(function (pg) { mk(pg.n, 'p' + pg.n, pg.conf); });
+      box.appendChild(tabs);
+    }
+    var sel = page === 'all' ? f.pages : f.pages.filter(function (p) { return p.n === page; });
+    var confs = sel.filter(function (p) { return p.conf != null; });
+    var avg = confs.length ? Math.round(confs.reduce(function (a, p) { return a + p.conf; }, 0) / confs.length) : null;
+    var text = f.edited != null && f.editedFor === page ? f.edited : assemble(f, page);
+    var st = el('div', 'stats');
+    var add = function (k, v) { var s = el('span'); s.appendChild(document.createTextNode(k + ' ')); s.appendChild(el('b', null, v)); st.appendChild(s); };
+    add('Words', words(text).toLocaleString()); add('Characters', text.length.toLocaleString()); add('Lines', (text ? text.split('\n').length : 0).toLocaleString());
+    add('Source', Array.from(new Set(sel.map(function (p) { return p.method; }))).join(' + '));
+    if (avg != null) { var s = el('span'); s.appendChild(document.createTextNode('Confidence ')); var b = el('b', null, avg + '%'); b.style.color = avg >= 85 ? 'var(--good)' : avg >= 65 ? 'var(--warn)' : 'var(--bad)'; s.appendChild(b); st.appendChild(s); }
+    box.appendChild(st);
+    if (avg != null && avg < 65) box.appendChild(el('div', 'note', 'Confidence is low. Try Black and white clean-up, a higher scan quality, or a different Layout setting, then extract again.'));
+
+    var fd = el('div', 'finder');
+    var fi = el('input'); fi.type = 'text'; fi.id = 'find'; fi.placeholder = 'Find'; fi.setAttribute('aria-label', 'Find text');
+    var ri = el('input'); ri.type = 'text'; ri.id = 'repl'; ri.placeholder = 'Replace with'; ri.setAttribute('aria-label', 'Replace with');
+    var rb = el('button', 'btn', 'Replace all'); rb.id = 'replbtn';
+    fd.appendChild(fi); fd.appendChild(ri); fd.appendChild(rb); box.appendChild(fd);
+
+    var ta = el('textarea'); ta.id = 'out'; ta.value = text; ta.spellcheck = false; ta.setAttribute('aria-label', 'Extracted text, editable');
+    ta.addEventListener('input', function () { f.edited = ta.value; f.editedFor = page; });
+    box.appendChild(ta);
+    rb.addEventListener('click', function () {
+      if (!fi.value) return; var n = ta.value.split(fi.value).length - 1;
+      ta.value = ta.value.split(fi.value).join(ri.value); f.edited = ta.value; f.editedFor = page; toast(n + ' replaced');
+    });
+
+    var row = el('div', 'row'); row.style.marginTop = '10px';
+    var copy = el('button', 'btn primary', 'Copy text');
+    copy.addEventListener('click', function () { doCopy(ta); });
+    row.appendChild(copy);
+    var base = f.name.replace(/\.[^.]+$/, '');
+    if (downloads) {
+      [['txt', 'Save .txt'], ['md', 'Save .md'], ['json', 'Save .json']].forEach(function (x) {
+        var b = el('button', 'btn', x[1]);
+        b.addEventListener('click', function () {
+          var data = ta.value;
+          if (x[0] === 'json') data = JSON.stringify({ file: f.name, languages: $('lang').value, pages: f.pages.map(function (p) { return { page: p.n, method: p.method, confidence: p.conf, text: p.text }; }) }, null, 2);
+          downloads.save({ filename: base + '.' + x[0], data: data }).then(function () { toast('Saved'); }).catch(function (e) { if (e && e.code !== 'declined') toast('Could not save here. Use Copy text instead.'); });
+        });
+        row.appendChild(b);
+      });
+    }
+    if (files.filter(function (x) { return x.pages.length; }).length > 1) {
+      var all = el('button', 'btn', 'Copy all files');
+      all.addEventListener('click', function () {
+        var tmp = el('textarea'); tmp.value = files.filter(function (x) { return x.pages.length; }).map(function (x) { return '##### ' + x.name + '\n\n' + assemble(x, 'all'); }).join('\n\n\n'); doCopy(tmp);
+      });
+      row.appendChild(all);
+    }
+    box.appendChild(row);
+  }
+  function doCopy(ta) {
+    var text = ta.value, fallback = function () {
+      try { if (!ta.isConnected) document.body.appendChild(ta); ta.select(); document.execCommand('copy'); toast('Copied'); } catch (e) { toast('Press Ctrl/Cmd + C to copy the selected text'); }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { toast('Copied'); }, function () { ta.select(); fallback(); });
+    else { ta.select(); fallback(); }
+  }
+
+  renderQueue();
+})();
+</script>
+
+</body></html>

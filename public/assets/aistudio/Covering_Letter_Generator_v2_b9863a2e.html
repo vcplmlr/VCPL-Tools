@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Covering Letter Generator - Varsha Cars</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.5/tesseract.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px Arial,sans-serif;background:#eef0f3;color:#1c2330}
+.app{display:grid;grid-template-columns:480px 1fr;gap:16px;padding:16px;align-items:start}
+.panel{background:#fff;border:1px solid #d5d9e0;border-radius:8px;padding:14px;margin-bottom:12px}
+h1{font-size:18px;margin:0 0 10px}h2{font-size:14px;margin:0 0 8px;color:#0b4f8a}
+label{display:block;font-size:12px;color:#556;margin:8px 0 2px}
+input,select,textarea{width:100%;padding:6px 8px;border:1px solid #c3c9d4;border-radius:5px;font:inherit}
+textarea{min-height:56px}.row{display:flex;gap:8px}.row>*{flex:1}
+.drop{border:2px dashed #9bb3d1;border-radius:8px;padding:14px;text-align:center;background:#f6f9fd;cursor:pointer}
+.log{font-size:12px;margin-top:8px;color:#345;max-height:120px;overflow:auto}
+table.p{width:100%;border-collapse:collapse}table.p td{padding:2px}table.p input{padding:4px}
+button{padding:8px 12px;border:0;border-radius:5px;background:#0b4f8a;color:#fff;font:inherit;cursor:pointer}
+button.s{background:#e3e8ef;color:#1c2330}button:disabled{opacity:.4;cursor:not-allowed}
+.warn{color:#b3261e;font-size:12px}.ok{color:#1a7f37;font-size:12px}
+.chk{display:flex;gap:6px;align-items:center;font-size:13px;margin:4px 0}.chk input{width:auto}
+#sheet{background:#fff;border:1px solid #cfd4dc;padding:20mm 18mm;min-height:297mm;font:12pt Cambria,Georgia,'Times New Roman',serif;line-height:1.35}
+#refs img{max-width:100%;border:1px solid #ccc;margin-top:6px}
+@media(max-width:1000px){.app{grid-template-columns:1fr}}
+@media print{body{background:#fff}.app{display:block;padding:0}.panel,.noprint{display:none}#sheet{border:0;padding:0;min-height:0}@page{size:A4;margin:18mm}}
+</style></head><body>
+<div class="app">
+<div class="noprint">
+ <div class="panel"><h1>Covering Letter Generator</h1>
+  <div class="drop" id="drop">Drop files here or click: Tally ledger PDF, tax / registration certificates, big document PDFs, screenshots<input id="files" type="file" multiple accept=".pdf,image/*" style="display:none"></div>
+  <div style="font-size:12px;color:#556;margin-top:6px">PDFs with text are read directly. Scanned PDFs and screenshots are read with OCR (needs internet the first time; printed text works best, handwriting needs checking).</div><div class="log" id="log"></div><div id="refs"></div></div>
+
+ <div class="panel" id="xpanel" style="display:none"><h2>Extracted from ledger</h2><div id="xinfo" style="line-height:1.7"></div><p><button class="s" id="xcopy">Copy details</button></p></div>
+
+ <div class="panel"><h2>Letter details</h2>
+  <div class="row"><div><label>Date</label><input id="fdate"></div><div><label>Contact phone</label><input id="phone" value="6366227903"></div></div>
+  <label>Customer name</label><input id="cname">
+  <label>Customer address (one line per row)</label><textarea id="caddr"></textarea>
+  <label>Car (model - colour)</label><input id="car" placeholder="BMW iX1 eDrive20L M Sport - (Carbon Black)"><div class="row"><div><label>Customer PAN</label><input id="cpan"></div><div><label>Customer GSTIN</label><input id="cgst"></div></div><div class="chk"><input type="checkbox" id="showIds"><span>Show GSTIN / PAN under the address in the letter</span></div></div>
+
+ <div class="panel"><h2>Registration &amp; tax</h2>
+  <div class="row"><div><label>Registration</label><select id="regType"><option value="perm">Permanent registration</option><option value="temp">Temporary registration</option><option value="none">Not enclosed / pending</option></select></div>
+  <div><label>Reg. / TR number</label><input id="regNo" placeholder="KA00XX0000"></div></div>
+  <div class="chk"><input type="checkbox" id="taxChk" checked><span>Show "Lifetax Paid Receipt" with registration</span></div>
+  <label>Email for TCS certificate</label><input id="email" type="email">
+  <label>Extra enclosures (one per line)</label><textarea id="extra"></textarea></div>
+
+ <div class="panel"><h2>Payments received</h2>
+  <table class="p"><thead><tr><td>Date</td><td>Chq / Cash / Mode</td><td>Receipt No</td><td>Amount</td><td></td></tr></thead><tbody id="pb"></tbody></table>
+  <div class="chk"><input type="checkbox" id="showWho" checked><span>Show financier (HP) name on loan rows</span></div><p><button class="s" id="addRow">+ Add payment</button></p></div>
+
+ <div class="panel"><h2>Amount confirmation</h2>
+  <div>Total received: <b id="tot">0</b></div><div id="totw" style="font-size:12px;color:#556"></div>
+  <label>On-road price to compare (optional)</label><input id="onroad" inputmode="numeric" placeholder="e.g. 62,00,000">
+  <div id="cmp"></div><div id="linfo" style="font-size:12px;color:#556;margin-top:4px"></div>
+  <div class="chk"><input type="checkbox" id="ack"><span>I have checked the amounts, dates and receipt numbers</span></div>
+  <p class="row"><button id="bprint" disabled>Print / Save PDF</button><button id="bdoc" disabled>Download Word</button></p></div>
+</div>
+<div><div id="sheet"></div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+let pays=[];
+const ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+const two=n=>n<20?ones[n]:tens[Math.floor(n/10)]+(n%10?' '+ones[n%10]:'');
+function words(n){n=Math.round(n);if(!n)return 'Zero';const p=[];const c=Math.floor(n/1e7);n%=1e7;const l=Math.floor(n/1e5);n%=1e5;const t=Math.floor(n/1e3);n%=1e3;const h=Math.floor(n/100);n%=100;
+ if(c)p.push(words(c)+' Crore');if(l)p.push(two(l)+' Lakh');if(t)p.push(two(t)+' Thousand');if(h)p.push(ones[h]+' Hundred');if(n)p.push(two(n));return p.join(' ')}
+function inr(n){const [i,d]=(Math.round(n*100)/100).toFixed(2).split('.');let l=i.slice(-3),r=i.slice(0,-3);if(r)l=r.replace(/\B(?=(\d{2})+(?!\d))/g,',')+','+l;return d==='00'?l:l+'.'+d}
+function fmtDate(s){const m=(s||'').match(/(\d{1,2})-([A-Za-z]{3})-(\d{2,4})/);if(!m)return s||'';const y=m[3].length===2?'20'+m[3]:m[3];return String(m[1]).padStart(2,'0')+'.'+String(MON[m[2].toLowerCase()]).padStart(2,'0')+'.'+y}
+const num=s=>parseFloat(String(s||'').replace(/[^\d.]/g,''))||0;
+const esc=s=>String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const log=m=>{$('log').insertAdjacentHTML('beforeend','<div>'+m+'</div>')};
+
+/* ---------- PDF reading ---------- */
+let pdfReady=null;
+function initPdf(){if(!pdfReady)pdfReady=fetch('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js').then(r=>r.text()).then(t=>{pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([t],{type:'text/javascript'}))});return pdfReady}
+async function ocr(src,label){log(esc(label)+': reading with OCR...');return (await Tesseract.recognize(src,'eng')).data.text.split('\n').map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean)}
+async function pdfLines(file){await initPdf();const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;const lines=[];let ocrPages=0;
+ for(let p=1;p<=pdf.numPages;p++){const pg=await pdf.getPage(p);const tc=await pg.getTextContent();const rows=[];
+  for(const it of tc.items){if(!it.str.trim())continue;const y=it.transform[5],x=it.transform[4];let r=rows.find(r=>Math.abs(r.y-y)<3);if(!r){r={y,items:[]};rows.push(r)}r.items.push({x,s:it.str})}
+  rows.sort((a,b)=>b.y-a.y);const pl=[];for(const r of rows){r.items.sort((a,b)=>a.x-b.x);pl.push(r.items.map(i=>i.s).join(' ').replace(/\s+/g,' ').trim())}
+  if(pl.join('').length>=25)lines.push(...pl);
+  else{const vp=pg.getViewport({scale:2});const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+   lines.push(...await ocr(c,file.name+' page '+p+'/'+pdf.numPages));ocrPages++}}
+ return{lines,ocrPages}}
+
+/* ---------- Tally ledger parsing ---------- */
+function modeOf(n,type){let m=(n.match(/RTGS|NEFT|IMPS|\bUPI\b/i)||[])[0];m=m?m.toUpperCase():'';
+ const ch=n.match(/(?:CHQ|CHEQUE)\.?\s*(?:NO)?[.:\s]*(\d{4,8})/i);if(ch)m='CHQ NO: '+ch[1];
+ if(!m)m=/cash/i.test(type)?'CASH':(/online/i.test(type)?'ONLINE':'');
+ if(/LOAN/i.test(n))m='LOAN'+(m?' - '+m:'');return m.trim()}
+const whoOf=n=>((n.match(/TRANSFER FROM[^\/]*\/\s*(.+?)\s*$/i)||[])[1]||'').trim();
+const ACR=/\b(Bmw|Hdfc|Icici|Sbi|Idfc|Pnb|Bob|Uco|Tvs|Kia|Mg|Fs|Hsbc)\b/g;
+const tcase=s=>String(s||'').toLowerCase().replace(/(^|[\s(\/.-])([a-z])/g,(m,a,b)=>a+b.toUpperCase()).replace(ACR,w=>w.toUpperCase()).replace(/\b([SXE])drive/g,(m,a)=>a.toLowerCase()+'Drive');
+const payerOf=n=>{const ms=[...n.matchAll(/-\s*([A-Z][A-Z .]*?)(?=\s+TRANSFER FROM|\s*\/|\s*$)/g)].map(x=>x[1].trim()).filter(x=>!/^(IMPS|TRANSFER|RTGS|NEFT|UPI)$/.test(x));return ms.length?ms[ms.length-1]:''};
+function parseLedger(lines){const VR=/\b([A-Za-z]{1,8}\/\d{4}\/\d{2}\/\d+)\b/,AM=/(\d[\d,]*\.\d{2})\s*$/;const v=[];let last='',cur=null;
+ for(const ln of lines){
+  if(/Closing Balance/i.test(ln)){cur=null;continue}
+  const dm=ln.match(/^(\d{1,2}-[A-Za-z]{3}-\d{2,4})\b/);if(dm)last=dm[1];const vm=ln.match(VR);
+  if(vm&&AM.test(ln)&&!/^(Agst|New) Ref/i.test(ln)){const sd=(ln.match(/^(?:\d{1,2}-[A-Za-z]{3}-\d{2,4}\s+)?(Dr|Cr)\s/)||[])[1]||'';cur={date:last,vno:vm[1],side:sd,type:ln.slice(0,vm.index),amt:num(ln.match(AM)[1]),txt:[],bank:''};v.push(cur);continue}
+  if(!cur)continue;
+  const bm=ln.match(/^Others\s+(\d{1,2}-\d{1,2}-\d{4})/i);if(bm){cur.bank=bm[1];continue}
+  if(/^(Agst Ref|New Ref|Carried|Brought|continued|Page|Date )/i.test(ln)||/^Varsha Cars/i.test(ln)||/Ledger Account\s*:/i.test(ln)||/^[\d,]+\.\d\d(\s+[\d,]+\.\d\d)?$/.test(ln))continue;
+  cur.txt.push(ln)}
+ const nn=r=>{const t=r.txt.join(' ');const i=t.search(/BEING/i);return (i>=0?t.slice(i):t).replace(/(\d,)\s+(\d)/g,'$1$2')};
+ const full=lines.join(' ').replace(/(\d,)\s+(\d)/g,'$1$2');
+ let name='',addr='',rel='';const li=lines.findIndex(l=>/^Ledger Account$/i.test(l));
+ if(li>0){name=lines[li-1];const a=[];for(let k=li+1;k<lines.length&&!/\d{1,2}-[A-Za-z]{3}-\d{2}\s+to\b/i.test(lines[k]);k++)a.push(lines[k]);
+  if(a.length&&/^(D\/O|S\/O|W\/O|C\/O|H\/O)\s/i.test(a[0]))rel=tcase(a[0]);
+  addr=a.map(l=>tcase(l.replace(/\s*-\s*(\d{6})\s*$/,', $1'))).join('\n')}
+ const addrFlat=addr.split('\n').filter(l=>l&&l!==rel).join(', ');
+ const sv=v.find(r=>/^Car\//i.test(r.vno)||/car sales/i.test(r.type));
+ let hp=((sv?nn(sv):'').match(/\bHP\s*:\s*(.+?)\s*$/i)||[])[1]||'';
+ if(!hp)hp=(full.match(/\bHP\s*:\s*([A-Z][A-Z0-9 .&]+?(?:LTD|LIMITED|BANK|FINANCE|SERVICES)\.?)/i)||[])[1]||'';
+ hp=hp.replace(/[.,\s]+$/,'');
+ const res=[];
+ for(const r of v){const nar=nn(r);
+  const loan=r.side==='Dr'&&(/loan|disburs|financ|\bfs\b/i.test(r.type)||/LOAN AMOUNT|LOAN A\/C/i.test(nar));
+  const isRec=/receipt/i.test(r.type)||/^(BR|OR|CR|RV|REC)\//i.test(r.vno);
+  if(!loan&&!(isRec&&r.side!=='Cr'))continue;
+  let mode=loan?'LOAN':modeOf(nar,r.type),who=whoOf(nar),payer='',li2=null;
+  if(loan){const g=re=>(nar.match(re)||[])[1]||'';li2={acc:g(/LOAN A\/C NO\s*:?\s*([A-Z0-9]+)/i),gross:num(g(/LOAN AMOUNT\s*([\d,]+)/i)),fees:num(g(/FEES\s*-?\s*([\d,]+)/i)),dated:g(/DATED ON\s*(\d{1,2}-\d{1,2}-\d{4})/i),net:r.amt};who=tcase(hp)||tcase(r.type.replace(/^(Dr|Cr)\s+/,'').replace(/\s*-.*$/,''))}
+  else{payer=payerOf(nar);if(/LOAN/.test(mode)&&!who)who=tcase(hp)}
+  res.push({date:fmtDate(r.date),mode,rno:r.vno,amt:r.amt,nar,who,payer,loan,bank:r.bank,li:li2})}
+ const sum=s=>v.filter(r=>r.side===s).reduce((a,r)=>a+r.amt,0);
+ let car='';const cm=full.match(/SALE OF NEW CAR\s+(.+?)\s*,\s*COLOU?R\s*:\s*(.+?)\s*,\s*VIN/i);
+ if(cm){const ex=full.match(new RegExp(cm[1].replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\s+(M\\s*SPORT(?:\\s*PRO)?|SPORT\\s*LINE|LUXURY\\s*LINE|X\\s*LINE)','i'));car=tcase(cm[1]+(ex?' '+ex[1]:''))+' - ('+tcase(cm[2])+')'}
+ const cl=full.match(/(Dr|Cr)\s+Closing Balance\s+([\d,]+\.\d{2})/i);
+ const f=re=>(full.match(re)||[])[1]||'';
+ return{res,name:tcase(name),addr,rel,addrFlat,car,hp:tcase(hp),vin:f(/\bVIN\s*[-:]*\s*([A-HJ-NPR-Z0-9]{17})\b/i),engine:f(/ENGINE NO\s*[-:.]*\s*([A-Z0-9]+)/i),
+  sale:sv?sv.amt:0,charged:sum('Cr'),debited:sum('Dr'),closingNum:cl?num(cl[2]):0,closing:cl?inr(num(cl[2]))+' '+cl[1]:''}}
+
+/* ---------- other documents (contract, voucher, certificates, OCR text) ---------- */
+const DEALER=/0796M|AAICV|AAACV/;
+function extractInfo(lines){const full=lines.join(' '),o={};
+ o.email=(full.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g)||[]).find(e=>!/varshacars/i.test(e));
+ const rg=full.match(/\bKA[\s-]?\d{2}[\s-]?[A-Z]{1,3}[\s-]?\d{4}\b/);if(rg)o.reg=rg[0].replace(/[\s-]/g,'');
+ if(/temporary\s+regist/i.test(full))o.temp=true;
+ const op=full.match(/ON[- ]?ROAD PRICE\s*(?:Rs\.?|\u20b9)?\s*([\d,]{6,})/i);if(op)o.onroad=op[1];
+ o.gst=(full.match(/\b\d{2}[A-Z]{5}\d{4}[A-Z][A-Z\d]Z[A-Z\d]\b/g)||[]).find(g=>!DEALER.test(g));
+ o.pan=(full.match(/\b[A-Z]{5}\d{4}[A-Z]\b/g)||[]).find(g=>!DEALER.test(g)&&!(o.gst&&o.gst.includes(g)));
+ const cut=l=>l.split(/\s+(?:Contact person|Mobile|Landline|Email|Pan #|GST #|Customer Details)/i)[0].trim();
+ const i=lines.findIndex(l=>/Customer Name\s*&?\s*Address/i.test(l));
+ if(i>=0){const a=[];for(let k=i+1;k<lines.length&&a.length<4&&!/^(Contact person|Mobile|Customer Details)/i.test(lines[k]);k++){const t=cut(lines[k]);if(t)a.push(t)}if(a.length){o.name=a[0];o.addr=a.slice(1).join('\n')}}
+ if(/Receipt Voucher/i.test(full)){const vm=full.match(/\b([A-Za-z]{1,3}\/\d{4}\/\d{2}\/\d+)\b/),dt=full.match(/Dated\s*(\d{1,2}-[A-Za-z]{3}-\d{2})/i)||full.match(/(\d{1,2}-[A-Za-z]{3}-\d{2})/),am=full.match(/([\d,]{5,}\.\d{2})\s*\/-/),ri=full.search(/Remarks/i);
+  if(vm&&am){const nar=ri>=0?full.slice(ri):full;o.pay={date:fmtDate(dt?dt[1]:''),mode:modeOf(nar,(full.match(/(Bank|Online|Cash)\s+Receipt/i)||[''])[0]),rno:vm[1],amt:num(am[1]),nar,who:whoOf(nar)}}}
+ return o}
+const dkey=d=>{const m=(d||'').match(/(\d+)\.(\d+)\.(\d+)/);return m?m[3]+m[2].padStart(2,'0')+m[1].padStart(2,'0'):'9'};
+let LX=null,onrdAuto=false;
+function modeText(p){const w=$('showWho').checked&&/LOAN/i.test(p.mode)&&p.who;return esc(p.mode)+(w?(p.mode.trim().toUpperCase()==='LOAN'?' - '+esc(p.who):' ('+esc(p.who)+')'):'')}
+function absorb(lines,name,how){const found=[];const L=parseLedger(lines),E=extractInfo(lines);
+ const addPay=r=>{if(!pays.some(p=>p.rno===r.rno))pays.push(r)};
+ if(L.res.length){L.res.forEach(addPay);found.push(L.res.length+' receipts ('+L.res.filter(r=>r.loan).length+' loan)');LX=L;
+  if(L.name&&!$('cname').value){$('cname').value=L.name;found.push('customer')}if(L.addr&&!$('caddr').value)$('caddr').value=L.addr;
+  if(L.car&&!$('car').value){$('car').value=L.car;found.push('car')}
+  if(L.charged&&!$('onroad').value){$('onroad').value=inr(L.charged);onrdAuto=true;found.push('total charged from ledger as price to compare')}
+  $('linfo').innerHTML='Ledger: car sale voucher Rs. '+(L.sale?inr(L.sale):'n/a')+' | total charged Rs. '+inr(L.charged)+' | closing balance '+(L.closing||'n/a')}
+ if(E.pay){addPay(E.pay);found.push('receipt '+E.pay.rno+' - verify')}
+ if(E.name&&!$('cname').value){$('cname').value=E.name;$('caddr').value=E.addr||'';found.push('customer')}
+ if(E.email&&!$('email').value){$('email').value=E.email;found.push('email')}
+ if(E.reg&&!$('regNo').value){$('regNo').value=E.reg;found.push('reg no')}
+ if(E.temp&&!E.reg){$('regType').value='temp';found.push('temporary registration')}
+ if(E.pan&&!$('cpan').value){$('cpan').value=E.pan;found.push('PAN')}
+ if(E.gst&&!$('cgst').value){$('cgst').value=E.gst;found.push('GSTIN')}
+ if(E.onroad&&(!$('onroad').value||onrdAuto)){$('onroad').value=E.onroad;onrdAuto=false;found.push('on-road price')}
+ pays.sort((a,b)=>dkey(a.date)<dkey(b.date)?-1:1);
+ log('<b>'+esc(name)+'</b> ['+how+']: '+(found.join(', ')||'nothing matched, enter manually'))}
+function renderX(){const box=$('xpanel');if(!LX){box.style.display='none';return}const L=LX;box.style.display='';
+ const cn=(L.name||'').toUpperCase().split(/\s+/).filter(t=>t.length>1),rt=(L.rel||'').toUpperCase().replace(/^\S+\s/,'').split(/\s+/).filter(t=>t.length>1);
+ const fl=[];
+ pays.forEach(p=>{
+  if(p.payer&&!/LOAN/i.test(p.mode)&&!cn.some(t=>p.payer.toUpperCase().includes(t)))fl.push(p.rno+': paid by a third party, '+tcase(p.payer)+(rt.some(t=>p.payer.toUpperCase().includes(t))?' (shares family name)':''));
+  if(p.bank){const[d,m]=p.bank.split('-');if(p.date.slice(0,2)!==d.padStart(2,'0')||p.date.slice(3,5)!==m.padStart(2,'0'))fl.push(p.rno+': receipt date '+p.date+' but bank date '+p.bank.replace(/-/g,'.')+'. Please verify.')}
+  if(/^CASH/i.test(p.mode)&&p.amt>=200000)fl.push(p.rno+': cash of Rs. '+inr(p.amt)+' is at or above the Rs. 2,00,000 cash limit (Sec 269ST)');
+  else if(/^CASH/i.test(p.mode)&&p.amt>=190000)fl.push(p.rno+': cash of Rs. '+inr(p.amt)+' is just below the Rs. 2,00,000 cash limit');
+  if(p.li&&p.li.gross&&p.li.fees&&Math.abs(p.li.gross-p.li.fees-p.li.net)>1)fl.push(p.rno+': loan Rs. '+inr(p.li.gross)+' less fees Rs. '+inr(p.li.fees)+' does not equal net Rs. '+inr(p.li.net))});
+ if(L.closingNum){const b=L.debited-L.charged;if(Math.abs(Math.abs(b)-L.closingNum)>1)fl.push('Received Rs. '+inr(L.debited)+' less charged Rs. '+inr(L.charged)+' does not match closing balance '+L.closing+'. An entry may be missed.');
+  else if(b>1)fl.push('Customer has paid Rs. '+inr(b)+' more than billed (refund due or something not yet billed)');else if(b<-1)fl.push('Customer still owes Rs. '+inr(-b))}
+ const ln=(pays.find(p=>p.loan)||{}).li;
+ const rows=[['Name',$('cname').value||L.name],['Address'+(L.rel?' ('+L.rel+')':''),L.addrFlat],['Car',$('car').value||L.car],['VIN',L.vin],['Engine no',L.engine],['Registration no',$('regNo').value],['HP (hypothecation)',L.hp]];
+ if(ln)rows.push(['Loan A/c no',ln.acc],['Loan sanctioned','Rs. '+inr(ln.gross)],['Fees','Rs. '+inr(ln.fees)],['Net loan received','Rs. '+inr(ln.net)],['Loan date',ln.dated]);
+ rows.push(['Total received','Rs. '+inr(L.debited)],['Total charged','Rs. '+inr(L.charged)]);
+ const r2=rows.filter(r=>r[1]&&r[1]!=='Rs. 0');
+ box.dataset.txt=r2.map(r=>r[0]+': '+r[1]).join('\n');
+ $('xinfo').innerHTML=r2.map(r=>'<div><span style="color:#556">'+esc(r[0])+':</span> <b>'+esc(r[1])+'</b></div>').join('')+fl.map(x=>'<div class="warn">&#9888; '+esc(x)+'</div>').join('')}
+$('xcopy').onclick=()=>{const t=$('xpanel').dataset.txt||'';(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>{$('xcopy').textContent='Copied'}).catch(()=>prompt('Copy:',t))};
+async function handle(files){for(const f of files){try{
+ if(f.type.startsWith('image/')){$('refs').insertAdjacentHTML('beforeend','<img src="'+URL.createObjectURL(f)+'">');absorb(await ocr(f,f.name),f.name,'OCR')}
+ else{const r=await pdfLines(f);absorb(r.lines,f.name,r.ocrPages?r.ocrPages+' page(s) OCR':'text')}}
+ catch(e){log(esc(f.name)+': could not read ('+esc(e.message)+')')}}
+ drawRows();render()}
+
+/* ---------- payments table ---------- */
+function drawRows(){$('pb').innerHTML=pays.map((p,i)=>'<tr><td><input value="'+esc(p.date)+'" data-i="'+i+'" data-k="date" style="width:86px"></td><td><input title="'+esc(p.nar||'')+'" value="'+esc(p.mode)+'" data-i="'+i+'" data-k="mode"></td><td><input value="'+esc(p.rno)+'" data-i="'+i+'" data-k="rno" style="width:116px"></td><td><input value="'+(p.amt?inr(p.amt):'')+'" data-i="'+i+'" data-k="amt" style="width:90px"></td><td><button class="s" data-del="'+i+'">x</button></td></tr>').join('')}
+$('pb').addEventListener('input',e=>{const t=e.target;if(t.dataset.i===undefined)return;pays[+t.dataset.i][t.dataset.k]=t.dataset.k==='amt'?num(t.value):t.value;render()});
+$('pb').addEventListener('click',e=>{if(e.target.dataset.del!==undefined){pays.splice(+e.target.dataset.del,1);drawRows();render()}});
+$('addRow').onclick=()=>{pays.push({date:'',mode:'RTGS',rno:'',amt:0});drawRows()};
+
+/* ---------- letter ---------- */
+function build(){const total=pays.reduce((s,p)=>s+p.amt,0);const car=$('car').value.trim();
+ const addr=$('caddr').value.split('\n').filter(x=>x.trim()).map(esc).join('<br>');const rt=$('regType').value,rn=esc($('regNo').value.trim()),tax=$('taxChk').checked?' (Lifetax Paid Receipt)':'';
+ const items=['Invoice copies'];
+ if(rt==='perm')items.push('Registration Certificate'+tax+(rn?' - Registration Number : <b>'+rn+'</b>':''));
+ if(rt==='temp')items.push('Temporary Registration Certificate'+tax+(rn?' - Registration / TR Number : <b>'+rn+'</b>':''));
+ items.push('Insurance policy Copy','Form 20 and Form 21','Statement of Accounts Copy');
+ $('extra').value.split('\n').filter(x=>x.trim()).forEach(x=>items.push(esc(x.trim())));
+ const em=$('email').value.trim();if(em)items.push('The TCS certificate will be emailed to : <b>'+esc(em)+'</b> after the submission of quarterly returns as per IT Act.');
+ const td='style="border:1px solid #000;padding:4px 8px"';
+ const rows=pays.map(p=>'<tr><td '+td+'>'+esc(p.date)+'</td><td '+td+'>'+modeText(p)+'</td><td '+td+'>'+esc(p.rno)+'</td><td '+td+' align="right">'+(p.amt?inr(p.amt):'')+'</td></tr>').join('');
+ return '<p>Date: '+esc($('fdate').value)+'</p><p>To</p><p style="margin-left:24px"><b>'+esc($('cname').value)+'</b><br>'+addr+(($('showIds').checked&&($('cgst').value||$('cpan').value))?'<br>'+($('cgst').value?'GSTIN: '+esc($('cgst').value):'')+($('cgst').value&&$('cpan').value?' / ':'')+($('cpan').value?'PAN: '+esc($('cpan').value):''):'')+'</p><p>Dear Sir,</p>'
+ +'<p>Thank you for purchasing a new <b>'+esc(car)+'</b> Car from us. We have received <b>Rs. '+inr(total)+'/- ('+words(total)+' Rupees Only)</b> from you against the above sale.</p><p>Below are the payments we received from you.</p>'
+ +'<table style="border-collapse:collapse;width:100%" border="1" cellpadding="4"><tr><td '+td+'><b>Date</b></td><td '+td+'><b><i>Chq. No. / Cash</i></b></td><td '+td+'><b>Receipt No</b></td><td '+td+' align="right"><b>Amount</b></td></tr>'+rows
+ +'<tr><td '+td+'></td><td '+td+' align="right"><b>TOTAL</b></td><td '+td+'></td><td '+td+' align="right"><b>'+inr(total)+'</b></td></tr></table>'
+ +'<p>We enclose the following documents for your records.</p><ol>'+items.map(x=>'<li>'+x+'</li>').join('')+'</ol>'
+ +'<p>We request you to kindly acknowledge the above transactions as this is the full &amp; final settlement of our sale contract.</p>'
+ +'<p>For any queries In Payments made by you Please write to acc.varshacars@gmail.com<br>or call '+esc($('phone').value)+'</p>'
+ +'<p>Thanking you and wishing a very Happy &amp; Safe Motoring.</p><p>Regards,</p><p>For Varsha Cars Pvt Ltd</p><br><br><p>Authorized Signature.</p>'}
+function render(){const total=pays.reduce((s,p)=>s+p.amt,0);$('tot').textContent='Rs. '+inr(total);$('totw').textContent=words(total)+' Rupees Only';
+ const o=num($('onroad').value);$('cmp').innerHTML=o?(Math.abs(o-total)<0.5?'<span class="ok">Matches on-road price.</span>':'<span class="warn">Difference from on-road price: Rs. '+inr(o-total)+'</span>'):'';
+ $('bprint').disabled=$('bdoc').disabled=!$('ack').checked;$('sheet').innerHTML=build();renderX()}
+document.querySelectorAll('input:not([type=file]),select,textarea').forEach(el=>el.addEventListener('input',render));
+$('ack').onchange=render;
+$('bprint').onclick=()=>window.print();
+$('bdoc').onclick=()=>{const h='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body,p,td,li{font-family:Cambria,serif;font-size:12pt}</style></head><body>'+build()+'</body></html>';
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff',h],{type:'application/msword'}));a.download='Covering_'+($('cname').value||'Customer').replace(/[^\w]+/g,'_')+'.doc';a.click()};
+$('drop').onclick=()=>$('files').click();$('files').onchange=e=>handle(e.target.files);
+$('drop').ondragover=e=>e.preventDefault();$('drop').ondrop=e=>{e.preventDefault();handle(e.dataTransfer.files)};
+const d=new Date();$('fdate').value=String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();
+drawRows();render();
+</script></body></html>

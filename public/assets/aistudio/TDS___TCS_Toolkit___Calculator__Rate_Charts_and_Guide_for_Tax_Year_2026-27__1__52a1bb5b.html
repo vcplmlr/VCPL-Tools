@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TDS &amp; TCS Toolkit – Calculator, Rate Charts and Guide for Tax Year 2026-27</title>
+<style>
+:root{--bg:#f3f6f4;--sf:#fff;--tx:#14231c;--mu:#5b6b63;--ln:#d5ded9;--ac:#0b6b4f;--ac2:#e3f2ec;--wr:#fff4d6;--wt:#6b4e00;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1713;--sf:#17221c;--tx:#e6efe9;--mu:#92a399;--ln:#2a3a31;--ac:#4cc79b;--ac2:#1b2f26;--wr:#3a3014;--wt:#f0d98a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1713;--sf:#17221c;--tx:#e6efe9;--mu:#92a399;--ln:#2a3a31;--ac:#4cc79b;--ac2:#1b2f26;--wr:#3a3014;--wt:#f0d98a;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+header,main,footer{max-width:1040px;margin:0 auto;padding:0 18px}
+header{padding-top:28px}
+h1{font:700 clamp(1.7rem,4.5vw,2.6rem)/1.1 Georgia,"Times New Roman",serif;margin:0 0 6px;letter-spacing:-.01em}
+.sub{color:var(--mu);margin:0 0 18px;max-width:62ch}
+nav{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--ln);padding-bottom:0}
+nav button{background:none;border:0;border-bottom:3px solid transparent;color:var(--mu);font:600 .95rem inherit;font-family:inherit;padding:10px 12px;cursor:pointer}
+nav button[aria-selected=true]{color:var(--ac);border-color:var(--ac)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+section{display:none;padding:22px 0}
+section.on{display:block}
+.card{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+label{display:block;font-weight:600;font-size:.9rem;margin:12px 0 4px}
+input,select{width:100%;padding:10px;border:1px solid var(--ln);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit}
+.chk{display:flex;gap:8px;align-items:center;margin-top:14px;font-weight:500}.chk input{width:auto}
+.big{font:700 2.2rem/1.1 Georgia,serif;color:var(--ac);margin:4px 0}
+.row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--ln)}
+.row:last-child{border:0}.row span:first-child{color:var(--mu)}
+.note{background:var(--wr);color:var(--wt);padding:10px 12px;border-radius:6px;font-size:.88rem;margin-top:14px}
+.ok{background:var(--ac2);color:var(--ac);padding:10px 12px;border-radius:6px;font-weight:600;margin-bottom:8px}
+.tw{overflow-x:auto;border:1px solid var(--ln);border-radius:10px;background:var(--sf);margin-top:12px}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:.88rem}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--ln);vertical-align:top}
+th{background:var(--ac2);color:var(--ac);position:sticky;top:0}
+.bar{display:flex;gap:10px;flex-wrap:wrap}.bar>*{flex:1;min-width:160px}
+footer{padding:10px 18px 40px;color:var(--mu);font-size:.82rem}
+.pm{font-size:.85rem;margin-top:6px;min-height:1.2em}.pm.bad{color:#c0392b}.pm.good{color:var(--ac)}.btn{background:var(--ac);color:var(--sf);border:0;border-radius:6px;padding:10px 12px;font:600 .9rem inherit;font-family:inherit;cursor:pointer}.btn:last-child{background:var(--ac2);color:var(--ac)}@media print{nav,footer,.bar,.sub,.topbar,.hero,.blk{display:none}}.led table{min-width:0;font-size:.82rem}.led h3{margin:16px 0 6px;font-size:1rem}.x{background:none;border:0;color:var(--mu);cursor:pointer;font-size:1rem}.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--ln)}.tb{max-width:1040px;margin:0 auto;padding:10px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+nav.top{border:0;gap:14px}nav.top a{color:var(--mu);text-decoration:none;font-weight:600;font-size:.92rem}nav.top a:hover{color:var(--ac)}
+.hero{display:grid;grid-template-columns:1.2fr 1fr;gap:28px;align-items:center;padding:34px 0 18px}@media(max-width:760px){.hero{grid-template-columns:1fr}}
+a.btn{text-decoration:none;text-align:center;display:block}a.btn.alt{background:var(--ac2);color:var(--ac)}.ex .row b{color:var(--ac)}
+h2{font:700 1.5rem/1.2 Georgia,serif;margin:34px 0 12px}h3{margin:0 0 6px;font-size:1.02rem}.card p{margin:0;color:var(--mu);font-size:.93rem}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}@media(max-width:760px){.g3{grid-template-columns:1fr}}
+.steps{padding-left:22px}.steps li{margin:8px 0;max-width:70ch}.chk2{padding-left:20px}.chk2 li{margin:6px 0;max-width:70ch}
+details{background:var(--sf);border:1px solid var(--ln);border-radius:8px;padding:12px 14px;margin:8px 0}summary{cursor:pointer;font-weight:600}details p{margin:8px 0 0;color:var(--mu)}
+#tools{scroll-margin-top:70px}.blk{scroll-margin-top:70px}
+.cnt{color:var(--mu);font-size:.85rem;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="tb"><b>TDS &amp; TCS Toolkit</b><nav class="top"><a href="#tools" data-go="calc">Calculator</a><a href="#tools" data-go="tds">Rate charts</a><a href="#guide">Guide</a><a href="#faq">FAQ</a></nav></div></div>
+<header>
+<div class="hero">
+<div>
+<h1>Know what to deduct before you pay the invoice</h1>
+<p class="sub">A free TDS and TCS toolkit for Tax Year 2026-27 (AY 2027-28). Enter the payee’s PAN, the nature of payment and the invoice, and get the rate, return code, threshold check, deposit date and net payable, with GST handled.</p>
+<div class="bar" style="max-width:420px"><a class="btn" href="#tools" data-go="calc">Open the calculator</a><a class="btn alt" href="#guide" >How it works</a></div>
+</div>
+<div class="card ex"><div class="pm good">Worked example</div><p style="margin:6px 0">Contractor bill of ₹1,00,000 + 18% GST, payee PAN <b>AAAPV1111M</b>.</p>
+<div class="row"><span>4th letter P</span><span>Individual</span></div><div class="row"><span>Section 194C → 393(1), code 1023</span><span>1%</span></div><div class="row"><span>TDS on ₹1,00,000 (GST excluded)</span><span>₹1,000</span></div><div class="row"><b>Net payable of ₹1,18,000</b><b>₹1,17,000</b></div></div>
+</div>
+</header>
+<main>
+<div id="tools">
+<h2>TDS &amp; TCS tools</h2>
+<nav role="tablist" id="tabs">
+<button role="tab" aria-selected="true" data-t="calc">TDS calculator</button>
+<button role="tab" aria-selected="false" data-t="tds">TDS rate chart</button>
+<button role="tab" aria-selected="false" data-t="tcs">TCS rate chart</button>
+<button role="tab" aria-selected="false" data-t="map">Old → new mapping</button>
+</nav>
+<section id="calc" class="on">
+<div class="grid">
+<div class="card">
+<label for="pan">Payee PAN</label>
+<input id="pan" maxlength="10" placeholder="AAAPV1111M" autocomplete="off" style="text-transform:uppercase">
+<div id="panmsg" class="pm"></div>
+<label for="pst">PAN status</label>
+<select id="pst"><option value="ok">Valid and operative</option><option value="none">Not furnished</option><option value="inop">Inoperative (not linked with Aadhaar)</option></select>
+<label for="nat">Nature of payment</label>
+<select id="nat"></select>
+<label for="mode">Deduction mode</label>
+<select id="mode"><option value="law">As per law (check threshold)</option><option value="vol">Deduct voluntarily (ignore threshold)</option><option value="crossed">Limit already crossed (deduct on this bill)</option></select>
+<label class="chk"><input id="cu" type="checkbox" checked> Catch up earlier payments when the limit is crossed</label>
+<label for="amt">Invoice amount (₹)</label>
+<input id="amt" type="number" min="0" inputmode="decimal" placeholder="e.g. 150000">
+<label for="prev">Opening: paid to this payee earlier this year, excluding GST (₹)</label>
+<input id="prev" type="number" min="0" inputmode="decimal" placeholder="0">
+<label for="ptds">Opening: TDS already deducted on those payments (₹)</label>
+<input id="ptds" type="number" min="0" inputmode="decimal" placeholder="0">
+<label for="ld">Lower deduction certificate rate, Section 197 (%, optional)</label>
+<input id="ld" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="Leave blank if none">
+<label for="pd">Payment / credit date (optional, for deposit due date)</label>
+<input id="pd" type="date">
+<label class="chk"><input id="gst" type="checkbox"> Invoice has GST</label>
+<div id="gh" class="pm"></div>
+<div id="gstw" style="display:none">
+<label for="gm">Amount entered is</label>
+<select id="gm"><option value="ex">Excluding GST</option><option value="in">Including GST</option></select>
+<label for="gr">GST rate</label>
+<select id="gr"><option>5</option><option>12</option><option selected>18</option><option>28</option></select>
+<label for="gs">Supply type</label>
+<select id="gs"><option value="intra">Intra-state (CGST + SGST)</option><option value="inter">Inter-state (IGST)</option></select>
+<label class="chk"><input id="gt" type="checkbox"> Deduct GST-TDS 2% (government deductor)</label>
+</div>
+<label for="rt">Retention / security deposit (% of invoice)</label>
+<input id="rt" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="0">
+<label for="adv">Advance adjusted (₹)</label>
+<input id="adv" type="number" min="0" inputmode="decimal" placeholder="0">
+<label for="oth">Other deductions, penalty or recovery (₹)</label>
+<input id="oth" type="number" min="0" inputmode="decimal" placeholder="0">
+</div>
+<div class="card"><div id="res" aria-live="polite"></div>
+<div class="bar" style="margin-top:14px"><button class="btn" id="ad">Add bill to ledger</button><button class="btn" id="cp">Copy summary</button><button class="btn" id="pr">Print</button><button class="btn" id="rs">Reset</button></div><div id="cpm" class="pm"></div>
+<div id="led"></div></div>
+</div>
+</section>
+
+<section id="tds">
+<div class="bar"><input id="q" type="search" placeholder="Search section, code or nature, e.g. 194J or rent" aria-label="Search TDS chart"><select id="cat" aria-label="Filter"><option value="">All categories</option><option>Resident payments</option><option>Winnings, cash and others</option></select></div>
+<div class="cnt" id="cnt"></div>
+<div class="tw"><table><thead><tr><th>Code</th><th>Old sec.</th><th>Nature of payment</th><th>New Act ref.</th><th>Rate</th><th>Threshold</th></tr></thead><tbody id="tb"></tbody></table></div>
+<div class="note">Rates are before surcharge and cess where those apply (non-residents). Where PAN is missing, a higher rate applies. Official Income Tax Department chart still lists 194D at 5% for non-companies; the 2% shown here follows the Finance Act 2025 change reflected in the GimBooks chart. Confirm before filing.</div>
+</section>
+
+<section id="tcs">
+<div class="tw"><table><thead><tr><th>Code</th><th>Old sec.</th><th>Nature of collection</th><th>New Act ref.</th><th>Rate</th><th>Threshold</th></tr></thead><tbody id="tcb"></tbody></table></div>
+<div class="note">TCS is consolidated under Section 394 for amounts debited or received on or after 1 April 2026.</div>
+</section>
+
+<section id="map">
+<div class="tw"><table style="min-width:600px"><thead><tr><th>Area</th><th>Old</th><th>New</th><th>Codes</th></tr></thead><tbody>
+<tr><td>Salary TDS</td><td>192</td><td>392</td><td>1001–1003</td></tr>
+<tr><td>Resident non-salary TDS</td><td>193, 194, 194A, 194C, 194D, 194H, 194I, 194J, 194Q…</td><td>393(1)</td><td>1004–1038</td></tr>
+<tr><td>Non-resident TDS</td><td>194E, 194LC, 195…</td><td>393(2)</td><td>Foreign codes</td></tr>
+<tr><td>Winnings, cash withdrawal, partner payments</td><td>194B, 194BA, 194BB, 194G, 194N, 194EE, 194T</td><td>393(3)</td><td>1058–1067</td></tr>
+<tr><td>TCS</td><td>206C</td><td>394</td><td>1068–1092</td></tr>
+</tbody></table></div>
+<h3>Return forms</h3>
+<div class="tw"><table style="min-width:420px"><thead><tr><th>Old form</th><th>New form</th></tr></thead><tbody>
+<tr><td>24Q (salary)</td><td>138</td></tr><tr><td>26Q (resident)</td><td>140</td></tr><tr><td>27Q (non-resident)</td><td>144</td></tr><tr><td>27EQ (TCS)</td><td>143</td></tr><tr><td>Form 16</td><td>130</td></tr><tr><td>Form 16A</td><td>131</td></tr>
+</tbody></table></div>
+<div class="note">New challans under the Income-tax Act, 2025 must be used for Tax Year 2026-27.</div>
+</section>
+</div>
+<div id="guide" class="blk">
+<h2>What changed in Tax Year 2026-27</h2>
+<div class="g3">
+<div class="card"><h3>New section numbers</h3><p>The Income-tax Act, 2025 applies from 1 April 2026. Salary TDS moves to Section 392, other payments to 393 (resident 393(1), non-resident 393(2), winnings, cash withdrawal and partner payments 393(3)), and TCS to 394.</p></div>
+<div class="card"><h3>Codes, forms and challans</h3><p>Returns use numeric payment codes such as 1023 and 1027. Forms are renumbered (26Q becomes 140, 24Q becomes 138, 27EQ becomes 143), and new challans must be used for Tax Year 2026-27.</p></div>
+<div class="card"><h3>Updated thresholds</h3><p>Commission or brokerage (194H) is 2% above ₹20,000. Professional services (194J) split into 2% and 10% buckets with a ₹50,000 limit. Rent has a ₹50,000 per month limit. Partner payments (194T) are taxed at 10% above ₹20,000.</p></div>
+</div>
+<h2>How the calculator decides</h2>
+<ol class="steps">
+<li><b>Payee type from PAN.</b> The 4th letter sets the rate where it differs, such as contractors (1% or 2%) and insurance commission.</li>
+<li><b>Threshold check.</b> Single-payment, monthly and yearly limits are tested separately. When a yearly limit is crossed, tax is also caught up on earlier payments.</li>
+<li><b>GST base.</b> If GST is shown separately on the invoice, TDS is taken on the value before GST. GST is still paid to the vendor.</li>
+<li><b>Net payable.</b> Invoice total minus TDS, retention, advances and other deductions, with the deposit due date.</li>
+</ol>
+<h2>PAN 4th letter and payee type</h2>
+<div class="tw"><table style="min-width:520px"><thead><tr><th>Letter</th><th>Payee type</th><th>Where it matters</th></tr></thead><tbody>
+<tr><td>P</td><td>Individual / Proprietor</td><td>194C at 1%; 194O ₹5 lakh exemption</td></tr>
+<tr><td>H</td><td>Hindu Undivided Family</td><td>Same as Individual for 194C and 194O</td></tr>
+<tr><td>C</td><td>Company</td><td>194C at 2%; 194D at 10%</td></tr>
+<tr><td>F, A, B, T, L, J, G</td><td>Firm / LLP, AOP, BOI, Trust, Local authority, Artificial juridical person, Government</td><td>Treated as “others” (194C at 2%)</td></tr>
+</tbody></table></div>
+<h2>When to deposit</h2>
+<div class="tw"><table style="min-width:520px"><thead><tr><th>Situation</th><th>Deposit by</th></tr></thead><tbody>
+<tr><td>Most payments, deducted April to February</td><td>7th of the next month</td></tr>
+<tr><td>Deducted in March</td><td>30 April</td></tr>
+<tr><td>194-IA, 194-IB and 194M</td><td>Within 30 days from the end of the month</td></tr>
+</tbody></table></div>
+<div class="note">Late deduction or late deposit attracts interest and late fees. Check the current rates under the Income-tax Act, 2025 before relying on any figure.</div>
+<h2>Common mistakes to avoid</h2>
+<ul class="chk2">
+<li>Using old section references in accounting software. Update masters to 392, 393 and 394 and the new codes.</li>
+<li>Ignoring thresholds, or testing a yearly limit on a single bill.</li>
+<li>Picking the wrong payment code. A wrong nature can bring a notice even when the tax amount is right.</li>
+<li>Accepting a missing or inoperative PAN. The higher rate applies, at least 20% (5% for 194Q and 194O).</li>
+<li>Forgetting DTAA, surcharge and cess on non-resident payments.</li>
+</ul>
+</div>
+<div id="faq" class="blk">
+<h2>Frequently asked questions</h2>
+<details><summary>Is Tax Year 2026-27 the first year under the new Act?</summary><p>Yes. The Income-tax Act, 2025 applies from 1 April 2026, so old section numbers are useful for recognition only.</p></details>
+<details><summary>What are codes 1023, 1024 and 1027?</summary><p>1023 is contractor payments to an Individual or HUF (1%). 1024 is contractors that are others (2%). 1027 is professional fees, the old 194J(b), at 10%.</p></details>
+<details><summary>Is TDS deducted on the GST amount?</summary><p>Not when GST is shown separately on the invoice. TDS is taken on the value before GST, and GST is paid to the vendor in full.</p></details>
+<details><summary>Can I deduct TDS below the threshold?</summary><p>Yes, you can deduct voluntarily using the calculator’s voluntary mode. It must be deposited and reported in the return, and the payee receives credit in Form 26AS.</p></details>
+<details><summary>What if the payee has no PAN or an inoperative PAN?</summary><p>TDS is deducted at the higher of twice the rate or 20%. For 194Q and 194O it is 5%.</p></details>
+<details><summary>Why do some figures differ between sources?</summary><p>The Income Tax Department page, GimBooks and GoForFiling differ on a few items, such as insurance commission (2% or 5%) and e-commerce (0.1% or 1%). This site uses 2% and 0.1%. Always confirm with the official notification.</p></details>
+</div>
+</main>
+<footer>Summary reference compiled from the Income Tax Department rates page, GimBooks and GoForFiling charts. Not tax advice; verify with official notifications or a professional before deducting, collecting or filing.</footer>
+
+<script>
+// [code, old, name, newRef, rate, thresholdText, type, thresholdValue, category]
+// type: agg = deduct on full amount once total crosses limit; c = 194C rule; ex = tax on excess; single = per-payment; none = no limit; slab = not calculable
+var R=[
+["1001–03","192","Salary","392","Slab rate","Basic exemption","slab",0,"Resident payments"],
+["1004","192A","EPF accumulated balance withdrawal","392(7)",10,"₹50,000 per payment","single",50000,"Resident payments"],
+["1005","194D","Insurance commission","393(1) 1(i)",2,"₹20,000","agg",20000,"Resident payments"],
+["1006","194H","Commission or brokerage","393(1) 1(ii)",2,"₹20,000","agg",20000,"Resident payments"],
+["1008","194I(a)","Rent: plant, machinery, equipment","393(1) 2(ii)D(a)",2,"₹50,000 per month","single",50000,"Resident payments"],
+["1009","194I(b)","Rent: land, building, furniture","393(1) 2(ii)D(b)",10,"₹50,000 per month","single",50000,"Resident payments"],
+["1011","194IC","Joint development agreement","393(1) 3(ii)",10,"None","none",0,"Resident payments"],
+["1012","194LA","Compensation on acquisition of immovable property","393(1) 3(iii)",10,"₹5,00,000","agg",500000,"Resident payments"],
+["1013","194K","Mutual fund unit income","393(1) 4(i)",10,"₹10,000","agg",10000,"Resident payments"],
+["1019","193","Interest on securities","393(1) 5(i)",10,"₹10,000","agg",10000,"Resident payments"],
+["1020","194A","Interest (other than securities): senior citizen","393(1) 5(ii)D(a)",10,"₹1,00,000","agg",100000,"Resident payments"],
+["1021","194A","Interest (other than securities): others","393(1) 5(ii)D(b)",10,"₹50,000","agg",50000,"Resident payments"],
+["1022","194A","Other interest cases","393(1) 5(iii)",10,"₹10,000","agg",10000,"Resident payments"],
+["1023","194C","Contractor: Individual / HUF","393(1) 6(i)D(a)",1,"₹30,000 single / ₹1,00,000 aggregate","c",0,"Resident payments"],
+["1024","194C","Contractor (rate auto: 1% Individual/HUF, 2% others)","393(1) 6(i)D(b)",2,"₹30,000 single / ₹1,00,000 aggregate","c",0,"Resident payments"],
+["1026","194J(a)","Technical services, call centre, film royalty","393(1) 6(iii)D(a)",2,"₹50,000","agg",50000,"Resident payments"],
+["1027","194J(b)","Professional services and other sums","393(1) 6(iii)D(b)",10,"₹50,000","agg",50000,"Resident payments"],
+["1028","194J","Director fees / commission","393(1) 6(iii)D(b)",10,"None","none",0,"Resident payments"],
+["1029","194","Dividend","393(1) 7",10,"₹10,000","agg",10000,"Resident payments"],
+["1030","194DA","Life insurance payout (taxable)","393(1) 8(i)",2,"₹1,00,000","agg",100000,"Resident payments"],
+["1031","194Q","Purchase of goods (tax on excess)","393(1) 8(ii)",0.1,"Above ₹50 lakh","ex",5000000,"Resident payments"],
+["1033/1034","194R","Benefit or perquisite","393(1) 8(iv)",10,"₹20,000","agg",20000,"Resident payments"],
+["1035","194O","E-commerce operator to participant","393(1) 8(v)",0.1,"₹5 lakh (Individual/HUF)","agg",500000,"Resident payments"],
+["1037/1038","194S","Virtual digital asset transfer","393(1) 8(vi)",1,"₹10,000 (₹50,000 specified person)","agg",10000,"Resident payments"],
+["—","194M","Individual/HUF paying contract, commission, professional fees","393(1)",2,"₹50 lakh","agg",5000000,"Resident payments"],
+["—","194-IA","Transfer of immovable property (non-agricultural)","393(1)",1,"₹50 lakh per transaction","single",5000000,"Resident payments"],
+["—","194-IB","Rent by Individual/HUF not under audit","393(1)",2,"₹50,000 per month","single",50000,"Resident payments"],
+["1058/1059","194B","Lottery, crossword, card game, gambling winnings","393(3) 1",30,"₹10,000 per transaction","single",10000,"Winnings, cash and others"],
+["1060/1061","194BA","Online gaming winnings","393(3) 2",30,"None","none",0,"Winnings, cash and others"],
+["1062","194BB","Horse race winnings","393(3) 3",30,"₹10,000 per transaction","single",10000,"Winnings, cash and others"],
+["1063","194G","Lottery ticket commission","393(3) 4",2,"₹20,000","agg",20000,"Winnings, cash and others"],
+["1064","194N","Cash withdrawal: co-operative society (tax on excess)","393(3) 5.D(a)",2,"Above ₹3 crore","ex",30000000,"Winnings, cash and others"],
+["1065","194N","Cash withdrawal: others (tax on excess)","393(3) 5.D(b)",2,"Above ₹1 crore","ex",10000000,"Winnings, cash and others"],
+["1066","194EE","National Savings Scheme withdrawal","393(3) 6",10,"₹2,500","agg",2500,"Winnings, cash and others"],
+["1067","194T","Partner salary, remuneration, commission, bonus, interest","393(3) 7",10,"₹20,000","agg",20000,"Winnings, cash and others"]
+];
+var T=[
+["1068","206C-A","Alcoholic liquor for human consumption","394(1) 1","2%","Not specified"],
+["1069","206C-I","Tendu leaves","394(1) 2","2%","Not specified"],
+["1070/1071","206C-B/C","Timber (forest lease / other mode)","394(1) 3","2%","Not specified"],
+["1072","206C-D","Other forest produce","394(1) 3","2%","Not specified"],
+["1073","206C-E","Scrap","394(1) 4","2%","Not specified"],
+["1074","206C-J","Coal, lignite, iron ore","394(1) 5","2%","Not specified"],
+["1075","206C-L","Motor vehicle","394(1) 6.D(a)","1%","Generally above ₹10 lakh"],
+["1076–1085","206C-MA to MJ","Specified luxury goods (watch, art, yacht, bag, etc.)","394(1) 6.D(b)","1%","Above applicable threshold"],
+["1086","206C-T","LRS: education or medical","394(1) 7.D(a)","2%","Above ₹10 lakh"],
+["1087","206C-Q","LRS: other purposes","394(1) 7.D(b)","20%","Above ₹10 lakh"],
+["1088","206C-O","Overseas tour package: up to ₹10 lakh","394(1) 8.D(a)","2%","Up to ₹10 lakh"],
+["1089","206C-O","Overseas tour package: above ₹10 lakh","394(1) 8.D(b)","2%","Above ₹10 lakh"],
+["1090","206C-F","Parking lot","394(1) 9","2%","Not specified"],
+["1091","206C-G","Toll plaza","394(1) 9","2%","Not specified"],
+["1092","206C-H","Mine or quarry","394(1) 9","2%","Not specified"]
+];
+var $=function(i){return document.getElementById(i)};
+function rt(r){return typeof r[4]==="number"?r[4]+"%":r[4]}
+function rows(list,q,c){return list.filter(function(r){var s=(r[0]+" "+r[1]+" "+r[2]+" "+r[3]).toLowerCase();return(!q||s.indexOf(q)>-1)&&(!c||r[8]===c)})}
+function drawTds(){var l=rows(R,$("q").value.toLowerCase().trim(),$("cat").value);
+$("tb").innerHTML=l.map(function(r){return"<tr><td>"+r[0]+"</td><td>"+r[1]+"</td><td>"+r[2]+"</td><td>"+r[3]+"</td><td><b>"+rt(r)+"</b></td><td>"+r[5]+"</td></tr>"}).join("")||'<tr><td colspan="6">No match. Try a section number like 194C or a word like rent.</td></tr>';
+$("cnt").textContent=l.length+" of "+R.length+" entries"}
+$("tcb").innerHTML=T.map(function(r){return"<tr>"+r.map(function(x,i){return"<td>"+(i===4?"<b>"+x+"</b>":x)+"</td>"}).join("")+"</tr>"}).join("");
+$("nat").innerHTML=R.map(function(r,i){return(r[6]==="slab"||r[0]==="1023")?"":'<option value="'+i+'">'+r[1]+" – "+r[2]+" ("+rt(r)+")</option>"}).join("");
+Array.prototype.forEach.call($("nat").options,function(o){if(o.text.indexOf("194C")===0)$("nat").value=o.value});
+var PT={P:"Individual / Proprietor",H:"HUF",C:"Company",F:"Firm / LLP",A:"AOP",B:"BOI",G:"Government",J:"Artificial juridical person",L:"Local authority",T:"Trust"};
+function panInfo(){var v=$("pan").value.toUpperCase().trim();$("pan").value=v;var m=$("panmsg");
+if(!v){m.className="pm";m.textContent="Enter the PAN to set the rate by payee type.";return null}
+if(!/^[A-Z]{3}[ABCFGHJLPT][A-Z][0-9]{4}[A-Z]$/.test(v)){m.className="pm bad";m.textContent=v.length<10?"PAN needs 10 characters: 5 letters, 4 digits, 1 letter.":"Invalid PAN format. The 4th letter must be one of P, H, C, F, A, B, G, J, L, T.";return null}
+var c=v[3];m.className="pm good";m.textContent="Valid format. 4th letter "+c+" = "+PT[c]+".";return c}
+var L=[],LK="",LT="",LC=null;
+var F=function(n){return"₹"+Math.round(n).toLocaleString("en-IN")};
+function calc(){
+var c=panInfo(),pv=$("pan").value.trim(),r=R[+$("nat").value],ind=(c==="P"||c==="H"),st=$("pst").value,good=st==="ok"&&(!pv||!!c);
+if(pv&&!c&&st==="ok")st="bad";
+var key=$("nat").value+"|"+pv;if(key!==LK){if(L.length){L=[];$("cpm").className="pm bad";$("cpm").textContent="Ledger cleared because the payee or nature changed."}LK=key}
+var mode=$("mode").value,cu=$("cu").checked;
+var a=+$("amt").value||0;
+var gok=!/^(192A|193|194|194A|194B|194BA|194BB|194DA|194EE|194K|194LA|194N|194T)$/.test(r[1]),gcb=$("gst");
+gcb.disabled=!gok;if(!gok)gcb.checked=false;$("gh").textContent=gok?"":"GST does not apply to this type of payment.";
+var hasG=gcb.checked,gp=hasG?+$("gr").value:0;
+$("gstw").style.display=hasG?"block":"none";
+var LB=0,LD=0;L.forEach(function(x){LB+=x.base;LD+=x.tds});
+var pp=(+$("prev").value||0)+LB,pt=(+$("ptds").value||0)+LD;
+var base=a,gstA=0;if(hasG){if($("gm").value==="in")base=a/(1+gp/100);gstA=base*gp/100}
+var rate=r[4],code=r[0],th=r[7],note="",nr=r[3];
+if(r[1]==="194C"){rate=ind?1:2;code=ind?"1023":"1024";nr=ind?"393(1) 6(i)D(a)":"393(1) 6(i)D(b)";if(!c)note="PAN not entered: 2% (others) assumed."}
+if(r[1]==="194D"){rate=c==="C"?10:2;note="Company payees: 10%. Others: 2% (the Income Tax Department page still shows 5%; confirm)."}
+if(r[1]==="194"){th=ind?10000:0;note=ind?"Dividend: ₹10,000 limit applies to individual shareholders.":"Dividend to non-individual shareholders: no ₹10,000 limit."}
+if(r[1]==="194S")note="₹10,000 limit applies; it is ₹50,000 for a specified person (small Individual/HUF buyer).";
+if(r[1]==="194Q")note="Applies to a buyer with turnover above ₹10 crore; tax is on the purchase value above ₹50 lakh.";
+if(r[1]==="194O"){th=ind?500000:0;note=ind?"₹5 lakh exemption applies to Individual/HUF sellers.":"No ₹5 lakh exemption for non-individual sellers; TDS from ₹1."}
+if(!good){var h=Math.max(rate*2,20);if(r[1]==="194Q"||r[1]==="194O")h=5;rate=h}
+var ldv=$("ld").value,ldn="";if(ldv!==""&&good&&+ldv>=0&&+ldv<rate){rate=+ldv;ldn="Lower deduction rate of "+ldv+"% applied under Section 197. Keep the certificate on record."}
+var pw="";if((r[1]==="192A"||r[0]==="1020")&&c&&c!=="P")pw="This section applies to an Individual payee, but the PAN shows "+PT[c]+". Check the nature of payment.";
+var kd=(r[6]==="agg"&&!th)?"none":r[6];
+var tot=base+pp,req=0,why="",cat=0,rem="";
+if(mode==="vol"){req=base*rate/100;why="Voluntary deduction: the threshold is ignored for this bill."}
+else if(mode==="crossed"){req=base*rate/100;why="Limit treated as already crossed: TDS on this bill only."}
+else if(kd==="agg"){if(tot>th){req=(cu?tot:base)*rate/100;why=pp>th?"Limit already crossed earlier this year.":"Yearly total "+F(tot)+" crosses the "+F(th)+" limit."}else{why="Yearly total "+F(tot)+" is within the "+F(th)+" limit.";rem=F(th-tot)+" more can be paid before TDS applies."}}
+else if(kd==="c"){if(tot>100000){req=(cu?tot:base)*rate/100;why=pp>100000?"The ₹1,00,000 yearly limit was crossed earlier.":"Yearly total "+F(tot)+" crosses ₹1,00,000."}else if(base>30000){req=base*rate/100;why="Single payment exceeds ₹30,000."}else{why="Within ₹30,000 single and ₹1,00,000 yearly limits.";rem=F(100000-tot)+" more yearly before TDS applies (single bills above ₹30,000 are taxed at once)."}}
+else if(kd==="single"){if(base>th){req=base*rate/100;why="Payment of "+F(base)+" exceeds the "+F(th)+" limit."}else why="Payment of "+F(base)+" is within the "+F(th)+" limit (checked per payment or month)."}
+else if(kd==="ex"){req=Math.min(base,Math.max(0,tot-th))*rate/100;why=req?"Tax applies only on the amount above the limit.":"Total is within the limit."}
+else{req=base*rate/100;why="No threshold applies."}
+var fullReq=Math.round(req),tds,tb;
+var cumul=(mode==="law"&&cu&&(kd==="agg"&&tot>th||kd==="c"&&tot>100000));
+if(cumul){tds=Math.max(0,fullReq-Math.round(pt));cat=Math.max(0,tds-Math.round(base*rate/100));tb=tot}
+else{tds=fullReq;tb=rate?Math.round(req*100/rate):0}
+var inv=base+gstA,gtds=($("gt").checked&&hasG)?Math.round(base*0.02):0;
+var ret=inv*(+$("rt").value||0)/100,adv=+$("adv").value||0,oth=+$("oth").value||0;
+var ded=tds+gtds+ret+adv+oth,net=inv-ded;
+var dd="";if(tds&&$("pd").value){var d=new Date($("pd").value+"T00:00:00"),M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+if(/194-I[AB]|194M/.test(r[1])){var e=new Date(d.getFullYear(),d.getMonth()+2,0);dd=e.getDate()+" "+M[e.getMonth()]+" "+e.getFullYear()+" (30 days from end of month)"}
+else if(d.getMonth()===2)dd="30 Apr "+d.getFullYear();else{var n=new Date(d.getFullYear(),d.getMonth()+1,7);dd="7 "+M[n.getMonth()]+" "+n.getFullYear()}}
+var gl="";if(hasG){var hg=gstA/2;gl=$("gs").value==="intra"?'<div class="row"><span>CGST '+gp/2+"%</span><span>"+F(hg)+'</span></div><div class="row"><span>SGST '+gp/2+"%</span><span>"+F(hg)+"</span></div>":'<div class="row"><span>IGST '+gp+"%</span><span>"+F(gstA)+"</span></div>"}
+var R2=function(l,v){return'<div class="row"><span>'+l+"</span><span>"+v+"</span></div>"};
+$("res").innerHTML=(a?"":"<p>Enter an invoice amount to see the deduction.</p>")+
+'<div class="'+(tds?"note":"ok")+'" style="margin-top:0">'+(tds?"TDS applies":"No TDS to deduct")+"</div>"+
+'<div class="big">'+F(tds)+'</div><div style="color:var(--mu)">'+why+(rem&&!tds?" "+rem:"")+"</div>"+
+'<div style="margin-top:12px">'+R2("Section / code",r[1]+" → "+nr+" · "+code)+R2("Payee type",c?PT[c]:"Not entered")+R2("Rate applied",rate+"%"+(good?"":" (higher rate)"))+
+R2("Value before GST",F(base))+gl+(hasG?R2("Invoice total with GST",F(inv)):"")+
+((pp||pt)?R2("Earlier payments, this year",F(pp))+R2("Earlier TDS deducted",F(pt)):"")+
+R2("Taxable amount for TDS",F(tb))+(cat?R2("Includes catch-up TDS on earlier payments",F(cat)):"")+
+R2("TDS deducted",F(tds))+(gtds?R2("GST-TDS 2%",F(gtds)):"")+(ret?R2("Retention",F(ret)):"")+(adv?R2("Advance adjusted",F(adv)):"")+(oth?R2("Other deductions",F(oth)):"")+
+((gtds||ret||adv||oth)?R2("Total deductions",F(ded)):"")+
+'<div class="row"><b>Net payable to payee</b><b>'+F(net)+"</b></div></div>"+
+(pw?'<div class="note">'+pw+"</div>":"")+(note?'<div class="note">'+note+"</div>":"")+(ldn?'<div class="note">'+ldn+"</div>":"")+(dd?'<div class="note">Deposit TDS by <b>'+dd+"</b>.</div>":"")+
+(good?"":'<div class="note">'+(st==="inop"?"Inoperative PAN":st==="bad"?"Invalid PAN":"No PAN")+": the higher of twice the rate or 20% applies (5% for 194Q and 194O). Form 15G/15H cannot be accepted.</div>")+
+(mode==="vol"?'<div class="note">Voluntary TDS below the limit is deposited like any other TDS, but it must be reported in the return and the payee gets credit in Form 26AS.</div>':"")+
+(hasG?'<div class="note">GST is excluded from the TDS base only when it is shown separately on the invoice. GST is paid to the vendor in full; TDS is cut from the total.</div>':"");
+LT=r[1]+" ("+code+") | Payee: "+(c?PT[c]:"n/a")+" | Rate "+rate+"% | Before GST "+F(base)+(hasG?" | GST "+F(gstA):"")+" | Taxable "+F(tb)+" | TDS "+F(tds)+(ded>tds?" | Total deductions "+F(ded):"")+" | Net payable "+F(net)+(dd?" | Deposit by "+dd:"");
+LC=a?{base:base,tds:tds,net:net,inv:inv,d:$("pd").value}:null;
+drawLed();
+}
+function drawLed(){var el=$("led");if(!L.length){el.innerHTML="";return}
+var tb=0,tt=0,tn=0;
+var h='<div class="led"><h3>Bill ledger (this payee and nature)</h3><div class="tw"><table><thead><tr><th>#</th><th>Date</th><th>Before GST</th><th>TDS</th><th>Net paid</th><th></th></tr></thead><tbody>';
+L.forEach(function(x,i){tb+=x.base;tt+=x.tds;tn+=x.net;h+="<tr><td>"+(i+1)+"</td><td>"+(x.d||"-")+"</td><td>"+F(x.base)+"</td><td>"+F(x.tds)+"</td><td>"+F(x.net)+'</td><td><button class="x" data-i="'+i+'" aria-label="Remove bill '+(i+1)+'">✕</button></td></tr>'});
+h+='<tr><th colspan="2">Total</th><th>'+F(tb)+"</th><th>"+F(tt)+"</th><th>"+F(tn)+'</th><th></th></tr></tbody></table></div><div class="cnt">Ledger totals are added to the earlier-payment and earlier-TDS figures when calculating the next bill.</div></div>';
+el.innerHTML=h;el.querySelectorAll(".x").forEach(function(b){b.addEventListener("click",function(){L.splice(+b.dataset.i,1);calc()})})}
+$("ad").addEventListener("click",function(){var m=$("cpm");if(!LC){m.className="pm bad";m.textContent="Enter an invoice amount before adding to the ledger.";return}
+L.push(LC);$("amt").value="";m.className="pm good";m.textContent="Bill added. Enter the next invoice.";calc()});
+$("cp").addEventListener("click",function(){var m=$("cpm");function ok(){m.className="pm good";m.textContent="Summary copied."}function no(){m.className="pm bad";m.textContent="Copy blocked by the browser. Select the result and copy it manually."}
+try{navigator.clipboard.writeText(LT).then(ok,function(){try{var t=document.createElement("textarea");t.value=LT;document.body.appendChild(t);t.select();document.execCommand("copy")?ok():no();document.body.removeChild(t)}catch(e){no()}})}catch(e){no()}});
+$("pr").addEventListener("click",function(){window.print()});
+$("rs").addEventListener("click",function(){["pan","amt","prev","ptds","ld","pd","rt","adv","oth"].forEach(function(i){$(i).value=""});$("pst").value="ok";$("mode").value="law";$("gst").checked=false;$("gt").checked=false;$("cu").checked=true;L=[];$("cpm").textContent="";calc()});
+["nat","amt","prev","ptds","pan","pst","mode","cu","gst","gm","gr","gs","gt","ld","pd","rt","adv","oth"].forEach(function(i){$(i).addEventListener("input",calc);$(i).addEventListener("change",calc)});
+$("q").addEventListener("input",drawTds);$("cat").addEventListener("change",drawTds);
+document.querySelectorAll("#tabs button").forEach(function(b){b.addEventListener("click",function(){
+document.querySelectorAll("#tabs button").forEach(function(x){x.setAttribute("aria-selected",x===b)});
+document.querySelectorAll("section").forEach(function(s){s.classList.toggle("on",s.id===b.dataset.t)})})});
+document.querySelectorAll("[data-go]").forEach(function(a){a.addEventListener("click",function(){var b=document.querySelector('#tabs button[data-t="'+a.dataset.go+'"]');if(b)b.click()})});
+drawTds();calc();
+</script>
+</body>
+</html>
