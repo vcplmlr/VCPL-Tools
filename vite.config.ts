@@ -8,7 +8,7 @@ function spa404FallbackPlugin() {
   return {
     name: 'vcpl-spa-404-fallback',
     closeBundle() {
-      const distDir = path.resolve(__dirname, 'dist');
+      const distDir = path.resolve(import.meta.dirname, 'dist');
       const indexFile = path.join(distDir, 'index.html');
       const notFoundFile = path.join(distDir, '404.html');
       if (fs.existsSync(indexFile)) {
@@ -24,7 +24,7 @@ export default defineConfig(() => {
     resolve: {
       dedupe: ['react', 'react-dom'],
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname, '.'),
       },
     },
     optimizeDeps: {

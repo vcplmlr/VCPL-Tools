@@ -1,29 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   ExternalLink,
   Layers,
   Megaphone,
   MonitorSmartphone,
-  SlidersHorizontal,
   Sparkles,
   X,
 } from 'lucide-react';
-import {
-  AdConsentMode,
-  AdSlotVariant,
-  CONSENT_UPDATED_EVENT,
-  ensureAdSenseInitialized,
-  getStoredConsentMode,
-  openCookiePreferences,
-  resolveAdUnit,
-} from '../config/adsense';
+import { AdSlotVariant, openCookiePreferences } from '../config/adsense';
 import { SITE_CONTACT } from '../data/legalPagesData';
 
 export type { AdSlotVariant };
 
 interface AdSlotProps {
   slotId: string;
-  adSenseSlot?: string;
   variant?: AdSlotVariant;
   label?: string;
   contentContext?: string;
@@ -95,7 +85,7 @@ function getVariantMeta(variant: AdSlotVariant) {
     case 'multiplex':
       return {
         defaultSize: 'Multiplex Grid · AutoRelaxed',
-        descriptor: 'Native Content Recommendation Grid · AdSense Multiplex',
+        descriptor: 'Native Content Recommendation Grid · Multiplex',
       };
     case 'anchor':
       return {
@@ -111,85 +101,8 @@ function getVariantMeta(variant: AdSlotVariant) {
   }
 }
 
-function LiveAdSenseUnit({
-  slotId,
-  variant,
-  adSenseSlot,
-  contentContext,
-  minHeightClass,
-  className = '',
-}: {
-  slotId: string;
-  variant: AdSlotVariant;
-  adSenseSlot?: string;
-  contentContext?: string;
-  minHeightClass?: string;
-  className?: string;
-}) {
-  const insRef = useRef<HTMLModElement | null>(null);
-  const unit = resolveAdUnit(variant, adSenseSlot);
-  const [consentMode, setConsentMode] = useState<AdConsentMode | null>(getStoredConsentMode);
-
-  useEffect(() => {
-    const onConsentChange = () => {
-      setConsentMode(getStoredConsentMode());
-    };
-    window.addEventListener(CONSENT_UPDATED_EVENT, onConsentChange);
-    return () => window.removeEventListener(CONSENT_UPDATED_EVENT, onConsentChange);
-  }, []);
-
-  useEffect(() => {
-    if (!unit.isLiveAdSense) return;
-    ensureAdSenseInitialized();
-    const el = insRef.current;
-    if (!el || el.getAttribute('data-vcpl-pushed') === 'true') return;
-    try {
-      el.setAttribute('data-vcpl-pushed', 'true');
-      (window.adsbygoogle = window.adsbygoogle || []).push({});
-    } catch {
-      // AdSense script still warming up or blocked
-    }
-  }, [unit.isLiveAdSense, unit.adSlotNumericId, consentMode]);
-
-  return (
-    <div
-      data-ad-slot={slotId}
-      data-ad-format={unit.adFormat}
-      data-ad-context={contentContext || 'Banking, GST & Office Utilities'}
-      className={`w-full rounded-2xl border border-[#2F3E4E]/20 dark:border-slate-700/80 bg-[#FFFDF5]/95 dark:bg-[#131C2E] px-3 py-2.5 overflow-hidden ${
-        minHeightClass ?? unit.minHeightClass
-      } ${className}`}
-    >
-      <div className="flex items-center justify-between gap-2 pb-1.5 mb-1.5 border-b border-[#2F3E4E]/10 dark:border-slate-800">
-        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#64748B] dark:text-slate-400">
-          Advertisement
-        </span>
-        <button
-          type="button"
-          onClick={openCookiePreferences}
-          className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#64748B] dark:text-slate-400 hover:text-[#2F3E4E] dark:hover:text-[#F9C80E] cursor-pointer"
-        >
-          <SlidersHorizontal className="w-2.5 h-2.5" aria-hidden="true" />
-          <span>Ad Choices</span>
-        </button>
-      </div>
-      <ins
-        ref={insRef}
-        className="adsbygoogle block w-full"
-        style={{ display: 'block', textAlign: variant === 'in-article' ? 'center' : undefined }}
-        data-ad-client={unit.adClient}
-        data-ad-slot={unit.adSlotNumericId}
-        data-ad-format={unit.adFormat}
-        data-ad-layout={unit.adLayout}
-        data-full-width-responsive={unit.fullWidthResponsive ? 'true' : 'false'}
-      />
-    </div>
-  );
-}
-
 export function AdSlot({
   slotId,
-  adSenseSlot,
   variant = 'leaderboard',
   label,
   contentContext,
@@ -201,53 +114,12 @@ export function AdSlot({
   const meta = getVariantMeta(variant);
   const resolvedSize = sizeTag || meta.defaultSize;
   const inquiryHref = getSponsorInquiryHref(slotId, variant, contentContext);
-  const unit = resolveAdUnit(variant, adSenseSlot);
 
   if (variant === 'anchor' && anchorDismissed) {
     return null;
   }
 
-  /* Live Google AdSense Mode (automatically activates when VITE_ADSENSE_CLIENT + Slot ID are set) */
-  if (unit.isLiveAdSense) {
-    if (variant === 'anchor') {
-      return (
-        <aside
-          aria-label="Sticky Anchor Advertisement"
-          className={`fixed bottom-0 inset-x-0 z-40 bg-[#FFFDF5]/95 dark:bg-[#0B1120]/95 backdrop-blur-md border-t border-[#2F3E4E]/25 dark:border-slate-700 px-3 py-2 shadow-lg no-print ${className}`}
-        >
-          <div className="max-w-[1100px] mx-auto relative pr-9">
-            <button
-              type="button"
-              onClick={() => setAnchorDismissed(true)}
-              aria-label="Dismiss bottom banner ad"
-              className="absolute right-0 top-1/2 -translate-y-1/2 w-7 h-7 rounded-md border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-slate-800 text-[#2F3E4E] dark:text-slate-200 flex items-center justify-center cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-            <LiveAdSenseUnit
-              slotId={slotId}
-              variant={variant}
-              adSenseSlot={adSenseSlot}
-              contentContext={contentContext}
-            />
-          </div>
-        </aside>
-      );
-    }
-
-    return (
-      <aside aria-label="Advertisement Slot" className={`w-full no-print ${className}`}>
-        <LiveAdSenseUnit
-          slotId={slotId}
-          variant={variant}
-          adSenseSlot={adSenseSlot}
-          contentContext={contentContext}
-        />
-      </aside>
-    );
-  }
-
-  /* Dismissible Anchor Sticky Bottom Option (Preview / Direct Sponsor Mode) */
+  /* Dismissible Anchor Sticky Bottom Placement Option */
   if (variant === 'anchor') {
     return (
       <aside
@@ -560,7 +432,7 @@ export function AdSlot({
                 {headline}
               </p>
               <p className="text-xs text-[#475569] dark:text-slate-300">
-                Responsive multi-device ad slot ({resolvedSize}) — supports Google AdSense &amp;
+                Responsive multi-device ad slot ({resolvedSize}) — ready for Google AdSense &amp;
                 direct partner banners without collecting user files.
               </p>
             </div>

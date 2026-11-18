@@ -23,10 +23,7 @@ import { SitemapPage } from './components/SitemapPage';
 import { TopLoadingBar } from './components/TopLoadingBar';
 import { WhatsAppChatWidget } from './components/WhatsAppChatWidget';
 import { ToolWorkspace } from './components/tools/ToolWorkspace';
-import {
-  OPEN_COOKIE_BANNER_EVENT,
-  ensureAdSenseInitialized,
-} from './config/adsense';
+import { OPEN_COOKIE_BANNER_EVENT } from './config/adsense';
 import { LegalPageSlug } from './data/legalPagesData';
 import { TOOL_CATEGORIES, getToolById } from './data/toolsCatalog';
 import { useAdBlockerDetector } from './hooks/useAdBlockerDetector';
@@ -129,7 +126,6 @@ export default function App() {
   }, [route]);
 
   useEffect(() => {
-    ensureAdSenseInitialized();
     const handleOpenPreferences = () => setCookieOpen(true);
     window.addEventListener(OPEN_COOKIE_BANNER_EVENT, handleOpenPreferences);
     return () => window.removeEventListener(OPEN_COOKIE_BANNER_EVENT, handleOpenPreferences);

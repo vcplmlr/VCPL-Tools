@@ -1,4 +1,3 @@
 # VCPL Tools Authorized Digital Sellers (IAB Tech Lab ads.txt v1.1)
-# Replace pub-0000000000000000 with your verified Google AdSense Publisher ID,
-# or set VITE_ADSENSE_CLIENT=ca-pub-XXXXXXXXXXXXXXXX in your environment.
+# Update pub-0000000000000000 with your approved Google AdSense Publisher ID when ready.
 google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0

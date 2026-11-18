@@ -4,7 +4,6 @@ import {
   AdConsentMode,
   CONSENT_UPDATED_EVENT,
   COOKIE_CONSENT_STORAGE_KEY,
-  syncAdSenseConsent,
 } from '../config/adsense';
 
 export { COOKIE_CONSENT_STORAGE_KEY };
@@ -36,7 +35,6 @@ export function CookieConsentBanner({
     } catch {
       // Ignore storage errors in restricted browsing contexts
     }
-    syncAdSenseConsent(mode);
     window.dispatchEvent(new CustomEvent(CONSENT_UPDATED_EVENT, { detail: { mode } }));
     setClearedFeedback(false);
     onClose();
@@ -44,7 +42,6 @@ export function CookieConsentBanner({
 
   const handleClearData = () => {
     onClearAllLocalData();
-    syncAdSenseConsent('essential');
     window.dispatchEvent(new CustomEvent(CONSENT_UPDATED_EVENT, { detail: { mode: 'essential' } }));
     setClearedFeedback(true);
     window.setTimeout(() => {

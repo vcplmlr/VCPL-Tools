@@ -6,7 +6,7 @@ Allow: /
 
 User-agent: *
 Allow: /
-Disallow: /assets/
+Disallow: /assets/aistudio/
 Disallow: /api/
 Disallow: /income-tax-fy-2026-27.html
 Disallow: /404

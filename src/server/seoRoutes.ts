@@ -88,22 +88,8 @@ export function buildSitemapXmlString(origin: string): string {
 
 export function registerSeoAndAdSenseRoutes(app: express.Express): void {
   app.get('/ads.txt', (_req, res) => {
-    const rawClient = (
-      process.env.VITE_ADSENSE_CLIENT ||
-      process.env.ADSENSE_PUBLISHER_ID ||
-      ''
-    ).trim();
-    const digitsMatch = rawClient.match(/(\d{10,20})/);
-
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
-
-    if (digitsMatch) {
-      res.send(
-        `# VCPL Tools Authorized Digital Sellers (ads.txt)\ngoogle.com, pub-${digitsMatch[1]}, DIRECT, f08c47fec0942fa0\n`
-      );
-      return;
-    }
 
     const staticAdsPath = path.resolve(process.cwd(), 'public', 'ads.txt');
     if (fs.existsSync(staticAdsPath)) {
@@ -125,7 +111,7 @@ export function registerSeoAndAdSenseRoutes(app: express.Express): void {
       '',
       'User-agent: *',
       'Allow: /',
-      'Disallow: /assets/',
+      'Disallow: /assets/aistudio/',
       'Disallow: /api/',
       'Disallow: /income-tax-fy-2026-27.html',
       'Disallow: /404',
