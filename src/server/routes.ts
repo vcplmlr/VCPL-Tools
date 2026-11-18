@@ -1706,5 +1706,29 @@ export function createApiRouter(): Router {
     }
   });
 
+  // Official Launch Ribbon-Cutting 6-Digit Code Verification
+  const launchVerifyLimiter = createRateLimiter(60_000, 30);
+  router.post('/launch/verify', launchVerifyLimiter, (req, res) => {
+    const body = req.body as { code?: string };
+    const submitted = typeof body?.code === 'string' ? body.code.trim() : '';
+    if (!/^\d{6}$/.test(submitted)) {
+      res.status(400).json({ error: 'Please enter a valid 6-digit numeric launch code.' });
+      return;
+    }
+
+    const expected = process.env.VCPL_LAUNCH_CODE?.trim() || getAdminPasscode();
+    if (!safeEqualStrings(submitted, expected)) {
+      res.status(401).json({
+        error: 'Incorrect 6-digit launch passcode. Please check your inauguration code and retry.',
+      });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      launchedAtIso: new Date().toISOString(),
+    });
+  });
+
   return router;
 }

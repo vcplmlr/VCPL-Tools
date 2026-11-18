@@ -12,12 +12,13 @@ import {
 } from 'lucide-react';
 import { vcplBuildMeta } from 'virtual:vcpl-build-meta';
 import { LegalPageSlug, SITE_CONTACT } from '../data/legalPagesData';
-import { ToolFilterType } from '../types/tools';
+import { ToolCatalogItem, ToolFilterType } from '../types/tools';
 import { MangaloreSkylineSvg } from './MangaloreSkylineSvg';
 import { VcplBrandLogo } from './VcplBrandLogo';
 import { WhatsAppIcon } from './WhatsAppIcon';
 
 interface FooterProps {
+  activeTool?: ToolCatalogItem | null;
   onHomeClick: () => void;
   onOpenAllTools: (filter?: ToolFilterType) => void;
   onOpenLegalPage: (slug: LegalPageSlug) => void;
@@ -88,6 +89,7 @@ function getDaysSinceLaunchIst(): number {
 }
 
 export function Footer({
+  activeTool = null,
   onHomeClick,
   onOpenAllTools,
   onOpenLegalPage,
@@ -95,6 +97,9 @@ export function Footer({
   onOpenNotFound,
   onOpenSitemap,
 }: FooterProps) {
+  const activeToolStamp = activeTool
+    ? vcplBuildMeta.toolMetaByKind?.[activeTool.kind] ?? null
+    : null;
   const [savedEmail, setSavedEmail] = useState<string>(readSavedSubscriber);
   const [emailInput, setEmailInput] = useState<string>('');
   const [emailError, setEmailError] = useState<string>('');
@@ -569,13 +574,31 @@ export function Footer({
               <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#CEE5DC]/75 dark:bg-emerald-950/60 border border-[#12805C]/30 dark:border-emerald-500/35 text-[#12805C] dark:text-emerald-300 font-semibold whitespace-nowrap">
                 {launchCounterLabel}
               </span>
+              {activeTool && activeToolStamp ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#F9C80E]/30 dark:bg-amber-950/50 border border-[#2F3E4E]/30 dark:border-amber-500/40 text-[#2F3E4E] dark:text-[#F9C80E] font-semibold whitespace-nowrap"
+                    title={`${activeTool.title} (${activeTool.code}) last updated at ${activeToolStamp.lastUpdatedIso}`}
+                  >
+                    <Clock className="w-3 h-3 shrink-0 text-[#B45309] dark:text-[#F9C80E]" aria-hidden="true" />
+                    <span>{activeTool.code} Updated:</span>
+                    <time dateTime={activeToolStamp.lastUpdatedIso}>
+                      {activeToolStamp.lastUpdatedDateIst} · {activeToolStamp.lastUpdatedTimeIst}
+                    </time>
+                    <span className="text-[10px] opacity-80">
+                      ({activeToolStamp.version} · #{activeToolStamp.hash})
+                    </span>
+                  </span>
+                </>
+              ) : null}
               <span aria-hidden="true">·</span>
               <span
                 className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#FEF2C8]/90 dark:bg-slate-800 border border-[#2F3E4E]/20 dark:border-slate-600 text-[#2F3E4E] dark:text-[#F9C80E] font-semibold whitespace-nowrap"
-                title={`Last tool/code update: ${vcplBuildMeta.lastUpdatedIso} (${vcplBuildMeta.toolCount} tools)`}
+                title={`Suite last updated: ${vcplBuildMeta.lastUpdatedIso} (${vcplBuildMeta.toolCount} tools)`}
               >
                 <Clock className="w-3 h-3 shrink-0 text-[#B45309] dark:text-[#F9C80E]" aria-hidden="true" />
-                <span>Last Updated:</span>
+                <span>Suite Updated:</span>
                 <time dateTime={vcplBuildMeta.lastUpdatedIso}>
                   {vcplBuildMeta.lastUpdatedDateIst} · {vcplBuildMeta.lastUpdatedTimeIst}
                 </time>

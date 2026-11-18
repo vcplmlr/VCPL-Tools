@@ -126,7 +126,7 @@ export function CustomCursor() {
       const target = e.target as HTMLElement | null;
       const isText = Boolean(
         target?.closest(
-          'input[type="text"], input[type="email"], input[type="number"], input[type="search"], input[type="password"], textarea'
+          'input[type="text"], input[type="email"], input[type="number"], input[type="search"], input[type="password"], textarea, [data-ribbon-stage="true"]'
         )
       );
       const isHover = !isText && Boolean(

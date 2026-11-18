@@ -235,11 +235,13 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   );
 
   useEffect(() => {
-    activeSiblingRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      inline: 'center',
-      block: 'nearest',
-    });
+    const container = siblingScrollRef.current;
+    const activeEl = activeSiblingRef.current;
+    if (container && activeEl) {
+      const targetLeft =
+        activeEl.offsetLeft - container.clientWidth / 2 + activeEl.offsetWidth / 2;
+      container.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+    }
     const timer = window.setTimeout(updateScrollButtons, 280);
     return () => window.clearTimeout(timer);
   }, [tool.id, updateScrollButtons]);

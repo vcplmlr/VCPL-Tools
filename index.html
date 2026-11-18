@@ -3,6 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        try {
+          if ('scrollRestoration' in window.history) {
+            window.history.scrollRestoration = 'manual';
+          }
+          var navEntries = window.performance && window.performance.getEntriesByType
+            ? window.performance.getEntriesByType('navigation')
+            : null;
+          var isReload =
+            (navEntries && navEntries[0] && navEntries[0].type === 'reload') ||
+            (window.performance && window.performance.navigation && window.performance.navigation.type === 1);
+          if (isReload) {
+            if (window.location.pathname !== '/' || window.location.search || window.location.hash) {
+              window.history.replaceState(null, '', '/');
+            }
+          }
+          window.scrollTo(0, 0);
+        } catch (e) {}
+      })();
+    </script>
     <title>VCPL Tools – Free Offline Banking, GST, PDF &amp; Calc Suite</title>
     <meta
       name="description"

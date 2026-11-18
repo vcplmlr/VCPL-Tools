@@ -116,10 +116,17 @@ export default function App() {
           window.history.pushState(null, '', targetPath);
         }
       }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
     },
     []
   );
+
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+  }, []);
 
   useEffect(() => {
     applySeoForRoute(route);
@@ -135,6 +142,7 @@ export default function App() {
     const handlePopState = () => {
       setRoute(parseLocationToRoute(window.location.pathname, window.location.search));
       setNavTriggerKey((k) => k + 1);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -374,6 +382,7 @@ export default function App() {
 
       {!isToolFullScreen && (
         <Footer
+          activeTool={activeTool}
           onHomeClick={handleGoHome}
           onOpenAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
           onOpenLegalPage={handleOpenLegalPage}

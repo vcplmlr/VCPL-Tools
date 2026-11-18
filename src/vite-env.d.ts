@@ -1,6 +1,14 @@
 /// <reference types="vite/client" />
 
 declare module 'virtual:vcpl-build-meta' {
+  export interface ToolBuildStamp {
+    version: string;
+    hash: string;
+    lastUpdatedIso: string;
+    lastUpdatedDateIst: string;
+    lastUpdatedTimeIst: string;
+  }
+
   export interface VcplBuildMetadata {
     stableVersion: string;
     nextGenVersion: string;
@@ -9,6 +17,7 @@ declare module 'virtual:vcpl-build-meta' {
     lastUpdatedIso: string;
     lastUpdatedDateIst: string;
     lastUpdatedTimeIst: string;
+    toolMetaByKind: Record<string, ToolBuildStamp>;
   }
 
   export const vcplBuildMeta: VcplBuildMetadata;

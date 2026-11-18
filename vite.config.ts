@@ -32,6 +32,71 @@ function collectSourceFileStats(dirPath: string, rootDir: string, out: Array<{ r
   }
 }
 
+const TOOL_KIND_FILES: Record<string, string[]> = {
+  'bank-slip': ['src/components/tools/BankSlipGeneratorView.tsx', 'src/utils/bankSlipRenderers.ts'],
+  'unified-calculator': ['src/components/tools/UnifiedCalculatorView.tsx'],
+  'financial-calc': ['src/components/tools/FinancialCalculatorView.tsx', 'src/data/financialCalculators.ts'],
+  'exam-utility-calc': ['src/components/tools/ExamUtilityCalculatorView.tsx'],
+  'tax-26as': ['src/components/tools/Form26ASToExcelView.tsx'],
+  'tax-gstr2b': ['src/components/tools/Gstr2bReconcilerView.tsx'],
+  'tax-invoice': ['src/components/tools/InvoiceToExcelView.tsx'],
+  'tax-invoice-maker': ['src/components/tools/InvoiceQuotationMakerView.tsx'],
+  'tax-regime': ['src/components/tools/TaxCalculatorView.tsx'],
+  'pdf-engine': ['src/components/tools/PdfEngineView.tsx'],
+  'pdf-converter': ['src/components/tools/PdfConverterView.tsx'],
+  'pdf-form-filler': ['src/components/tools/PdfFormFillerView.tsx'],
+  'image-studio': ['src/components/tools/ImageStudioView.tsx'],
+  'utility-engine': ['src/components/tools/UtilityEngineView.tsx'],
+  'number-to-words': ['src/components/tools/NumberToWordsView.tsx'],
+  'typing-engine': ['src/components/tools/TypingEngineView.tsx'],
+  'dms-tally-reconciler': ['src/components/tools/DmsTallyReconcilerView.tsx'],
+  'parts-billing-reconciler': ['src/components/tools/PartsBillingReconcilerView.tsx'],
+  'swatchbook-color-picker': ['src/components/tools/SwatchbookColorPickerView.tsx'],
+  'tds-tcs-toolkit': ['src/components/tools/TdsTcsToolkitView.tsx'],
+  'income-tax-fy2627': ['src/components/tools/IncomeTaxFy2627View.tsx', 'public/income-tax-fy-2026-27.html'],
+  'pdf-editor-advanced': ['src/components/tools/EmbeddedHtmlToolView.tsx'],
+  'incentive-report-tool': ['src/components/tools/IncentiveReportToolView.tsx'],
+  'tcs-tax-calculator': ['src/components/tools/TcsTaxCalculatorView.tsx'],
+  'rent-payment-letter-maker': ['src/components/tools/RentPaymentLetterMakerView.tsx'],
+  'dbs-pnl-reports': ['src/components/tools/DbsPnlReportsView.tsx'],
+  'gstr1-return-prep': ['src/components/tools/Gstr1ReturnPrepView.tsx'],
+  'bmw-statement-reconciler': ['src/components/tools/BmwStatementReconcilerView.tsx'],
+  'fuel-report-generator': ['src/components/tools/FuelReportGeneratorView.tsx'],
+  'covering-letter-generator': ['src/components/tools/CoveringLetterGeneratorView.tsx'],
+  'letterhead-invoice-maker': ['src/components/tools/EmbeddedHtmlToolView.tsx'],
+  'textlift-ocr-pro': ['src/components/tools/TextliftOcrProView.tsx'],
+  'bank-directory': ['src/components/tools/BankDirectoryToolView.tsx'],
+  'tax-banking-extra': ['src/components/tools/TaxBankingExtraView.tsx'],
+  'pdf-advanced-suite': ['src/components/tools/PdfAdvancedSuiteView.tsx'],
+  'spreadsheet-studio': ['src/components/tools/SpreadsheetStudioView.tsx'],
+  'image-pro-suite': ['src/components/tools/ImageProSuiteView.tsx'],
+  'productivity-dev-suite': ['src/components/tools/ProductivityDevSuiteView.tsx'],
+  'rto-code-finder': ['src/components/tools/RtoCodeFinderView.tsx'],
+  'pin-code-finder': ['src/components/tools/PinCodeFinderView.tsx'],
+  'database-file-compressor': ['src/components/tools/DatabaseFileCompressorView.tsx'],
+};
+
+function formatIstStamp(ms: number) {
+  const updatedDate = new Date(ms);
+  const lastUpdatedIso = updatedDate.toISOString();
+  const lastUpdatedDateIst = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(updatedDate);
+  const lastUpdatedTimeIst = `${new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
+    .format(updatedDate)
+    .toUpperCase()} IST`;
+
+  return { lastUpdatedIso, lastUpdatedDateIst, lastUpdatedTimeIst };
+}
+
 function computeVcplBuildMeta(rootDir: string) {
   const files: Array<{ rel: string; mtimeMs: number; size: number }> = [];
   collectSourceFileStats(path.join(rootDir, 'src'), rootDir, files);
@@ -46,6 +111,7 @@ function computeVcplBuildMeta(rootDir: string) {
   }
 
   files.sort((a, b) => a.rel.localeCompare(b.rel));
+  const fileStatByRel = new Map(files.map((f) => [f.rel, f]));
 
   let latestModifiedMs = 0;
   const hasher = crypto.createHash('sha256');
@@ -110,32 +176,49 @@ function computeVcplBuildMeta(rootDir: string) {
   const baselineEpochMs = Date.UTC(2026, 10, 18, 0, 0, 0);
   const patch = Math.max(1, Math.floor((latestModifiedMs - baselineEpochMs) / 60_000));
   const buildHash = hasher.digest('hex').slice(0, 4).toUpperCase();
+  const suiteStamp = formatIstStamp(latestModifiedMs);
 
-  const updatedDate = new Date(latestModifiedMs);
-  const lastUpdatedIso = updatedDate.toISOString();
-  const lastUpdatedDateIst = new Intl.DateTimeFormat('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(updatedDate);
-  const lastUpdatedTimeIst = `${new Intl.DateTimeFormat('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  })
-    .format(updatedDate)
-    .toUpperCase()} IST`;
+  // Per-tool last-updated date/time and auto-version keyed by ToolKind
+  const toolMetaByKind: Record<string, {
+    version: string;
+    hash: string;
+    lastUpdatedIso: string;
+    lastUpdatedDateIst: string;
+    lastUpdatedTimeIst: string;
+  }> = {};
+
+  for (const [kind, relPaths] of Object.entries(TOOL_KIND_FILES)) {
+    let toolMaxMs = 0;
+    const toolHasher = crypto.createHash('sha256');
+    for (const rel of relPaths) {
+      const info = fileStatByRel.get(rel);
+      if (info) {
+        if (info.mtimeMs > toolMaxMs) toolMaxMs = info.mtimeMs;
+        toolHasher.update(`${rel}:${info.size}:${Math.floor(info.mtimeMs)};`);
+      }
+    }
+    if (toolMaxMs <= 0) {
+      toolMaxMs = latestModifiedMs;
+    }
+    if (vercelSha) {
+      toolHasher.update(`vercel:${vercelSha};`);
+    }
+    const toolPatch = Math.max(1, Math.floor((toolMaxMs - baselineEpochMs) / 60_000));
+    const toolStamp = formatIstStamp(toolMaxMs);
+    toolMetaByKind[kind] = {
+      version: `v${baseMajor}.${minor}.${toolPatch}`,
+      hash: toolHasher.digest('hex').slice(0, 4).toUpperCase(),
+      ...toolStamp,
+    };
+  }
 
   return {
     stableVersion: `v${baseMajor}.${minor}.${patch}`,
     nextGenVersion: `v${baseMajor}.${minor + 1}.0-beta`,
     buildHash,
     toolCount,
-    lastUpdatedIso,
-    lastUpdatedDateIst,
-    lastUpdatedTimeIst,
+    ...suiteStamp,
+    toolMetaByKind,
   };
 }
 

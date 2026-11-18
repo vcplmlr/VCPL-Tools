@@ -720,6 +720,138 @@ a:hover .vcpl-wordmark-ls,
 }
 
 /* =========================================================
+   RIBBON CUTTING INAUGURATION ANIMATIONS
+   ========================================================= */
+@keyframes vcpl-ribbon-breathe {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scaleY(1);
+  }
+  50% {
+    transform: translate3d(0, 1.5px, 0) scaleY(1.015);
+  }
+}
+
+@keyframes vcpl-ribbon-shake {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  20% {
+    transform: translate3d(-7px, 0, 0) rotate(-1.5deg);
+  }
+  40% {
+    transform: translate3d(7px, 0, 0) rotate(1.5deg);
+  }
+  60% {
+    transform: translate3d(-5px, 0, 0) rotate(-1deg);
+  }
+  80% {
+    transform: translate3d(4px, 0, 0) rotate(0.8deg);
+  }
+}
+
+@keyframes vcpl-blade-slash {
+  0% {
+    transform: translate3d(26px, -36px, 0) rotate(18deg) scale(1.08);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  58% {
+    transform: translate3d(-12px, 24px, 0) rotate(-34deg) scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(-24px, 44px, 0) rotate(-42deg) scale(0.92);
+    opacity: 0;
+  }
+}
+
+@keyframes vcpl-ribbon-part-left {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  30% {
+    transform: translate3d(-18%, 14px, 0) rotate(-6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(-115%, 56px, 0) rotate(-14deg);
+    opacity: 0;
+  }
+}
+
+@keyframes vcpl-ribbon-part-right {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  30% {
+    transform: translate3d(18%, 14px, 0) rotate(6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(115%, 56px, 0) rotate(14deg);
+    opacity: 0;
+  }
+}
+
+@keyframes vcpl-bow-burst {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  45% {
+    transform: scale(1.22) rotate(8deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(0.4) translate3d(0, 48px, 0) rotate(-18deg);
+    opacity: 0;
+  }
+}
+
+@keyframes vcpl-confetti-drop {
+  0% {
+    transform: translate3d(0, -10px, 0) rotate(0deg) scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--tx, 0px), var(--ty, 180px), 0) rotate(var(--rot, 360deg)) scale(1);
+    opacity: 0;
+  }
+}
+
+.vcpl-ribbon-idle {
+  animation: vcpl-ribbon-breathe 3.8s ease-in-out infinite;
+}
+
+.vcpl-ribbon-shake {
+  animation: vcpl-ribbon-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.vcpl-blade-slash {
+  animation: vcpl-blade-slash 0.56s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.vcpl-ribbon-part-left {
+  animation: vcpl-ribbon-part-left 1.05s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.vcpl-ribbon-part-right {
+  animation: vcpl-ribbon-part-right 1.05s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.vcpl-bow-burst {
+  animation: vcpl-bow-burst 0.72s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.vcpl-confetti-piece {
+  animation: vcpl-confetti-drop 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* =========================================================
    REDUCED MOTION ACCESSIBILITY
    ========================================================= */
 @media (prefers-reduced-motion: reduce) {
@@ -757,7 +889,14 @@ a:hover .vcpl-wordmark-ls,
   .mlr-wave-shift,
   .mlr-boat-bob,
   .mlr-title-a,
-  .mlr-title-b {
+  .mlr-title-b,
+  .vcpl-ribbon-idle,
+  .vcpl-ribbon-shake,
+  .vcpl-blade-slash,
+  .vcpl-ribbon-part-left,
+  .vcpl-ribbon-part-right,
+  .vcpl-bow-burst,
+  .vcpl-confetti-piece {
     animation: none !important;
   }
 
