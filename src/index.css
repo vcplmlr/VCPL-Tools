@@ -106,7 +106,7 @@ html.vcpl-custom-cursor * {
 }
 
 /* =========================================================
-   VCPL BRAND LOGO GEOMETRIC 'O' GEAR ANIMATIONS (Image 3)
+   VCPL BRAND LOGO COMPLETE ANIMATION SUITE
    ========================================================= */
 @keyframes vcpl-gear-cw {
   0% {
@@ -126,26 +126,249 @@ html.vcpl-custom-cursor * {
   }
 }
 
+@keyframes vcpl-keycap-breathe {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(-0.6px, -0.8px, 0);
+  }
+}
+
+@keyframes vcpl-shadow-breathe {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0.6px, 0.8px, 0);
+  }
+}
+
+@keyframes vcpl-sheen-sweep {
+  0%, 58% {
+    transform: translate3d(-20px, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+  66% {
+    opacity: 1;
+  }
+  86% {
+    transform: translate3d(170px, 0, 0) skewX(-22deg);
+    opacity: 0.9;
+  }
+  92%, 100% {
+    transform: translate3d(180px, 0, 0) skewX(-22deg);
+    opacity: 0;
+  }
+}
+
+@keyframes vcpl-letter-wave {
+  0%, 16%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  6% {
+    transform: translate3d(0, -1.9px, 0) scale(1.09);
+  }
+  12% {
+    transform: translate3d(0, 0.4px, 0) scale(0.98);
+  }
+}
+
+@keyframes vcpl-dot-pulse-primary {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -1px, 0) scale(1.2);
+  }
+}
+
+@keyframes vcpl-dot-pulse-secondary {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(1px, -1.6px, 0) scale(1.28);
+    opacity: 1;
+  }
+}
+
+@keyframes vcpl-o-core-beat {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.38);
+    opacity: 1;
+  }
+}
+
+.vcpl-logo-keycap {
+  animation: vcpl-keycap-breathe 3.6s ease-in-out infinite;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.vcpl-logo-shadow {
+  animation: vcpl-shadow-breathe 3.6s ease-in-out infinite;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.vcpl-logo-sheen {
+  animation: vcpl-sheen-sweep 5.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.vcpl-letter-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vcpl-letter-wave 4.8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+
+.vcpl-cell-1 {
+  animation-delay: 0s;
+}
+
+.vcpl-cell-2 {
+  animation-delay: 0.14s;
+}
+
+.vcpl-cell-3 {
+  animation-delay: 0.28s;
+}
+
+.vcpl-cell-4 {
+  animation-delay: 0.42s;
+}
+
+.vcpl-dot-primary {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vcpl-dot-pulse-primary 2.6s ease-in-out infinite;
+}
+
+.vcpl-dot-secondary {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vcpl-dot-pulse-secondary 2.6s ease-in-out 0.45s infinite;
+}
+
+.vcpl-o-left-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vcpl-oo-swap-left 6.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.vcpl-o-right-orbit {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vcpl-oo-swap-right 6.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+@keyframes vcpl-oo-swap-left {
+  0%, 18% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  31% {
+    transform: translate3d(12px, -5.5px, 0) scale(0.88);
+  }
+  44%, 66% {
+    transform: translate3d(24px, 0, 0) scale(1);
+  }
+  79% {
+    transform: translate3d(12px, 5.5px, 0) scale(0.88);
+  }
+  92%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes vcpl-oo-swap-right {
+  0%, 18% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  31% {
+    transform: translate3d(-12px, 5.5px, 0) scale(1.08);
+  }
+  44%, 66% {
+    transform: translate3d(-24px, 0, 0) scale(1);
+  }
+  79% {
+    transform: translate3d(-12px, -5.5px, 0) scale(1.08);
+  }
+  92%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 .vcpl-o-left {
-  transform-box: view-box;
-  transform-origin: 153.5px 21px;
-  animation: vcpl-gear-cw 14s linear infinite;
-  transition: animation-duration 0.2s ease;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vcpl-gear-cw 7.5s linear infinite;
 }
 
 .vcpl-o-right {
-  transform-box: view-box;
-  transform-origin: 177.5px 21px;
-  animation: vcpl-gear-ccw 14s linear infinite;
-  transition: animation-duration 0.2s ease;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vcpl-gear-ccw 7.5s linear infinite;
 }
 
-button:hover .vcpl-o-left {
-  animation-duration: 3.5s;
+.vcpl-o-core {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vcpl-o-core-beat 2.2s ease-in-out infinite;
 }
 
-button:hover .vcpl-o-right {
-  animation-duration: 3.5s;
+.vcpl-wordmark-t,
+.vcpl-wordmark-ls {
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Interactive Hover & Active Tactile Response */
+button:hover .vcpl-logo-keycap,
+a:hover .vcpl-logo-keycap,
+.vcpl-brand-logo:hover .vcpl-logo-keycap {
+  animation: none;
+  transform: translate3d(-1px, -1.5px, 0);
+}
+
+button:active .vcpl-logo-keycap,
+a:active .vcpl-logo-keycap,
+.vcpl-brand-logo:active .vcpl-logo-keycap {
+  animation: none;
+  transform: translate3d(2.5px, 2.5px, 0);
+}
+
+button:hover .vcpl-logo-shadow,
+a:hover .vcpl-logo-shadow,
+.vcpl-brand-logo:hover .vcpl-logo-shadow {
+  animation: none;
+  transform: translate3d(1px, 1.2px, 0);
+}
+
+button:hover .vcpl-o-left,
+a:hover .vcpl-o-left,
+.vcpl-brand-logo:hover .vcpl-o-left {
+  animation-duration: 2.2s;
+}
+
+button:hover .vcpl-o-right,
+a:hover .vcpl-o-right,
+.vcpl-brand-logo:hover .vcpl-o-right {
+  animation-duration: 2.2s;
+}
+
+button:hover .vcpl-wordmark-t,
+a:hover .vcpl-wordmark-t,
+.vcpl-brand-logo:hover .vcpl-wordmark-t {
+  transform: translate3d(1.5px, 0, 0);
+}
+
+button:hover .vcpl-wordmark-ls,
+a:hover .vcpl-wordmark-ls,
+.vcpl-brand-logo:hover .vcpl-wordmark-ls {
+  transform: translate3d(1.5px, 0, 0);
 }
 
 /* =========================================================
@@ -505,8 +728,17 @@ button:hover .vcpl-o-right {
   .animate-dash-flow,
   .animate-dot-pulse,
   .vcpl-marquee-track,
+  .vcpl-logo-keycap,
+  .vcpl-logo-shadow,
+  .vcpl-logo-sheen,
+  .vcpl-letter-pop,
+  .vcpl-dot-primary,
+  .vcpl-dot-secondary,
+  .vcpl-o-left-orbit,
+  .vcpl-o-right-orbit,
   .vcpl-o-left,
   .vcpl-o-right,
+  .vcpl-o-core,
   .bharat-dot,
   .animate-heartbeat,
   .author-underline-stroke,

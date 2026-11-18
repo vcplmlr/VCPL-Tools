@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   CheckCircle2,
+  Clock,
   Cookie,
   ExternalLink,
   Laptop,
@@ -9,6 +10,7 @@ import {
   MapPin,
   ShieldCheck,
 } from 'lucide-react';
+import { vcplBuildMeta } from 'virtual:vcpl-build-meta';
 import { LegalPageSlug, SITE_CONTACT } from '../data/legalPagesData';
 import { ToolFilterType } from '../types/tools';
 import { MangaloreSkylineSvg } from './MangaloreSkylineSvg';
@@ -568,10 +570,29 @@ export function Footer({
                 {launchCounterLabel}
               </span>
               <span aria-hidden="true">·</span>
-              <span>Stable v2.4.0</span>
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#FEF2C8]/90 dark:bg-slate-800 border border-[#2F3E4E]/20 dark:border-slate-600 text-[#2F3E4E] dark:text-[#F9C80E] font-semibold whitespace-nowrap"
+                title={`Last tool/code update: ${vcplBuildMeta.lastUpdatedIso} (${vcplBuildMeta.toolCount} tools)`}
+              >
+                <Clock className="w-3 h-3 shrink-0 text-[#B45309] dark:text-[#F9C80E]" aria-hidden="true" />
+                <span>Last Updated:</span>
+                <time dateTime={vcplBuildMeta.lastUpdatedIso}>
+                  {vcplBuildMeta.lastUpdatedDateIst} · {vcplBuildMeta.lastUpdatedTimeIst}
+                </time>
+              </span>
+              <span aria-hidden="true">·</span>
+              <span
+                className="inline-flex items-center gap-1 font-semibold text-[#2F3E4E] dark:text-slate-200 whitespace-nowrap"
+                title={`Auto-versioned from tool count (${vcplBuildMeta.toolCount} tools) & latest build ${vcplBuildMeta.buildHash}`}
+              >
+                <span>Stable {vcplBuildMeta.stableVersion}</span>
+                <span className="text-[10px] font-mono text-[#64748B] dark:text-slate-400">
+                  (#{vcplBuildMeta.buildHash})
+                </span>
+              </span>
               <span aria-hidden="true">·</span>
               <span className="font-semibold text-[#2F3E4E] dark:text-slate-200">
-                Next-Gen v2.5.0-beta (Enterprise Compliance &amp; Office Suite)
+                Next-Gen {vcplBuildMeta.nextGenVersion} (Enterprise Compliance &amp; Office Suite)
               </span>
             </div>
 
