@@ -14,7 +14,6 @@ import {
 import { LegalPageSlug } from '../data/legalPagesData';
 import { TOOLS_CATALOG } from '../data/toolsCatalog';
 import { ToolFilterType } from '../types/tools';
-import { AdSlot } from './AdSlot';
 
 interface NotFoundPageProps {
   requestedPath: string;
@@ -189,15 +188,6 @@ export function NotFoundPage({
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="mt-6">
-          <AdSlot
-            slotId="vcpl-404-recovery-strip"
-            variant="compact-strip"
-            label="Recovery Directory Banner · 728 × 90"
-            contentContext="Banking, GST Tax Audit, PDF & Calculation Utilities"
-          />
         </div>
       </div>
     </section>

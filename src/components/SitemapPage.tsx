@@ -58,10 +58,13 @@ function buildDynamicXmlSitemap(origin: string): string {
   ];
 
   const entries = urls
-    .map(
-      (u) =>
-        `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
-    )
+    .map((u) => {
+      const safeLoc = u.loc
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      return `  <url>\n    <loc>${safeLoc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`;
+    })
     .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
@@ -232,6 +235,15 @@ export function SitemapPage({
             >
               <Code2 className="w-3.5 h-3.5" aria-hidden="true" />
               <span>/robots.txt</span>
+            </a>
+            <a
+              href="/ads.txt"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2F3E4E] dark:bg-slate-800 text-[#F9C80E] hover:bg-[#1E293B] border border-[#2F3E4E] dark:border-slate-600 font-mono font-semibold"
+            >
+              <Code2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>/ads.txt</span>
             </a>
           </div>
         </header>

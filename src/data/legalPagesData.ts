@@ -39,7 +39,7 @@ export const SITE_CONTACT = {
   whatsappDisplay: '+91 7795836605',
   whatsappUrl: 'https://wa.me/917795836605',
   location: 'Mangalore, Coastal Karnataka, India',
-  lastUpdated: '16 November 2026',
+  lastUpdated: '18 November 2026',
 };
 
 export const LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
@@ -211,18 +211,19 @@ export const LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
         ],
       },
       {
-        heading: '3. Cookies and Local Storage',
+        heading: '3. Cookies, Local Storage & Google AdSense',
         paragraphs: [
           'We do not intentionally sell users\' personal information.',
-          'VCPL Tools uses essential browser localStorage to remember preferences such as your cookie notice choice, favorite tools, and recent tools.',
-          'Our current privacy design aims to avoid unnecessary tracking cookies. However, third-party services such as advertising, analytics, hosting or embedded content may use their own technologies if enabled. Their practices are governed by their respective privacy policies.',
+          'VCPL Tools uses essential browser localStorage to remember preferences such as your privacy & consent choice, favorite tools, and recent tools.',
+          'To keep our utility suite free without paywalls, VCPL Tools may display advertisements served by Google AdSense and authorized advertising partners. Google, as a third-party vendor, uses cookies (including Google advertising / DoubleClick cookies) to serve ads based on a user\'s prior visits to VCPL Tools or other websites.',
+          'Google\'s use of advertising cookies enables it and its partners to serve ads to users based on their visit to this site and/or other sites on the Internet. Users may opt out of personalized advertising anytime by visiting Google Ads Settings (https://myadcenter.google.com/ or https://adssettings.google.com), visiting https://www.aboutads.info/choices/, or selecting "Essential Only" in our Privacy & Ad Preferences banner to request non-personalized ads.',
         ],
       },
       {
         heading: '4. Third-Party Services & External Links',
         paragraphs: [
-          'Our website may use third-party services for hosting, security, advertising, analytics or communication (including external links to WhatsApp or your email client when you choose to send a message).',
-          'These services may process technical or other information according to their own terms and privacy policies. VCPL Tools does not control the independent privacy practices of third-party providers.',
+          'Our website may use third-party services for hosting, security, advertising (such as Google AdSense), analytics, or communication (including external links to WhatsApp or your email client when you choose to send a message).',
+          'These services may process technical or other information according to their own terms and privacy policies. VCPL Tools never sends any files you upload into local PDF, banking, or tax tools to advertising networks.',
         ],
       },
       {
@@ -240,19 +241,19 @@ export const LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
         ],
       },
       {
-        heading: '7. Your Choices',
+        heading: '7. Your Choices & DPDP Compliance',
         bullets: [
-          'Choose not to submit personal information.',
+          'Choose "Essential Only" in the Privacy & Ad Preferences banner to use non-personalized ads and strictly necessary browser storage.',
+          'Opt out of personalized Google advertising via Google My Ad Center (https://myadcenter.google.com/) or the Network Advertising Initiative opt-out page.',
           'Clear browser storage and local preferences anytime using the Clear Data button in the Privacy & Cookie Notice.',
-          'Stop using any tool at any time.',
+          'Choose not to submit personal information and stop using any tool at any time.',
           'Contact us regarding information you have voluntarily submitted.',
-          'Use available browser controls to manage cookies and website permissions.',
         ],
       },
       {
         heading: '8. Changes to This Policy & Contact',
         paragraphs: [
-          'We may update this Privacy Policy when our tools, services or legal requirements change. The revised version will be published on this page with an updated date.',
+          'We may update this Privacy Policy when our tools, advertising partners, or legal requirements change. The revised version will be published on this page with an updated date.',
           'For privacy-related questions, email kaushik.bangera@myyahoo.com or message on WhatsApp at +91 7795836605.',
         ],
       },
@@ -471,20 +472,21 @@ export const LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
         ],
       },
       {
-        heading: '4. Third-Party Cookies',
+        heading: '4. Third-Party & Advertising Cookies (Google AdSense)',
         paragraphs: [
-          'If third-party advertising, analytics or embedded services are enabled, those providers may use cookies or similar technologies. Their collection and use of information are subject to their own policies.',
+          'When Google AdSense or authorized advertising partners are active, third-party vendors (including Google) may place and read cookies on your browser or use web beacons to measure ad delivery and show relevant or non-personalized ads.',
+          'If you select "Essential Only" in our Privacy & Ad Preferences banner, VCPL Tools signals requestNonPersonalizedAds = 1 so ads do not rely on behavioral personalization profiles.',
         ],
       },
       {
-        heading: '5. Managing Cookies & 6. Policy Updates',
+        heading: '5. Managing Cookies & Opt-Out Controls',
         paragraphs: [
-          'You can manage or delete cookies through your browser settings. Blocking certain cookies or storage features may affect the operation of some website features.',
+          'You can manage or delete cookies through your browser settings, change your VCPL Tools consent mode anytime via "Ad Choices" / Cookie Preferences in the footer, or manage Google ad personalization at https://myadcenter.google.com/. Blocking essential browser storage may reset saved favorite tools and theme preferences.',
           'This policy may be updated when website functionality or third-party integrations change.',
         ],
       },
       {
-        heading: '7. Contact',
+        heading: '6. Contact',
         paragraphs: ['Email: kaushik.bangera@myyahoo.com'],
       },
     ],
@@ -495,39 +497,44 @@ export const LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
     group: 'legal',
     navTitle: 'Advertising Policy',
     title: 'Advertising & Sponsorship Policy',
-    subtitle: 'Standards and separation between sponsored ad slots and VCPL Tools utilities.',
-    effectiveLabel: 'Last Updated: 16 November 2026',
+    subtitle: 'AdSense compliance, clear Advertisement labeling, and separation from VCPL utilities.',
+    effectiveLabel: 'Last Updated: 18 November 2026',
     sections: [
       {
         heading: 'Overview',
         paragraphs: [
-          'VCPL Tools may display advertisements or sponsored placements to support the maintenance, development and improvement of the platform. We aim to keep advertising separate from the core functionality of our utilities.',
+          'VCPL Tools displays clearly labeled advertisements and sponsored placements to keep all 179+ banking, GST, PDF, image, and calculator utilities 100% free with zero paywalls. Advertising placements remain strictly separated from interactive tool controls.',
         ],
       },
       {
-        heading: '1. Advertising & 2. Sponsored Placements',
+        heading: '1. Programmatic AdSense & Sponsored Placements',
         paragraphs: [
-          'Advertisements may appear in designated areas of the website and are excluded from print views (such as A4 bank deposit slips). The advertisements may be supplied by advertising networks or direct advertising partners.',
-          'Sponsored placements may be used to promote relevant products, services or business partners. Where applicable, sponsored content is clearly identified as Advertisement or Sponsor Placement.',
+          'Advertisements appear only inside designated containers labeled "Advertisement" or "Ad" and are automatically excluded from print layouts (such as A4 bank deposit slips and GST invoices) and excluded from 404/error screens.',
+          'Supported formats include responsive display leaderboards (728×90 / 320×50), billboards (970×250), in-article native units, sidebar units (300×250 / 300×600), and multiplex grids. Authorized sellers are transparently declared in /ads.txt.',
         ],
       },
       {
-        heading: '3. Advertising Standards',
+        heading: '2. Zero File Content Sharing',
         paragraphs: [
-          'We aim to avoid advertisements that are misleading, harmful, inappropriate or unrelated to the general purpose of the platform.',
-          'However, third-party advertising systems may determine which advertisements are displayed. We cannot guarantee that every advertisement will always meet our preferences. Users may report inappropriate advertisements to us.',
+          'Files processed in VCPL Tools (PDFs, Excel sheets, Form 26AS, GSTR-2B, images, or bank slip inputs) execute locally in browser memory and are NEVER read by, uploaded to, or shared with advertising networks.',
+        ],
+      },
+      {
+        heading: '3. Advertising Standards & Personalized vs Non-Personalized Ads',
+        paragraphs: [
+          'We comply with Google Publisher Policies and prohibit misleading, deceptive, or intrusive pop-under ads that interfere with calculator or document buttons. Visitors may switch between Personalized Ads and Essential/Non-Personalized Ads anytime using any "Ad Choices" link or the footer Privacy Preferences control.',
         ],
       },
       {
         heading: '4. Independence & 5. Data and Privacy',
         paragraphs: [
-          'Advertising does not automatically mean that VCPL Tools recommends or endorses the advertiser, its products or its services. Users should independently evaluate any advertised service before purchasing or sharing information.',
-          'Third-party advertising providers may use cookies or similar technologies according to their own privacy policies. Please review our Privacy Policy for more information.',
+          'Displaying an advertisement does not mean VCPL Tools endorses the advertised product or service. Users should independently evaluate any third-party offer.',
+          'Third-party ad providers such as Google AdSense may use cookies as described in our Privacy Policy and Cookie Policy.',
         ],
       },
       {
-        heading: '6. Advertising Enquiries',
-        paragraphs: ['For direct advertising and sponsorship enquiries: kaushik.bangera@myyahoo.com'],
+        heading: '6. Advertising & Direct Sponsorship Enquiries',
+        paragraphs: ['For direct advertising, custom tool sponsorship, or ad-quality reports: kaushik.bangera@myyahoo.com'],
       },
     ],
   },

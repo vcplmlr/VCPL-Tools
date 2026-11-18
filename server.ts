@@ -5,6 +5,7 @@ import path from 'node:path';
 import { getDb } from './src/server/db.ts';
 import { seedRtoIfEmpty } from './src/server/importers.ts';
 import { createApiRouter, warmDirectoryCache } from './src/server/routes.ts';
+import { registerSeoAndAdSenseRoutes } from './src/server/seoRoutes.ts';
 
 async function startServer() {
   // Initialize SQLite database, indexes, and baseline RTO table
@@ -17,6 +18,7 @@ async function startServer() {
   // Support chunked CSV/XLSX/JSON bulk import payloads up to 25 MB
   app.use(express.json({ limit: '25mb' }));
 
+  registerSeoAndAdSenseRoutes(app);
   app.use('/api', createApiRouter());
 
   if (process.env.NODE_ENV !== 'production') {

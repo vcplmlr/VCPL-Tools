@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdBlockerNotice } from './components/AdBlockerNotice';
+import { AdSlot } from './components/AdSlot';
 import { AllToolsPage } from './components/AllToolsPage';
 import { CategoriesSection } from './components/CategoriesSection';
 import {
@@ -7,6 +8,7 @@ import {
   CookieConsentBanner,
 } from './components/CookieConsentBanner';
 import { CustomCursor } from './components/CustomCursor';
+import { FaqSection } from './components/FaqSection';
 import { FeaturedSlotsSection } from './components/FeaturedSlotsSection';
 import { Footer } from './components/Footer';
 import { HeroSection } from './components/HeroSection';
@@ -21,6 +23,10 @@ import { SitemapPage } from './components/SitemapPage';
 import { TopLoadingBar } from './components/TopLoadingBar';
 import { WhatsAppChatWidget } from './components/WhatsAppChatWidget';
 import { ToolWorkspace } from './components/tools/ToolWorkspace';
+import {
+  OPEN_COOKIE_BANNER_EVENT,
+  ensureAdSenseInitialized,
+} from './config/adsense';
 import { LegalPageSlug } from './data/legalPagesData';
 import { TOOL_CATEGORIES, getToolById } from './data/toolsCatalog';
 import { useAdBlockerDetector } from './hooks/useAdBlockerDetector';
@@ -121,6 +127,13 @@ export default function App() {
   useEffect(() => {
     applySeoForRoute(route);
   }, [route]);
+
+  useEffect(() => {
+    ensureAdSenseInitialized();
+    const handleOpenPreferences = () => setCookieOpen(true);
+    window.addEventListener(OPEN_COOKIE_BANNER_EVENT, handleOpenPreferences);
+    return () => window.removeEventListener(OPEN_COOKIE_BANNER_EVENT, handleOpenPreferences);
+  }, []);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -255,12 +268,33 @@ export default function App() {
               selectedCategoryId={selectedCategoryId}
               onSelectCategory={(_catId, filterKey) => handleOpenAllTools(filterKey)}
             />
+            <div className="w-full bg-[#CEE5DC] dark:bg-[#0D1526] pt-8 sm:pt-10 no-print">
+              <div className="max-w-[1400px] mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6">
+                <AdSlot
+                  slotId="vcpl-home-billboard-top"
+                  variant="billboard"
+                  label="Homepage Top Billboard · 970 × 250 / 320 × 100"
+                  contentContext="Indian Banking Deposit Slips, Form 26AS & GST Filing Tools"
+                />
+              </div>
+            </div>
             <FeaturedSlotsSection
               activeFilter="All"
               onFilterChange={(filter) => handleOpenAllTools(filter)}
               onOpenTool={(tool) => handleOpenTool(tool)}
               onOpenAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
             />
+            <FaqSection variant="home" />
+            <div className="w-full bg-[#FEF2C8] dark:bg-[#0B1120] pb-10 sm:pb-12 no-print">
+              <div className="max-w-[1400px] mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6">
+                <AdSlot
+                  slotId="vcpl-home-multiplex-bottom"
+                  variant="multiplex"
+                  label="Homepage Multiplex Grid · AutoRelaxed"
+                  contentContext="CA, MSME, Document Conversion & Banking Software"
+                />
+              </div>
+            </div>
             <RequestSection />
           </>
         )}
@@ -344,11 +378,12 @@ export default function App() {
 
       {!isToolFullScreen && (
         <Footer
-          onSelectCategory={(filter) => handleOpenAllTools(filter)}
-          onSelectLegalPage={handleOpenLegalPage}
+          onHomeClick={handleGoHome}
+          onOpenAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
+          onOpenLegalPage={handleOpenLegalPage}
+          onOpenPrivacyBanner={() => setCookieOpen(true)}
+          onOpenNotFound={() => navigateToRoute({ view: 'not-found', path: '/404' }, '/404')}
           onOpenSitemap={() => navigateToRoute({ view: 'sitemap' }, '/sitemap')}
-          onOpenCookieSettings={() => setCookieOpen(true)}
-          onGoHome={handleGoHome}
         />
       )}
 

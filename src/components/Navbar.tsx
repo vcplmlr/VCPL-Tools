@@ -184,9 +184,9 @@ export function Navbar({
         </div>
       </div>
 
-      {/* Unified Single-Line Responsive Menu Bar */}
+      {/* Unified Responsive Menu Bar */}
       <header className="w-full bg-[#FEF2C8]/95 dark:bg-[#0B1120]/95 backdrop-blur-xs border-b-[1.5px] border-[#2F3E4E]/20 dark:border-slate-700/80 md:sticky md:top-0 z-40 no-print transition-colors duration-200">
-        <div className="max-w-[1440px] mx-auto pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-5 h-14 sm:h-16 flex flex-nowrap items-center justify-between gap-2 sm:gap-3">
+        <div className="max-w-[1440px] mx-auto pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-4 min-h-14 sm:min-h-16 py-1.5 flex items-center justify-between gap-2 xl:gap-3">
           {/* Brand Logo */}
           <button
             type="button"
@@ -197,13 +197,13 @@ export function Navbar({
             aria-label="VCPL Tools Home"
             className="inline-flex items-center whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E] rounded-lg px-1 py-0.5 transition-transform hover:scale-[1.02] cursor-pointer"
           >
-            <VcplBrandLogo variant="header" className="h-8 lg:h-7 xl:h-9" />
+            <VcplBrandLogo variant="header" className="h-8 lg:h-7 xl:h-8 2xl:h-9" />
           </button>
 
-          {/* Single-Line Suite Navigation Menu (Desktop & Landscape Tablets lg+) */}
+          {/* Suite Navigation Menu — All 10 items clearly visible without clipping */}
           <nav
-            aria-label="Primary Single-Line Navigation"
-            className="hidden lg:flex flex-nowrap items-center justify-end gap-0.5 xl:gap-1 min-w-0 flex-1 overflow-x-auto no-scrollbar py-1"
+            aria-label="Primary Navigation"
+            className="hidden lg:flex flex-wrap xl:flex-nowrap items-center justify-center xl:justify-end gap-1 flex-1 min-w-0 py-0.5"
           >
             {ICON_MENU_ITEMS.map(({ key, label, Icon }) => {
               const isActive = activeIconMenu === key;
@@ -216,7 +216,7 @@ export function Navbar({
                     onSelectIconMenu(key);
                   }}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`inline-flex items-center gap-1 xl:gap-1.5 px-1.5 xl:px-2 py-1.5 rounded-lg text-[9px] xl:text-[10.5px] font-display font-extrabold tracking-tight xl:tracking-wide transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer border ${
+                  className={`inline-flex items-center gap-1 xl:gap-1.5 px-1.5 xl:px-2 py-1.5 rounded-lg text-[9.5px] xl:text-[10px] 2xl:text-[10.5px] font-display font-extrabold tracking-tight 2xl:tracking-wide transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer border ${
                     isActive
                       ? 'bg-[#2F3E4E] text-[#F9C80E] border-[#2F3E4E] dark:bg-[#F9C80E] dark:text-[#0F172A] dark:border-[#F9C80E] shadow-[0_2px_0_#1E293B]'
                       : 'bg-[#FFFDF5]/90 dark:bg-slate-900/90 text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/15 dark:border-slate-700 hover:bg-[#F9C80E]/55 dark:hover:bg-slate-800 hover:border-[#2F3E4E]/45 dark:hover:border-slate-500'
@@ -236,7 +236,7 @@ export function Navbar({
             })}
           </nav>
 
-          {/* Right Controls in Main Menu Bar: Light / Dark / System Switcher + Mobile Hamburger */}
+          {/* Right Controls in Main Menu Bar: Light / System / Dark Icon Switcher + Mobile Hamburger */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <ThemeSelector
               preference={themePreference}
@@ -296,7 +296,7 @@ export function Navbar({
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#2F3E4E]/15 dark:border-slate-800">
               <span className="text-xs font-display font-bold text-[#2F3E4E] dark:text-slate-300">
-                Appearance (Light / Dark / System)
+                Theme Mode
               </span>
               <ThemeSelector
                 preference={themePreference}

@@ -696,7 +696,19 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
               contentContext={articleMeta.adTopic}
             />
 
-            <ToolArticleSection tool={tool} />
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+              <div className="xl:col-span-8 min-w-0">
+                <ToolArticleSection tool={tool} />
+              </div>
+              <div className="xl:col-span-4 space-y-4 xl:sticky xl:top-24 no-print">
+                <AdSlot
+                  slotId={`vcpl-workspace-sidebar-${tool.code.toLowerCase()}`}
+                  variant="sidebar"
+                  label="300 × 250 / 300 × 600 Tool Guide Sidebar"
+                  contentContext={articleMeta.adTopic}
+                />
+              </div>
+            </div>
 
             <AdSlot
               slotId={`vcpl-workspace-${tool.code.toLowerCase()}`}
@@ -708,6 +720,12 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <AdSlot
               slotId={`vcpl-workspace-dual-${tool.code.toLowerCase()}`}
               variant="dual"
+              contentContext={articleMeta.adTopic}
+            />
+
+            <AdSlot
+              slotId={`vcpl-workspace-multiplex-${tool.code.toLowerCase()}`}
+              variant="multiplex"
               contentContext={articleMeta.adTopic}
             />
           </>

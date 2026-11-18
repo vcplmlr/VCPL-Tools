@@ -197,22 +197,22 @@ export function Footer({
 
             {/* Right: Updates & Release Alerts Form */}
             <div className="w-full lg:w-[390px] shrink-0 space-y-2">
-              <h2 className="font-display font-bold text-sm text-[#2F3E4E]">
+              <h2 className="font-display font-bold text-sm text-[#2F3E4E] dark:text-slate-100">
                 Tool Updates &amp; Release Notes
               </h2>
 
               {savedEmail ? (
-                <div className="flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-lg bg-[#CEE5DC]/65 border-[1.5px] border-[#2F3E4E] text-xs">
+                <div className="flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-lg bg-[#CEE5DC]/65 dark:bg-emerald-950/60 border-[1.5px] border-[#2F3E4E] dark:border-emerald-500/40 text-xs">
                   <div className="flex items-center gap-2 min-w-0">
-                    <CheckCircle2 className="w-4 h-4 text-[#12805C] shrink-0" aria-hidden="true" />
-                    <span className="truncate font-semibold text-[#2F3E4E]">
+                    <CheckCircle2 className="w-4 h-4 text-[#12805C] dark:text-emerald-400 shrink-0" aria-hidden="true" />
+                    <span className="truncate font-semibold text-[#2F3E4E] dark:text-slate-100">
                       Saved locally: {savedEmail}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={handleUnsubscribe}
-                    className="text-[11px] font-bold text-[#2F3E4E] underline hover:text-rose-700 cursor-pointer shrink-0"
+                    className="text-[11px] font-bold text-[#2F3E4E] dark:text-slate-200 underline hover:text-rose-700 dark:hover:text-rose-400 cursor-pointer shrink-0"
                   >
                     Change
                   </button>

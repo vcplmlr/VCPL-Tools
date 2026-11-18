@@ -1,6 +1,13 @@
+User-agent: Mediapartners-Google
+Allow: /
+
+User-agent: AdsBot-Google
+Allow: /
+
 User-agent: *
 Allow: /
 Disallow: /assets/
+Disallow: /api/
 Disallow: /income-tax-fy-2026-27.html
 Disallow: /404
 Disallow: /not-found

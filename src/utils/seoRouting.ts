@@ -376,18 +376,25 @@ export function applySeoForRoute(route: ParsedRoute) {
       ? `${origin}${getToolFullPath(getToolById(route.toolId) ?? TOOLS_CATALOG[0])}`
       : canonicalUrl;
   const ogImageUrl = `${origin}/og-card.svg`;
+  const ogType = route.view === 'legal' ? 'article' : 'website';
 
   document.title = title;
   setMetaContent('meta[name="description"]', description);
   setMetaContent('meta[name="keywords"]', keywords);
   setMetaContent('meta[name="robots"]', robots);
+  setMetaContent('meta[property="og:site_name"]', 'VCPL Tools');
+  setMetaContent('meta[property="og:locale"]', 'en_IN');
+  setMetaContent('meta[property="og:type"]', ogType);
   setMetaContent('meta[property="og:title"]', title);
   setMetaContent('meta[property="og:description"]', description);
   setMetaContent('meta[property="og:url"]', currentUrl);
   setMetaContent('meta[property="og:image"]', ogImageUrl);
+  setMetaContent('meta[property="og:image:alt"]', `${title} — VCPL Tools`);
+  setMetaContent('meta[name="twitter:card"]', 'summary_large_image');
   setMetaContent('meta[name="twitter:title"]', title);
   setMetaContent('meta[name="twitter:description"]', description);
   setMetaContent('meta[name="twitter:image"]', ogImageUrl);
+  setMetaContent('meta[name="twitter:image:alt"]', `${title} — VCPL Tools`);
 
   const canonicalLink = document.getElementById('vcpl-canonical') as HTMLLinkElement | null;
   if (canonicalLink) {
