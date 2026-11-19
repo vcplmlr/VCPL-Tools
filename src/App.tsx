@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdBlockerNotice } from './components/AdBlockerNotice';
 import { AdSlot } from './components/AdSlot';
 import { AllToolsPage } from './components/AllToolsPage';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { CategoriesSection } from './components/CategoriesSection';
 import {
   COOKIE_CONSENT_STORAGE_KEY,
@@ -24,6 +25,7 @@ import { TopLoadingBar } from './components/TopLoadingBar';
 import { WhatsAppChatWidget } from './components/WhatsAppChatWidget';
 import { ToolWorkspace } from './components/tools/ToolWorkspace';
 import { OPEN_COOKIE_BANNER_EVENT } from './config/adsense';
+import { HttpErrorCode } from './data/errorPagesData';
 import { LegalPageSlug } from './data/legalPagesData';
 import { TOOL_CATEGORIES, getToolById } from './data/toolsCatalog';
 import { useAdBlockerDetector } from './hooks/useAdBlockerDetector';
@@ -55,6 +57,8 @@ const ICON_MENU_TO_FILTER: Partial<Record<IconMenuKey, ToolFilterType>> = {
   'image-qr': 'Utilities',
   'typing-text': 'Typing & Text',
   'vcpl-tools': 'VCPL',
+  'special-tools': 'Special Tools',
+  'learn-tools': 'Learn Tools',
   calculator: 'Calculator',
   'all-tools': 'All',
 };
@@ -70,6 +74,8 @@ const FILTER_TO_ICON_MENU: Record<ToolFilterType, IconMenuKey> = {
   'Typing & Text': 'typing-text',
   Utilities: 'image-qr',
   VCPL: 'vcpl-tools',
+  'Special Tools': 'special-tools',
+  'Learn Tools': 'learn-tools',
 };
 
 export default function App() {
@@ -206,6 +212,14 @@ export default function App() {
     navigateToRoute({ view: 'home' }, '/');
   }, [navigateToRoute]);
 
+  const handleOpenErrorPage = useCallback(
+    (code: HttpErrorCode = 404) => {
+      const targetPath = `/${code}`;
+      navigateToRoute({ view: 'not-found', path: targetPath, statusCode: code }, targetPath);
+    },
+    [navigateToRoute]
+  );
+
   const handleSelectIconMenu = useCallback(
     (key: IconMenuKey) => {
       if (key === 'home') {
@@ -260,6 +274,16 @@ export default function App() {
       )}
 
       <main className="flex-1">
+        <AppErrorBoundary
+          resetKey={navTriggerKey}
+          onGoHome={handleGoHome}
+          onExploreAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
+          onOpenCalculator={() => handleOpenTool('unified-calculator')}
+          onOpenSearch={() => setSearchModalOpen(true)}
+          onOpenLegalPage={handleOpenLegalPage}
+          onOpenSitemap={() => navigateToRoute({ view: 'sitemap' }, '/sitemap')}
+          onSelectErrorCode={handleOpenErrorPage}
+        >
         {route.view === 'home' && (
           <>
             <HeroSection
@@ -369,6 +393,7 @@ export default function App() {
 
         {route.view === 'not-found' && (
           <NotFoundPage
+            statusCode={route.statusCode ?? 404}
             requestedPath={route.path}
             onGoHome={handleGoHome}
             onExploreAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
@@ -376,8 +401,10 @@ export default function App() {
             onOpenSearch={() => setSearchModalOpen(true)}
             onOpenLegalPage={handleOpenLegalPage}
             onOpenSitemap={() => navigateToRoute({ view: 'sitemap' }, '/sitemap')}
+            onSelectErrorCode={handleOpenErrorPage}
           />
         )}
+        </AppErrorBoundary>
       </main>
 
       {!isToolFullScreen && (
@@ -387,7 +414,8 @@ export default function App() {
           onOpenAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
           onOpenLegalPage={handleOpenLegalPage}
           onOpenPrivacyBanner={() => setCookieOpen(true)}
-          onOpenNotFound={() => navigateToRoute({ view: 'not-found', path: '/404' }, '/404')}
+          onOpenNotFound={() => handleOpenErrorPage(404)}
+          onOpenErrorPage={handleOpenErrorPage}
           onOpenSitemap={() => navigateToRoute({ view: 'sitemap' }, '/sitemap')}
         />
       )}

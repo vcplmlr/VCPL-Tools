@@ -5,6 +5,7 @@ import {
   Facebook,
   FileSpreadsheet,
   Files,
+  GraduationCap,
   Home,
   Image as ImageIcon,
   Instagram,
@@ -15,6 +16,7 @@ import {
   Menu,
   QrCode,
   Receipt,
+  Sparkles,
   X,
   Youtube,
 } from 'lucide-react';
@@ -32,6 +34,8 @@ export type IconMenuKey =
   | 'image-qr'
   | 'typing-text'
   | 'vcpl-tools'
+  | 'special-tools'
+  | 'learn-tools'
   | 'calculator'
   | 'all-tools';
 
@@ -104,12 +108,14 @@ const ICON_MENU_ITEMS: {
   { key: 'vcpl-tools', label: 'VCPL TOOLS', Icon: Building2 },
   { key: 'banking', label: 'BANK SLIPS', Icon: Landmark },
   { key: 'tax-gst', label: 'TAX & GST', Icon: Receipt },
-  { key: 'gst-utilities', label: 'GST UTILITIES', Icon: FileSpreadsheet },
-  { key: 'pdf-tools', label: 'PDF TOOLS', Icon: Files },
-  { key: 'image-studio', label: 'IMAGE TOOLS', Icon: ImageIcon },
+  { key: 'gst-utilities', label: 'GST', Icon: FileSpreadsheet },
+  { key: 'pdf-tools', label: 'PDF', Icon: Files },
+  { key: 'image-studio', label: 'IMAGE', Icon: ImageIcon },
   { key: 'image-qr', label: 'QR & TOOLS', Icon: QrCode },
   { key: 'typing-text', label: 'TYPING & TEXT', Icon: Keyboard },
-  { key: 'all-tools', label: 'ALL TOOLS', Icon: LayoutGrid },
+  { key: 'learn-tools', label: 'LEARN', Icon: GraduationCap },
+  { key: 'special-tools', label: 'SPECIAL TOOLS', Icon: Sparkles },
+  { key: 'all-tools', label: 'ALL', Icon: LayoutGrid },
 ];
 
 const SOCIAL_LINKS = [

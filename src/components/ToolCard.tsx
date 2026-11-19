@@ -30,6 +30,7 @@ import {
   ScanText,
   Scissors,
   SlidersHorizontal,
+  Sparkles,
   Stamp,
   Type,
   Unlock,
@@ -229,7 +230,10 @@ function getToolIcon(id: string) {
     case 'password-strength-checker':
       return Lock;
     case 'multilingual-typing-test':
+    case 'keyboard-shortcuts-guide':
       return Keyboard;
+    case 'tally-shortcuts-guide':
+      return Calculator;
     case 'word-counter':
       return AlignLeft;
     case 'case-converter':
@@ -251,6 +255,8 @@ function getToolIcon(id: string) {
       return KeyRound;
     case 'database-file-compressor':
       return Database;
+    case 'tulusiri-pro':
+      return Sparkles;
     default:
       return SlidersHorizontal;
   }
@@ -276,6 +282,10 @@ function getSuiteIconBg(category: ToolCatalogItem['category']): string {
       return 'bg-[#CEE5DC] dark:bg-teal-500/20 dark:text-teal-300 dark:border-teal-400/40';
     case 'VCPL':
       return 'bg-[#F9C80E] dark:text-[#0F172A] dark:border-[#F9C80E]';
+    case 'Special Tools':
+      return 'bg-[#FEE2E2] text-[#7D0B0B] dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-500/40';
+    case 'Learn Tools':
+      return 'bg-[#CEE5DC] text-[#12805C] dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-500/40';
   }
 }
 
@@ -319,12 +329,16 @@ export const ToolCard = memo(function ToolCard({ tool, onOpenTool, variant = 'de
             </div>
           </div>
 
-          {tool.statusLabel.toLowerCase().includes('upgrading') && (
+          {tool.statusLabel.toLowerCase().includes('upgrading') ? (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FEF2C8] dark:bg-amber-500/20 border border-[#B45309]/40 dark:border-amber-400/40 text-[#B45309] dark:text-amber-300 font-display font-extrabold text-[10px] uppercase tracking-wider shrink-0">
               <Wrench className="w-3 h-3" aria-hidden="true" />
               <span>Upgrading</span>
             </span>
-          )}
+          ) : tool.statusLabel.toLowerCase().includes('beta') ? (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FEF3C7] dark:bg-amber-500/20 border border-[#B45309]/40 dark:border-amber-400/40 text-[#92400E] dark:text-amber-300 font-display font-extrabold text-[10px] uppercase tracking-wider shrink-0">
+              <span>Beta</span>
+            </span>
+          ) : null}
         </div>
 
         {/* Title */}

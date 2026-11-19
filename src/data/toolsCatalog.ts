@@ -32,9 +32,9 @@ export const VALUE_PILLARS: ValuePillar[] = [
   {
     id: 'all-in-one',
     icon: 'blocks',
-    title: '9 Integrated Indian Utility Suites',
+    title: '11 Integrated Indian Utility Suites',
     description:
-      'Built for Indian accounting teams, dealership offices, CAs, students, and daily document workflows.',
+      'Built for Indian accounting teams, dealership offices, CAs, students, regional language learners, and daily document workflows.',
   },
 ];
 
@@ -92,6 +92,18 @@ export const TOOL_SECTION_HEADS: ToolSectionHead[] = [
     index: '09',
     title: 'VCPL Tools — Enterprise & OCR Suite',
     subtitle: 'Tally & DMS reconcilers, DBS P&L, IOCL fuel & covering letters, letterhead invoices & Textlift OCR Pro.',
+  },
+  {
+    key: 'Special Tools',
+    index: '10',
+    title: 'Special Tools',
+    subtitle: 'Featured specialized & cultural studios including Tulusiri Pro Tulu Lipi Studio (Beta Testing).',
+  },
+  {
+    key: 'Learn Tools',
+    index: '11',
+    title: 'Learn Tools',
+    subtitle: 'Interactive Windows/Laptop & MacBook keyboard shortcuts and TallyPrime / Tally.ERP 9 shortcuts guide.',
   },
 ];
 
@@ -2895,6 +2907,89 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     statusLabel: 'Passcode Locked · Beta',
     keywords: ['covering letter', 'customer ledger', 'rc tr', 'word doc'],
   },
+  // =========================================================================
+  // 10. SPECIAL TOOLS
+  // =========================================================================
+  {
+    id: 'tulusiri-pro',
+    code: 'SP-01',
+    suite: 'Special Tools',
+    suiteAccent: '#7D0B0B',
+    category: 'Special Tools',
+    alsoInCategories: ['Typing & Text'],
+    categoryName: 'Tulu Lipi & Language Studio',
+    kind: 'tulusiri-pro',
+    title: 'Tulusiri Pro – Tulu Lipi Studio',
+    description:
+      'Offline Tulu Lipi (Baravu) converter & learning studio with Nudi-style phonetic typing, multi-script translation, Baravu decoder, PNG/poster export, dictionary, Sari Tulu cards, handwriting canvas & quiz.',
+    priorityStars: 5,
+    statusLabel: 'Beta Testing · Offline',
+    featuredPrimary: true,
+    keywords: [
+      'tulu',
+      'tulusiri',
+      'tulu lipi',
+      'baravu',
+      'learn tulu',
+      'sari tulu',
+      'tulunadu',
+      'special tools',
+      'beta testing',
+    ],
+  },
+  // =========================================================================
+  // 11. LEARN TOOLS
+  // =========================================================================
+  {
+    id: 'keyboard-shortcuts-guide',
+    code: 'LN-01',
+    suite: 'Learn Tools',
+    suiteAccent: '#12805C',
+    category: 'Learn Tools',
+    alsoInCategories: ['Typing & Text'],
+    categoryName: 'Keyboard Shortcuts & Typing Reference',
+    kind: 'keyboard-shortcuts',
+    title: 'Keyboard Shortcuts Guide (Windows, Laptop & MacBook)',
+    description:
+      'Complete side-by-side keyboard shortcuts with clear explanations for normal Windows/Linux laptops, desktops, and Apple MacBooks (⌘ Cmd, ⌥ Option, Function keys & Office).',
+    priorityStars: 5,
+    statusLabel: 'Free Offline · Guide',
+    featuredPrimary: true,
+    keywords: [
+      'keyboard shortcuts',
+      'macbook shortcuts',
+      'windows shortcuts',
+      'laptop shortcuts',
+      'desktop shortcuts',
+      'cmd option ctrl',
+      'function keys',
+      'learn tools',
+    ],
+  },
+  {
+    id: 'tally-shortcuts-guide',
+    code: 'LN-02',
+    suite: 'Learn Tools',
+    suiteAccent: '#12805C',
+    category: 'Learn Tools',
+    categoryName: 'Accounting & Tally Shortcuts',
+    kind: 'tally-shortcuts',
+    title: 'TallyPrime & Tally.ERP 9 Shortcuts Guide',
+    description:
+      'Interactive TallyPrime & Tally.ERP 9 shortcut directory covering vouchers (F4–F9, Credit/Debit Note), Alt+G Go To, GST reports, ledger actions, print/export & e-Invoice keys.',
+    priorityStars: 5,
+    statusLabel: 'Free Offline · Guide',
+    featuredPrimary: true,
+    keywords: [
+      'tally shortcuts',
+      'tallyprime shortcuts',
+      'tally erp 9 shortcuts',
+      'voucher keys',
+      'alt g tally',
+      'accounting shortcuts',
+      'learn tools',
+    ],
+  },
 ];
 
 export function toolMatchesCategory(
@@ -2952,7 +3047,7 @@ export const TOOL_CATEGORIES: CategoryItem[] = [
   },
   {
     id: 'cat-gst-utils',
-    name: 'GST Utilities',
+    name: 'GST',
     filterKey: 'GST Utilities',
     countLabel: `${getToolsForCategory('GST Utilities').length} Tool`,
     iconName: 'file-spreadsheet',
@@ -2991,5 +3086,19 @@ export const TOOL_CATEGORIES: CategoryItem[] = [
     filterKey: 'Utilities',
     countLabel: `${getToolsForCategory('Utilities').length} Tools`,
     iconName: 'sliders',
+  },
+  {
+    id: 'cat-special',
+    name: 'Special Tools',
+    filterKey: 'Special Tools',
+    countLabel: `${getToolsForCategory('Special Tools').length} Tool · Beta`,
+    iconName: 'sparkles',
+  },
+  {
+    id: 'cat-learn',
+    name: 'Learn Tools',
+    filterKey: 'Learn Tools',
+    countLabel: `${getToolsForCategory('Learn Tools').length} Guides`,
+    iconName: 'graduation-cap',
   },
 ];

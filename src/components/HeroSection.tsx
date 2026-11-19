@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { TOOLS_CATALOG, getToolById } from '../data/toolsCatalog';
 import { ReleaseStatusTicker } from './ReleaseStatusTicker';
+import { TulunaduFlagIcon } from './TulunaduFlagIcon';
 
 interface HeroSectionProps {
   onExploreClick: () => void;
@@ -671,7 +672,33 @@ export function HeroSection({
         {/* Compact Quick-Launch Bar for Directory Utilities (IFSC, PIN Code & RTO) */}
         <div className="relative z-10 mt-6 max-w-[1400px] mx-auto">
           <div className="flex flex-wrap items-center justify-center gap-3">
-            {/* 1. IFSC Code Finder */}
+            {/* 1. Tulusiri Pro – Tulu Lipi Studio (Special Tools · Beta Testing) */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowRtoUpgradeNotice(false);
+                onQuickLaunchTool('tulusiri-pro');
+              }}
+              className="group inline-flex items-center gap-3 px-4 py-2.5 min-h-[48px] rounded-xl bg-[#FFFDF5] dark:bg-[#131C2E] hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] dark:border-slate-600 shadow-[0_3px_0_#2F3E4E] dark:shadow-[0_3px_0_#020617] text-left transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E]"
+            >
+              <span className="w-8 h-8 rounded-lg bg-[#FEE2E2] dark:bg-rose-950/80 group-hover:bg-[#FFFDF5] dark:group-hover:bg-[#0F172A] border border-[#2F3E4E] dark:border-rose-500/40 flex items-center justify-center shrink-0 transition-colors">
+                <TulunaduFlagIcon size="sm" />
+              </span>
+              <span className="leading-tight">
+                <span className="block font-display font-extrabold text-xs sm:text-sm text-[#2F3E4E] dark:text-slate-100 dark:group-hover:text-[#0F172A] whitespace-nowrap">
+                  Learn Tulu · Tulusiri Pro
+                </span>
+                <span className="block font-mono text-[10px] font-semibold text-[#B45309] dark:text-amber-400 group-hover:text-[#2F3E4E] dark:group-hover:text-[#0F172A]">
+                  Special Tools · Beta Testing
+                </span>
+              </span>
+              <ArrowUpRight
+                className="w-4 h-4 text-[#2F3E4E] dark:text-slate-300 dark:group-hover:text-[#0F172A] ml-1 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                aria-hidden="true"
+              />
+            </button>
+
+            {/* 2. IFSC Code Finder */}
             <button
               type="button"
               onClick={() => {
@@ -697,7 +724,7 @@ export function HeroSection({
               />
             </button>
 
-            {/* 2. PIN Code Finder */}
+            {/* 3. PIN Code Finder */}
             <button
               type="button"
               onClick={() => {
@@ -723,7 +750,7 @@ export function HeroSection({
               />
             </button>
 
-            {/* 3. RTO Code Finder (Coming Soon / Under Upgrade) */}
+            {/* 4. RTO Code Finder (Coming Soon / Under Upgrade) */}
             <button
               type="button"
               aria-expanded={showRtoUpgradeNotice}

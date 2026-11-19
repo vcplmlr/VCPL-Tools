@@ -11,9 +11,10 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { vcplBuildMeta } from 'virtual:vcpl-build-meta';
+import { HttpErrorCode } from '../data/errorPagesData';
 import { LegalPageSlug, SITE_CONTACT } from '../data/legalPagesData';
 import { ToolCatalogItem, ToolFilterType } from '../types/tools';
-import { MangaloreSkylineSvg } from './MangaloreSkylineSvg';
+import { TulunaduFlagIcon } from './TulunaduFlagIcon';
 import { VcplBrandLogo } from './VcplBrandLogo';
 import { WhatsAppIcon } from './WhatsAppIcon';
 
@@ -24,6 +25,7 @@ interface FooterProps {
   onOpenLegalPage: (slug: LegalPageSlug) => void;
   onOpenPrivacyBanner: () => void;
   onOpenNotFound?: () => void;
+  onOpenErrorPage?: (code: HttpErrorCode) => void;
   onOpenSitemap?: () => void;
 }
 
@@ -33,13 +35,15 @@ const TOOL_DIRECTORY_LINKS: { label: string; filter: ToolFilterType }[] = [
   { label: 'All Tools', filter: 'All' },
   { label: 'Banking & Deposit Slips', filter: 'Banking' },
   { label: 'Tax & GST Utilities', filter: 'Tax & GST' },
-  { label: 'GST Utilities & GSTR-1', filter: 'GST Utilities' },
+  { label: 'GST & GSTR-1 Return Prep', filter: 'GST Utilities' },
   { label: 'PDF & Document Tools', filter: 'PDF Suite' },
   { label: 'Image Editing Studio', filter: 'Image Studio' },
   { label: 'Calculator Hub', filter: 'Calculator' },
   { label: 'Typing & Text', filter: 'Typing & Text' },
   { label: 'QR & Daily Utilities', filter: 'Utilities' },
   { label: 'VCPL Enterprise Tools', filter: 'VCPL' },
+  { label: 'Special Tools (Beta)', filter: 'Special Tools' },
+  { label: 'Learn Tools & Shortcuts', filter: 'Learn Tools' },
 ];
 
 const INFORMATION_LINKS: { label: string; slug: LegalPageSlug }[] = [
@@ -95,6 +99,7 @@ export function Footer({
   onOpenLegalPage,
   onOpenPrivacyBanner,
   onOpenNotFound,
+  onOpenErrorPage,
   onOpenSitemap,
 }: FooterProps) {
   const activeToolStamp = activeTool
@@ -148,16 +153,19 @@ export function Footer({
 
   return (
     <footer
-      className="w-full bg-[#2F3E4E] dark:bg-[#060A13] text-[#E2E8F0] border-t-2 border-[#1E293B] dark:border-slate-800 no-print"
+      className="w-full bg-[#F5EFE0] dark:bg-[#070B14] text-[#2F3E4E] dark:text-[#E2E8F0] border-t border-[#2F3E4E]/15 dark:border-slate-800 no-print"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {/* Signature VCPL Marigold Top Strip */}
-      <div className="w-full h-1.5 bg-[#F9C80E] border-b border-[#1E293B]" aria-hidden="true" />
+      {/* Refined Top Accent Strip */}
+      <div
+        className="w-full h-1 bg-gradient-to-r from-[#7D0B0B] via-[#F9C80E] to-[#12805C]"
+        aria-hidden="true"
+      />
 
       {/* Outer Framed Container */}
       <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 pt-6 sm:pt-8 lg:pt-10 pb-24 sm:pb-20 lg:pb-10">
-        {/* Framed Editorial Paper Sheet */}
-        <div className="bg-[#FFFDF5] dark:bg-[#111827] text-[#2F3E4E] dark:text-[#E2E8F0] rounded-2xl border-[1.5px] border-[#1A242F] dark:border-slate-700 shadow-[0_6px_0_#1A242F] dark:shadow-[0_6px_0_#020617] overflow-hidden">
+        {/* Light Editorial Paper Sheet */}
+        <div className="bg-[#FFFDF8] dark:bg-[#0F172A] text-[#2F3E4E] dark:text-[#E2E8F0] rounded-2xl border border-[#2F3E4E]/15 dark:border-slate-700/80 shadow-[0_10px_32px_rgba(47,62,78,0.07)] dark:shadow-[0_10px_32px_rgba(0,0,0,0.45)] overflow-hidden">
           {/* SECTION 1: Top Brand Showcase & Updates Subscription */}
           <div className="px-5 sm:px-9 lg:px-12 pt-8 sm:pt-10 pb-7 border-b border-[#2F3E4E]/15 flex flex-col lg:flex-row lg:items-start justify-between gap-7">
             <div className="max-w-2xl space-y-3">
@@ -322,18 +330,40 @@ export function Footer({
                     XML Sitemap
                   </a>
                 </li>
-                {onOpenNotFound && (
-                  <li className="min-w-0">
+                {(onOpenErrorPage || onOpenNotFound) && (
+                  <li className="min-w-0 pt-0.5 space-y-1.5">
                     <a
                       href="/404"
                       onClick={(e) => {
                         e.preventDefault();
-                        onOpenNotFound();
+                        if (onOpenErrorPage) {
+                          onOpenErrorPage(404);
+                        } else {
+                          onOpenNotFound?.();
+                        }
                       }}
                       className="text-[#475569] dark:text-slate-300 hover:text-[#2F3E4E] dark:hover:text-[#F9C80E] hover:underline underline-offset-4 transition-colors inline-flex items-center py-0.5 min-h-[36px] sm:min-h-0 leading-snug"
                     >
-                      404 Page Preview
+                      Error Pages Preview
                     </a>
+                    {onOpenErrorPage && (
+                      <div className="flex flex-wrap gap-1" aria-label="Error status previews">
+                        {([403, 404, 500, 503] as HttpErrorCode[]).map((code) => (
+                          <a
+                            key={code}
+                            href={`/${code}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onOpenErrorPage(code);
+                            }}
+                            title={`Preview HTTP ${code} Error Page`}
+                            className="px-1.5 py-0.5 rounded bg-[#FEF2C8]/80 dark:bg-slate-800 hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] text-[#2F3E4E] dark:text-slate-200 dark:hover:text-[#0F172A] border border-[#2F3E4E]/25 dark:border-slate-600 font-mono text-[10px] font-bold transition-colors"
+                          >
+                            {code}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </li>
                 )}
               </ul>
@@ -449,7 +479,7 @@ export function Footer({
           </div>
 
           {/* SECTION 3: Centered Copyright, Credits, Version Metadata & Independent Notice */}
-          <div className="px-5 sm:px-9 lg:px-12 pt-6 pb-2 text-center space-y-3">
+          <div className="px-5 sm:px-9 lg:px-12 pt-6 pb-7 sm:pb-8 text-center space-y-3">
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-[#64748B] dark:text-slate-400">
               <span className="font-semibold text-[#2F3E4E] dark:text-slate-100">
                 © {new Date().getFullYear()} VCPL Tools. All rights reserved.
@@ -543,8 +573,8 @@ export function Footer({
                 </a>
               </span>
               <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1 font-medium text-[#2F3E4E] dark:text-slate-200">
-                Made with
+              <span className="inline-flex items-center gap-1.5 font-medium text-[#2F3E4E] dark:text-slate-200">
+                <span>Made with</span>
                 <svg
                   className="w-3.5 h-3.5 text-[#FF2D55] animate-heartbeat inline-block shrink-0"
                   viewBox="0 0 24 24"
@@ -554,7 +584,8 @@ export function Footer({
                 >
                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                 </svg>
-                in Mangalore, India
+                <span>in Mangalore, India</span>
+                <TulunaduFlagIcon showMast size="md" className="ml-0.5 -translate-y-[1px]" />
               </span>
             </div>
 
@@ -566,6 +597,13 @@ export function Footer({
                   <span className="w-2.5 h-2.5 rounded-full bg-[#138808] bharat-dot bharat-dot-green" />
                 </span>
                 <span>BHARAT MADE</span>
+              </span>
+              <span
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#181B1F] border border-[#5A1818] shadow-[0_1px_2px_rgba(0,0,0,0.2)] font-display font-black text-[11px] tracking-wider uppercase text-white whitespace-nowrap"
+                title="Rooted in Tulunadu — Mangalore, India"
+              >
+                <TulunaduFlagIcon size="sm" />
+                <span>TULUNADU</span>
               </span>
               <span aria-hidden="true">·</span>
               <span className="font-semibold text-[#2F3E4E] dark:text-[#F9C80E]">
@@ -619,7 +657,7 @@ export function Footer({
               </span>
             </div>
 
-            <p className="max-w-4xl mx-auto px-4 py-2.5 rounded-xl bg-[#FEF2C8]/65 dark:bg-slate-800/75 border border-[#2F3E4E]/15 dark:border-slate-700 text-[11px] leading-relaxed text-[#475569] dark:text-slate-300">
+            <p className="max-w-4xl mx-auto px-4 py-2.5 rounded-xl bg-[#FAF5E4]/80 dark:bg-slate-800/60 border border-[#2F3E4E]/10 dark:border-slate-700/80 text-[11px] leading-relaxed text-[#475569] dark:text-slate-300">
               <strong className="text-[#2F3E4E] dark:text-slate-100">Independent Financial &amp; Compliance Utility Notice:</strong>{' '}
               VCPL Tools is an independent, 100% browser-based productivity workspace built for Indian
               banking documentation, GST reconciliation, and direct tax computation. It is not
@@ -630,11 +668,6 @@ export function Footer({
               templates—users must independently verify all statutory figures, challans, and beneficiary
               details prior to official filing or banking submission.
             </p>
-          </div>
-
-          {/* SECTION 4: Architectural Mangalore Skyline Illustration Flush at Footer Base */}
-          <div className="w-full pt-2 leading-none">
-            <MangaloreSkylineSvg />
           </div>
         </div>
       </div>

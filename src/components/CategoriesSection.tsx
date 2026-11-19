@@ -9,11 +9,13 @@ import {
   IndianRupee,
   Keyboard,
   Landmark,
+  LayoutGrid,
   Receipt,
   Search,
   SlidersHorizontal,
+  Sparkles,
 } from 'lucide-react';
-import { TOOL_CATEGORIES } from '../data/toolsCatalog';
+import { TOOL_CATEGORIES, TOOLS_CATALOG } from '../data/toolsCatalog';
 import { CategoryItem, ToolFilterType } from '../types/tools';
 
 interface CategoriesSectionProps {
@@ -21,11 +23,30 @@ interface CategoriesSectionProps {
   onSelectCategory: (categoryId: string, filterKey: ToolFilterType) => void;
 }
 
+type CategoryGridEntry = CategoryItem | {
+  id: 'cat-all';
+  name: string;
+  filterKey: 'All';
+  countLabel: string;
+  iconName: 'layout-grid';
+};
+
 export function CategoriesSection({
   selectedCategoryId,
   onSelectCategory,
 }: CategoriesSectionProps) {
-  const renderCategoryIcon = (iconName: CategoryItem['iconName']) => {
+  const categoryTiles: CategoryGridEntry[] = [
+    ...TOOL_CATEGORIES,
+    {
+      id: 'cat-all',
+      name: 'All Tools',
+      filterKey: 'All',
+      countLabel: `${TOOLS_CATALOG.length} Total`,
+      iconName: 'layout-grid',
+    },
+  ];
+
+  const renderCategoryIcon = (iconName: CategoryGridEntry['iconName']) => {
     switch (iconName) {
       case 'landmark':
         return <Landmark className="w-5 h-5" />;
@@ -51,16 +72,23 @@ export function CategoriesSection({
         return <Keyboard className="w-5 h-5" />;
       case 'building-2':
         return <Building2 className="w-5 h-5" />;
+      case 'sparkles':
+        return <Sparkles className="w-5 h-5" />;
+      case 'layout-grid':
+        return <LayoutGrid className="w-5 h-5" />;
     }
   };
 
   return (
-    <section id="categories" className="w-full bg-[#FFE1B3] dark:bg-[#0F172A] py-14 md:py-16 border-b border-[#2F3E4E]/15 dark:border-slate-800 transition-colors duration-200">
+    <section
+      id="categories"
+      className="w-full bg-[#FFE1B3] dark:bg-[#0F172A] py-14 md:py-16 border-b border-[#2F3E4E]/15 dark:border-slate-800 transition-colors duration-200"
+    >
       <div className="max-w-[1400px] mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
           <div className="space-y-1.5">
             <p className="text-xs font-semibold text-[#475569] dark:text-slate-400">
-              Nine Integrated Suites · Zero Installation
+              Eleven Integrated Suites · Zero Installation
             </p>
             <h2 className="font-display font-extrabold text-[clamp(1.65rem,3vw,2.25rem)] text-[#2F3E4E] dark:text-slate-50 tracking-tight [text-wrap:balance]">
               Explore Tools by Category
@@ -71,57 +99,65 @@ export function CategoriesSection({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
-          {TOOL_CATEGORIES.map((category) => {
-            const isSelected = selectedCategoryId === category.id;
-            return (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => onSelectCategory(category.id, category.filterKey)}
-                className={`group rounded-2xl p-3.5 sm:p-4 min-h-[112px] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 text-left flex flex-col justify-between gap-3 sm:gap-4 transition-all duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E] ${
-                  isSelected
-                    ? 'bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A] dark:border-[#F9C80E] shadow-[0_4px_0_#1E293B] dark:shadow-[0_4px_0_#020617] -translate-y-0.5'
-                    : 'bg-[#FFFDF5] dark:bg-[#131C2E] text-[#2F3E4E] dark:text-slate-100 hover:bg-white dark:hover:bg-[#1A253B] dark:hover:border-slate-500 hover:-translate-y-0.5 hover:shadow-[0_4px_0_#2F3E4E] dark:hover:shadow-[0_4px_0_#020617]'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2 w-full">
-                  <span
-                    className={`w-10 h-10 rounded-xl border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
-                      isSelected
-                        ? 'bg-[#F9C80E] dark:bg-[#0F172A] border-[#F9C80E] dark:border-[#0F172A] text-[#2F3E4E] dark:text-[#F9C80E]'
-                        : 'bg-[#CEE5DC]/75 dark:bg-emerald-500/20 border-[#2F3E4E] dark:border-emerald-400/40 text-[#2F3E4E] dark:text-emerald-300 group-hover:bg-[#F9C80E] dark:group-hover:bg-[#F9C80E] dark:group-hover:text-[#0F172A] dark:group-hover:border-[#F9C80E]'
-                    }`}
-                  >
-                    {renderCategoryIcon(category.iconName)}
-                  </span>
-                  <ArrowRight
-                    className={`w-4 h-4 transition-transform duration-150 group-hover:translate-x-0.5 ${
-                      isSelected
-                        ? 'text-[#F9C80E] dark:text-[#0F172A]'
-                        : 'text-[#64748B] dark:text-slate-400 group-hover:text-[#2F3E4E] dark:group-hover:text-slate-100'
-                    }`}
-                    aria-hidden="true"
-                  />
-                </div>
+        {/* Single Unified Structured Box across all viewports (12 even cells: 2x6 / 3x4 / 4x3 / 6x2) */}
+        <div className="rounded-2xl bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 shadow-[0_5px_0_#2F3E4E] dark:shadow-[0_5px_0_#020617] overflow-hidden">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-[1px] bg-[#2F3E4E]/15 dark:bg-slate-700/80">
+            {categoryTiles.map((category) => {
+              const isSelected = category.id !== 'cat-all' && selectedCategoryId === category.id;
+              const isAllTile = category.id === 'cat-all';
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => onSelectCategory(category.id, category.filterKey)}
+                  className={`group p-3.5 sm:p-4 min-h-[108px] text-left flex flex-col justify-between gap-3 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E] ${
+                    isSelected
+                      ? 'bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A]'
+                      : isAllTile
+                      ? 'bg-[#FEF2C8]/65 dark:bg-[#162033] text-[#2F3E4E] dark:text-slate-100 hover:bg-[#F9C80E]/35 dark:hover:bg-[#1E2A40]'
+                      : 'bg-[#FFFDF5] dark:bg-[#131C2E] text-[#2F3E4E] dark:text-slate-100 hover:bg-[#FEF2C8]/55 dark:hover:bg-[#1A253B]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 w-full">
+                    <span
+                      className={`w-9 h-9 rounded-xl border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
+                        isSelected
+                          ? 'bg-[#F9C80E] dark:bg-[#0F172A] border-[#F9C80E] dark:border-[#0F172A] text-[#2F3E4E] dark:text-[#F9C80E]'
+                          : isAllTile
+                          ? 'bg-[#F9C80E] border-[#2F3E4E] text-[#2F3E4E]'
+                          : 'bg-[#CEE5DC]/75 dark:bg-emerald-500/20 border-[#2F3E4E] dark:border-emerald-400/40 text-[#2F3E4E] dark:text-emerald-300 group-hover:bg-[#F9C80E] dark:group-hover:bg-[#F9C80E] dark:group-hover:text-[#0F172A] dark:group-hover:border-[#F9C80E]'
+                      }`}
+                    >
+                      {renderCategoryIcon(category.iconName)}
+                    </span>
+                    <ArrowRight
+                      className={`w-4 h-4 transition-transform duration-150 group-hover:translate-x-0.5 ${
+                        isSelected
+                          ? 'text-[#F9C80E] dark:text-[#0F172A]'
+                          : 'text-[#64748B] dark:text-slate-400 group-hover:text-[#2F3E4E] dark:group-hover:text-slate-100'
+                      }`}
+                      aria-hidden="true"
+                    />
+                  </div>
 
-                <div>
-                  <div className="font-display font-bold text-[13px] sm:text-sm leading-snug break-words">
-                    {category.name}
+                  <div>
+                    <div className="font-display font-bold text-[13px] sm:text-sm leading-snug break-words">
+                      {category.name}
+                    </div>
+                    <div
+                      className={`mt-0.5 text-xs font-mono tabular-nums ${
+                        isSelected
+                          ? 'text-[#CBD5E1] dark:text-[#0F172A]/80'
+                          : 'text-[#64748B] dark:text-slate-400'
+                      }`}
+                    >
+                      {category.countLabel}
+                    </div>
                   </div>
-                  <div
-                    className={`mt-1 text-xs font-mono tabular-nums ${
-                      isSelected
-                        ? 'text-[#CBD5E1] dark:text-[#0F172A]/80'
-                        : 'text-[#64748B] dark:text-slate-400'
-                    }`}
-                  >
-                    {category.countLabel}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>

@@ -1,4 +1,9 @@
 import { FAQ_ITEMS } from '../components/FaqSection';
+import {
+  ERROR_PAGES_CONFIG,
+  HttpErrorCode,
+  parseHttpErrorCode,
+} from '../data/errorPagesData';
 import { LEGAL_PAGES, LegalPageSlug, SITE_CONTACT } from '../data/legalPagesData';
 import { RTO_BY_CODE } from '../data/rtoDatabase';
 import {
@@ -20,6 +25,8 @@ export const CATEGORY_SLUG_BY_FILTER: Record<Exclude<ToolFilterType, 'All'>, str
   'Typing & Text': 'typing-text',
   Utilities: 'qr-utilities',
   VCPL: 'vcpl-tools',
+  'Special Tools': 'special-tools',
+  'Learn Tools': 'learn-tools',
 };
 
 const FILTER_BY_CATEGORY_SLUG: Record<string, ToolFilterType> = Object.entries(
@@ -35,7 +42,27 @@ export type ParsedRoute =
   | { view: 'tool'; toolId: string; fullScreen?: boolean; subParam?: string }
   | { view: 'legal'; slug: LegalPageSlug }
   | { view: 'sitemap' }
-  | { view: 'not-found'; path: string };
+  | { view: 'not-found'; path: string; statusCode?: HttpErrorCode };
+
+const ERROR_SLUG_ALIASES: Record<string, HttpErrorCode> = {
+  'bad-request': 400,
+  unauthorized: 401,
+  forbidden: 403,
+  'not-found': 404,
+  'request-timeout': 408,
+  timeout: 408,
+  gone: 410,
+  'rate-limit': 429,
+  'too-many-requests': 429,
+  'server-error': 500,
+  'internal-server-error': 500,
+  error: 500,
+  'bad-gateway': 502,
+  maintenance: 503,
+  unavailable: 503,
+  'service-unavailable': 503,
+  'gateway-timeout': 504,
+};
 
 export function getCategoryUrlSlug(filter: ToolFilterType): string {
   if (filter === 'All') return 'tools';
@@ -99,6 +126,10 @@ export function parseLocationToRoute(pathname: string, search: string): ParsedRo
     if (qParam) {
       initialQuery = qParam;
     }
+    const statusParam = parseHttpErrorCode(params.get('status') ?? params.get('error'));
+    if (statusParam) {
+      return { view: 'not-found', path: `${pathname}${search}`, statusCode: statusParam };
+    }
   } catch {
     // Ignore invalid search params
   }
@@ -115,8 +146,12 @@ export function parseLocationToRoute(pathname: string, search: string): ParsedRo
 
   if (segments.length === 1) {
     const seg = segments[0];
-    if (seg === '404' || seg === 'not-found') {
-      return { view: 'not-found', path: pathname };
+    const numericError = parseHttpErrorCode(seg);
+    if (numericError) {
+      return { view: 'not-found', path: pathname, statusCode: numericError };
+    }
+    if (seg in ERROR_SLUG_ALIASES) {
+      return { view: 'not-found', path: pathname, statusCode: ERROR_SLUG_ALIASES[seg] };
     }
     if (
       seg === 'sitemap' ||
@@ -128,6 +163,13 @@ export function parseLocationToRoute(pathname: string, search: string): ParsedRo
     }
     if (seg === 'tools' || seg === 'all-tools') {
       return { view: 'all-tools', filter: 'All', initialQuery };
+    }
+    if (seg === 'learn') {
+      return {
+        view: 'all-tools',
+        filter: 'Learn Tools',
+        initialQuery,
+      };
     }
     if (FILTER_BY_CATEGORY_SLUG[seg]) {
       return {
@@ -153,6 +195,12 @@ export function parseLocationToRoute(pathname: string, search: string): ParsedRo
 
   if (segments.length === 2) {
     const [catSlug, toolSlug] = segments;
+    if (catSlug === 'error' || catSlug === 'errors' || catSlug === 'status') {
+      const codeFromSeg = parseHttpErrorCode(toolSlug) ?? ERROR_SLUG_ALIASES[toolSlug];
+      if (codeFromSeg) {
+        return { view: 'not-found', path: pathname, statusCode: codeFromSeg };
+      }
+    }
     if (catSlug === 'tools' && toolSlug === 'ifsc-code-finder') {
       return {
         view: 'tool',
@@ -360,10 +408,11 @@ export function applySeoForRoute(route: ParsedRoute) {
     keywords = 'VCPL Tools sitemap, XML sitemap, all browser tools index, Arjun Bangera, Kaushik Bangera';
     breadcrumbItems.push({ name: 'Sitemap', item: `${origin}${path}` });
   } else if (route.view === 'not-found') {
-    path = route.path || '/404';
-    title = '404 – Page Not Found | VCPL Tools';
-    description =
-      `The requested page could not be found on VCPL Tools. Explore all ${TOOLS_CATALOG.length} client-side banking, tax, PDF, image, and calculator utilities.`;
+    const errorCode = route.statusCode ?? 404;
+    const errorMeta = ERROR_PAGES_CONFIG[errorCode] ?? ERROR_PAGES_CONFIG[404];
+    path = route.path || `/${errorMeta.code}`;
+    title = `${errorMeta.code} – ${errorMeta.shortTitle} | VCPL Tools`;
+    description = `${errorMeta.headline} ${errorMeta.description} Explore all ${TOOLS_CATALOG.length} client-side banking, tax, PDF, image, and calculator utilities.`;
     robots = 'noindex, nofollow';
   }
 

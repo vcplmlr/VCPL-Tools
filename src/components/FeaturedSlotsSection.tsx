@@ -5,12 +5,14 @@ import {
   Calculator,
   FileSpreadsheet,
   FileText,
+  GraduationCap,
   Image as ImageIcon,
   Keyboard,
   Landmark,
   Receipt,
   Search,
   SlidersHorizontal,
+  Sparkles,
   X,
 } from 'lucide-react';
 import {
@@ -37,17 +39,19 @@ const HOMEPAGE_VCPL_MAX = 10;
 const SUITE_KEYS: { key: Exclude<ToolFilterType, 'All'>; label: string }[] = [
   { key: 'Banking', label: 'Banking' },
   { key: 'Tax & GST', label: 'Tax & GST' },
-  { key: 'GST Utilities', label: 'GST Utilities' },
+  { key: 'GST Utilities', label: 'GST' },
   { key: 'Calculator', label: 'Calculator' },
-  { key: 'PDF Suite', label: 'PDF Suite' },
-  { key: 'Image Studio', label: 'Image Studio' },
+  { key: 'PDF Suite', label: 'PDF' },
+  { key: 'Image Studio', label: 'Image' },
   { key: 'Typing & Text', label: 'Typing & Text' },
   { key: 'Utilities', label: 'Utilities' },
-  { key: 'VCPL', label: 'VCPL Tools' },
+  { key: 'VCPL', label: 'VCPL' },
+  { key: 'Special Tools', label: 'Special' },
+  { key: 'Learn Tools', label: 'Learn' },
 ];
 
 const FILTER_TABS: { key: ToolFilterType; label: string; count: number }[] = [
-  { key: 'All', label: 'All Suites', count: TOOLS_CATALOG.filter((t) => t.id !== 'gstr1-return-prep').length },
+  { key: 'All', label: 'All', count: TOOLS_CATALOG.filter((t) => t.id !== 'gstr1-return-prep').length },
   ...SUITE_KEYS.map(({ key, label }) => ({
     key,
     label,
@@ -84,6 +88,10 @@ function getSuiteIcon(key: Exclude<ToolFilterType, 'All'>) {
       return SlidersHorizontal;
     case 'VCPL':
       return Building2;
+    case 'Special Tools':
+      return Sparkles;
+    case 'Learn Tools':
+      return GraduationCap;
   }
 }
 
@@ -208,12 +216,12 @@ export function FeaturedSlotsSection({
           </div>
         </div>
 
-        {/* Segmented Suite Filter Bar */}
-        <div className="mt-6 mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Segmented Suite Filter Bar — Single Line */}
+        <div className="mt-6 mb-10 space-y-2">
           <div
             role="tablist"
             aria-label="Filter tools by suite"
-            className="inline-flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl bg-[#FFFDF5]/75 dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700"
+            className="w-full flex flex-nowrap items-center justify-between gap-1 overflow-x-auto p-1.5 rounded-xl bg-[#FFFDF5]/75 dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700"
           >
             {FILTER_TABS.map((tab) => {
               const isActive = activeFilter === tab.key;
@@ -224,7 +232,7 @@ export function FeaturedSlotsSection({
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => onFilterChange(tab.key)}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] rounded-lg text-xs font-semibold transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E] ${
+                  className={`inline-flex items-center justify-center gap-1.5 px-2.5 xl:px-3 py-1.5 min-h-[36px] rounded-lg text-[11px] sm:text-xs font-semibold transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E] ${
                     isActive
                       ? 'bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A]'
                       : 'text-[#2F3E4E] dark:text-slate-200 hover:bg-[#FEF2C8] dark:hover:bg-slate-800'
@@ -232,7 +240,7 @@ export function FeaturedSlotsSection({
                 >
                   <span>{tab.label}</span>
                   <span
-                    className={`font-mono text-[11px] tabular-nums ${
+                    className={`font-mono text-[10.5px] tabular-nums ${
                       isActive ? 'text-[#F9C80E] dark:text-[#0F172A]/80' : 'text-[#64748B] dark:text-slate-400'
                     }`}
                   >

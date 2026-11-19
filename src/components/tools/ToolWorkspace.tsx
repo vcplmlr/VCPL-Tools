@@ -139,6 +139,21 @@ const DatabaseFileCompressorView = lazy(() =>
     default: m.DatabaseFileCompressorView,
   }))
 );
+const TulusiriProView = lazy(() =>
+  import('./TulusiriProView').then((m) => ({
+    default: m.TulusiriProView,
+  }))
+);
+const KeyboardShortcutsView = lazy(() =>
+  import('./KeyboardShortcutsView').then((m) => ({
+    default: m.KeyboardShortcutsView,
+  }))
+);
+const TallyShortcutsView = lazy(() =>
+  import('./TallyShortcutsView').then((m) => ({
+    default: m.TallyShortcutsView,
+  }))
+);
 
 function ToolEngineFallback({ title }: { title: string }) {
   return (
@@ -179,6 +194,8 @@ const TOOL_GROUPS = [
   'Typing & Text',
   'Utilities',
   'VCPL',
+  'Special Tools',
+  'Learn Tools',
 ] as const;
 
 export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
@@ -686,6 +703,18 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
 
           {tool.kind === 'database-file-compressor' && (
             <DatabaseFileCompressorView key={tool.id} tool={tool} onBack={onClose} />
+          )}
+
+          {tool.kind === 'tulusiri-pro' && (
+            <TulusiriProView key={tool.id} tool={tool} onBack={onClose} />
+          )}
+
+          {tool.kind === 'keyboard-shortcuts' && (
+            <KeyboardShortcutsView key={tool.id} tool={tool} />
+          )}
+
+          {tool.kind === 'tally-shortcuts' && (
+            <TallyShortcutsView key={tool.id} tool={tool} />
           )}
         </Suspense>
 

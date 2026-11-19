@@ -14,6 +14,8 @@ const CATEGORY_SLUG_BY_FILTER: Record<string, string> = {
   'Typing & Text': 'typing-text',
   Utilities: 'qr-utilities',
   VCPL: 'vcpl-tools',
+  'Special Tools': 'special-tools',
+  'Learn Tools': 'learn-tools',
 };
 
 function getToolRoutePath(tool: { id: string; category: string }): string {

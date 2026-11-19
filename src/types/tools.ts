@@ -8,7 +8,9 @@ export type ToolFilterType =
   | 'Image Studio'
   | 'Typing & Text'
   | 'Utilities'
-  | 'VCPL';
+  | 'VCPL'
+  | 'Special Tools'
+  | 'Learn Tools';
 
 export type ToolKind =
   | 'bank-slip'
@@ -51,7 +53,10 @@ export type ToolKind =
   | 'productivity-dev-suite'
   | 'rto-code-finder'
   | 'pin-code-finder'
-  | 'database-file-compressor';
+  | 'database-file-compressor'
+  | 'tulusiri-pro'
+  | 'keyboard-shortcuts'
+  | 'tally-shortcuts';
 
 export interface ToolCatalogItem {
   id: string;
@@ -89,7 +94,8 @@ export interface CategoryItem {
     | 'file-text'
     | 'image'
     | 'keyboard'
-    | 'building-2';
+    | 'building-2'
+    | 'sparkles';
 }
 
 export interface CalculatorInputOption {

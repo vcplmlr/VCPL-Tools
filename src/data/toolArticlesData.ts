@@ -2747,6 +2747,174 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
       },
     ],
   },
+  'tulusiri-pro': {
+    toolId: 'tulusiri-pro',
+    seoTitle: 'Tulusiri Pro – Offline Tulu Lipi Studio (Beta Testing) | Special Tools – VCPL Tools',
+    seoDescription:
+      'Convert English, Kannada, Hindi, Tamil, Telugu & Malayalam into Tulu Lipi (Baravu font), decode legacy Baravu text, export PNG posters, browse Tulu dictionary words, and practice handwriting locally.',
+    adTopic: 'Tulu Lipi, Language Learning & Regional Utility Suites',
+    focusKeywords: [
+      'Tulusiri Pro',
+      'Tulu Lipi Studio',
+      'Baravu font converter',
+      'Learn Tulu online',
+      'Kannada to Tulu Lipi',
+      'Special Tools VCPL',
+    ],
+    overview: [
+      'Tulusiri Pro – Tulu Lipi Studio (SP-01) is the flagship module under Special Tools on VCPL Tools, currently released in Beta Testing. It brings an offline Tulu script (Baravu) writing studio, phonetic Nudi-style input, multi-script transliteration, legacy Baravu decoder, dictionary, and interactive learning suite right into your browser with zero account sign-ups.',
+      'Whether you want to compose greeting posters in traditional Tulu Lipi, convert names or sentences from English, Kannada, Devanagari, Tamil, Telugu, or Malayalam, verify individual word spellings, or trace Baravu characters by hand on a canvas guide, everything executes 100% locally on your device.',
+    ],
+    howToUse: [
+      {
+        stepTitle: 'Choose Input Mode & Write',
+        detail:
+          'Type in standard English/Kannada/Indian scripts or switch to Nudi-style phonetic typing (using * after ೆ / ೇ / ಎ / ಏ for special Tulu vowels). Confirm detected language and tap preferred word spellings below the editor.',
+      },
+      {
+        stepTitle: 'Copy Baravu Code or Export PNG / Poster',
+        detail:
+          'Copy the legacy Baravu code directly into design apps with the Baravu font installed, or click Copy as Image, Download PNG, or Download Poster to render crisp graphics immediately.',
+      },
+      {
+        stepTitle: 'Explore Decode, Dictionary, Sari Tulu & Practice Tabs',
+        detail:
+          'Switch across Lipi Chart, Decode, Dictionary, Sari Tulu flip cards, Sentences, Learn (flashcards + handwriting practice), and Quiz to deepen your Tulu Lipi fluency.',
+      },
+    ],
+    keyBenefits: [
+      {
+        title: 'Embedded Offline Baravu Font Engine',
+        detail:
+          'The authentic Baravu OpenType font is bundled directly inside the studio so Tulu glyphs render cleanly across previews, canvas exports, and tracing guides without separate installs.',
+      },
+      {
+        title: 'Local Drafts, Bookmarks & Learning Streak',
+        detail:
+          'Saved dictionary words, custom spelling preferences, spaced-repetition intervals, and quiz best streaks persist privately in browser localStorage.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Why is Tulusiri Pro marked as Beta Testing?',
+        answer:
+          'We are continuously expanding the multi-script transliteration rules, regional Tulu vocabulary, and phonetic mappings. Always verify final spellings and pronunciation before publishing print posters.',
+      },
+      {
+        question: 'Can I download Tulu Lipi text as an image?',
+        answer:
+          'Yes. Use Download PNG for a clean cream-background export or Download Poster for a high-contrast Tulunadu crimson-and-gold framed graphic.',
+      },
+    ],
+  },
+  'keyboard-shortcuts-guide': {
+    toolId: 'keyboard-shortcuts-guide',
+    seoTitle: 'Keyboard Shortcuts Guide (Windows Laptop, Desktop & MacBook) | Learn Tools – VCPL Tools',
+    seoDescription:
+      'Complete side-by-side keyboard shortcuts guide with plain-English explanations for Windows/Linux laptops, desktops, and Apple MacBooks.',
+    adTopic: 'Keyboard Shortcuts, Typing Productivity & Office Learning',
+    focusKeywords: [
+      'Keyboard shortcuts Windows Mac',
+      'MacBook keyboard shortcuts',
+      'Laptop desktop shortcuts',
+      'Typing shortcuts guide',
+      'Learn Tools VCPL',
+    ],
+    overview: [
+      'Keyboard Shortcuts Guide (LN-01) brings together essential everyday, text-editing, file-management, browser, screenshot, Excel/Word, and Function-key (F1–F12) shortcuts in one searchable reference.',
+      'Designed for both normal Windows/Linux laptops & desktop keyboards and Apple MacBooks, every shortcut includes plain-English explanations, Mac modifier equivalents (⌘ Command = Ctrl, ⌥ Option = Alt), and printable cheat-sheet support.',
+    ],
+    howToUse: [
+      {
+        stepTitle: 'Choose Platform View',
+        detail:
+          'Select Compare Both, Windows / Laptop & Desktop, or MacBook / macOS to focus on your keyboard layout.',
+      },
+      {
+        stepTitle: 'Filter by Category or Search',
+        detail:
+          'Pick Essentials, Typing & Text, Desktop & File Manager, Screenshots, Browser, Office, or Function Keys—or type any action or key.',
+      },
+      {
+        stepTitle: 'Copy or Print Cheat Sheet',
+        detail:
+          'Click Copy on any shortcut card or Print Cheat Sheet for a quick desk reference.',
+      },
+    ],
+    keyBenefits: [
+      {
+        title: 'Side-by-Side Laptop & MacBook Clarity',
+        detail:
+          'Eliminates confusion when switching between office Windows PCs and personal MacBooks.',
+      },
+      {
+        title: 'Plain-English Practical Tips',
+        detail:
+          'Explains exactly when and why each shortcut saves time during typing, spreadsheet work, and file organization.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'How do Windows Ctrl and Alt map on a MacBook keyboard?',
+        answer:
+          'On a MacBook, Command (⌘) works like Ctrl for most everyday actions (Copy, Paste, Save, Find), while Option (⌥) behaves like Alt and handles word-by-word cursor jumps.',
+      },
+    ],
+  },
+  'tally-shortcuts-guide': {
+    toolId: 'tally-shortcuts-guide',
+    seoTitle: 'TallyPrime & Tally.ERP 9 Complete Shortcuts Guide | Learn Tools – VCPL Tools',
+    seoDescription:
+      'Searchable TallyPrime and Tally.ERP 9 shortcuts reference covering F4–F9 vouchers, Credit/Debit Notes, Alt+G Go To, GST reports, and print/export keys.',
+    adTopic: 'TallyPrime Shortcuts, Accounting & GST Learning',
+    focusKeywords: [
+      'TallyPrime shortcuts',
+      'Tally ERP 9 shortcuts',
+      'Tally voucher keys',
+      'Tally GST report shortcuts',
+      'Learn Tools VCPL',
+    ],
+    overview: [
+      'TallyPrime & Tally.ERP 9 Shortcuts Guide (LN-02) organizes essential accounting shortcuts across voucher entry, on-the-fly ledger creation (Alt+C), GST analysis, report filtering, and export/e-Invoice workflows.',
+      'Each card displays both TallyPrime and Tally.ERP 9 keys side-by-side and flags shortcuts updated in TallyPrime (such as Credit Note Alt+F6, Debit Note Alt+F5, and Alt+G Go To).',
+    ],
+    howToUse: [
+      {
+        stepTitle: 'Select Edition Focus',
+        detail:
+          'View TallyPrime + ERP 9 together or filter specifically to TallyPrime or Tally.ERP 9 keys.',
+      },
+      {
+        stepTitle: 'Browse Accounting Categories',
+        detail:
+          'Filter by Global Navigation, Vouchers, Power Actions, Reports & GST, or Print & E-Compliance.',
+      },
+      {
+        stepTitle: 'Search & Print Desk Guide',
+        detail:
+          'Search any shortcut like Alt+G, Alt+2, or Credit Note and print a clean office reference sheet.',
+      },
+    ],
+    keyBenefits: [
+      {
+        title: 'TallyPrime Migration Clarity',
+        detail:
+          'Clearly marks keys that changed from Tally.ERP 9 so accountants adapt quickly without mistakes.',
+      },
+      {
+        title: 'GST & Audit Aware Notes',
+        detail:
+          'Includes practical tips like preferring Alt+X (Cancel) over Alt+D (Delete) for issued GST invoices.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Why are Credit Note and Debit Note different in TallyPrime?',
+        answer:
+          'TallyPrime standardized secondary accounting notes to Alt+F6 (Credit Note) and Alt+F5 (Debit Note), replacing Ctrl+F8 and Ctrl+F9 from Tally.ERP 9.',
+      },
+    ],
+  },
 };
 
 export function getToolArticle(tool: ToolCatalogItem): ToolArticleData {

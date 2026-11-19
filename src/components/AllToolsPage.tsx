@@ -217,6 +217,12 @@ const TYPING_SUBGROUPS: SubGroupDefinition[] = [
       'resume-ats-builder',
     ],
   },
+  {
+    id: 'typing-shortcuts-learn',
+    label: 'Keyboard Shortcuts & Reference',
+    description: 'Windows, desktop, laptop & MacBook keyboard shortcuts with clear explanations.',
+    toolIds: ['keyboard-shortcuts-guide'],
+  },
 ];
 
 const UTILITIES_SUBGROUPS: SubGroupDefinition[] = [
@@ -507,8 +513,8 @@ export function AllToolsPage({
                   </h1>
                   <p className="text-sm text-[#475569] dark:text-slate-300 leading-relaxed">
                     Browse all {TOOLS_CATALOG.length} client-side utilities organized across Banking,
-                    Tax &amp; GST, GST Utilities, Calculator Hub, PDF Suite, Image Studio, Typing &amp; Text, QR
-                    Utilities, and VCPL Tools.
+                    Tax &amp; GST, GST, Calculator Hub, PDF Suite, Image Studio, Typing &amp; Text, QR
+                    Utilities, VCPL Tools, Special Tools, and Learn Tools.
                   </p>
                 </>
               )}

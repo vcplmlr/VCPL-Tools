@@ -22,25 +22,28 @@ const MODAL_CATEGORIES: { key: ToolFilterType; label: string }[] = [
   { key: 'All', label: `All Tools (${TOOLS_CATALOG.length})` },
   { key: 'Banking', label: 'Banking' },
   { key: 'Tax & GST', label: 'Tax & GST' },
-  { key: 'GST Utilities', label: 'GST Utilities' },
+  { key: 'GST Utilities', label: 'GST' },
   { key: 'Calculator', label: 'Calculator' },
   { key: 'PDF Suite', label: 'PDF Suite' },
   { key: 'Image Studio', label: 'Image Studio' },
   { key: 'Typing & Text', label: 'Typing & Text' },
   { key: 'Utilities', label: 'Utilities' },
   { key: 'VCPL', label: 'VCPL Tools' },
+  { key: 'Special Tools', label: 'Special Tools' },
+  { key: 'Learn Tools', label: 'Learn Tools' },
 ];
 
 const POPULAR_QUERIES = [
   'GSTR-1',
+  'Tulu Lipi',
+  'Keyboard Shortcuts',
+  'Tally Shortcuts',
   'PDF to Word',
   'Background Remover',
   'DMS vs Tally',
   'JPG Crop',
   'All-in-One Calculator',
   'Form 26AS',
-  'GSTR-2B',
-  'QR Code',
 ];
 
 export const SearchModal: React.FC<SearchModalProps> = ({
