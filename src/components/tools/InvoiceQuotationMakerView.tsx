@@ -17,6 +17,10 @@ import {
   Upload,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
+import {
+  buildNpciUpiIntentUrl,
+  validateNpciUpiIntentUrl,
+} from '../../utils/npciUpiValidator';
 import { printTargetElement } from '../../utils/printReport';
 import { FileDropZone } from './FileDropZone';
 
@@ -526,8 +530,6 @@ export const InvoiceQuotationMakerView: React.FC<InvoiceQuotationMakerViewProps>
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 50);
-    const encodedVpa = encodeURIComponent(vpaTarget).replace(/%40/g, '@');
-    const payeeName = encodeURIComponent(rawName || 'Payee');
     const cleanRef = String(doc.inv.no || '')
       .replace(/[^A-Za-z0-9\-_/]/g, '')
       .slice(0, 35);
@@ -537,16 +539,20 @@ export const InvoiceQuotationMakerView: React.FC<InvoiceQuotationMakerViewProps>
       .trim()
       .slice(0, 50);
 
-    const parts = [
-      `pa=${encodedVpa}`,
-      `pn=${payeeName}`,
-      cleanRef ? `tr=${encodeURIComponent(cleanRef)}` : '',
-      cleanNote ? `tn=${encodeURIComponent(cleanNote)}` : '',
-      doc.qrAmt && calc.grandTotal > 0 ? `am=${calc.grandTotal.toFixed(2)}` : '',
-      'cu=INR',
-    ].filter(Boolean);
+    const uri = buildNpciUpiIntentUrl({
+      pa: vpaTarget,
+      pn: rawName || 'Payee',
+      tr: cleanRef,
+      tn: cleanNote,
+      am: doc.qrAmt && calc.grandTotal > 0 ? calc.grandTotal : undefined,
+      cu: 'INR',
+    });
 
-    const uri = `upi://pay?${parts.join('&')}`;
+    const intentCheck = validateNpciUpiIntentUrl(uri);
+    if (!intentCheck.isValid) {
+      setUpiQrDataUrl('');
+      return;
+    }
 
     let cancelled = false;
     QRCode.toDataURL(uri, {

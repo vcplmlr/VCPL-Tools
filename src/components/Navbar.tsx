@@ -206,10 +206,10 @@ export function Navbar({
             <VcplBrandLogo variant="header" className="h-8 lg:h-7 xl:h-8 2xl:h-9" />
           </button>
 
-          {/* Suite Navigation Menu — All 10 items clearly visible without clipping */}
+          {/* Suite Navigation Menu — All items clearly visible without clipping */}
           <nav
             aria-label="Primary Navigation"
-            className="hidden lg:flex flex-wrap xl:flex-nowrap items-center justify-center xl:justify-end gap-1 flex-1 min-w-0 py-0.5"
+            className="hidden lg:flex flex-wrap 2xl:flex-nowrap items-center justify-center 2xl:justify-end gap-1 flex-1 min-w-0 py-0.5"
           >
             {ICON_MENU_ITEMS.map(({ key, label, Icon }) => {
               const isActive = activeIconMenu === key;

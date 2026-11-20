@@ -26,1228 +26,43 @@ import {
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
 import { TulunaduFlagIcon } from '../TulunaduFlagIcon';
+import {
+  D,
+  ENS,
+  InputMode,
+  LGO,
+  L_HL,
+  L_IV,
+  NM,
+  PG,
+  PG_NAMES,
+  QuizMode,
+  RMK,
+  S,
+  SCN,
+  ScriptKey,
+  SentenceCategory,
+  StudioTab,
+  TranslationPreference,
+  W,
+  WRE,
+  candsEn,
+  indicC,
+  kn2rom,
+  kn2tu,
+  phon,
+  resolveCustomSpellingInput,
+  rom,
+  romanC,
+  scr,
+  tu2kn,
+} from '../../utils/tulusiriEngine';
 import '../../styles/baravu.css';
 
 interface TulusiriProViewProps {
   tool?: ToolCatalogItem;
   onBack?: () => void;
 }
-
-type StudioTab =
-  | 'write'
-  | 'chart'
-  | 'decode'
-  | 'dict'
-  | 'words'
-  | 'sent'
-  | 'learn'
-  | 'quiz';
-
-type InputMode = 'en' | 'tu';
-type ScriptKey =
-  | 'latin'
-  | 'dev'
-  | 'ben'
-  | 'gur'
-  | 'guj'
-  | 'odi'
-  | 'tam'
-  | 'tel'
-  | 'mal';
-
-type SentenceCategory = 'All' | 'Common' | 'Family' | 'Travel';
-type QuizMode = 'w' | 'd';
-
-// ============================================================================
-// BARAVU (TULU LIPI) <-> KANNADA CONVERSION ENGINE
-// ============================================================================
-const CN =
-  'ಕkಖKಗgಘGಙZಚcಛCಜjಝJಞzಟqಠQಡwಢWಣNತtಥTದdಧDನnಪpಫPಬbಭBಮmಯyರrಲlವvಶSಷxಸsಹXhಳL';
-const C: Record<string, string> = {};
-const R: Record<string, string> = {};
-for (let i = 0; i < CN.length; ) {
-  const k = CN[i];
-  let v = CN[i + 1];
-  i += 2;
-  if (v === 'X') {
-    v = 'Xh';
-    i++;
-  }
-  C[k] = v;
-  R[v] = k;
-}
-
-const IV: Record<string, string> = {
-  ಅ: 'XAA',
-  ಆ: 'XAa',
-  ಇ: 'XAi',
-  ಈ: 'XAI',
-  ಉ: 'XAu',
-  ಊ: 'XAU',
-  ಋ: 'XAR',
-  ೠ: 'XARR',
-  ಎ: 'eA',
-  ಏ: 'EA',
-  ಐ: 'eeA',
-  ಒ: 'eAa',
-  ಓ: 'FAa',
-  ಔ: 'XAY',
-};
-const POST: Record<string, string> = {
-  'ಾ': 'a',
-  'ಿ': 'i',
-  'ೀ': 'I',
-  'ು': 'u',
-  'ೂ': 'U',
-  'ೃ': 'R',
-  'ೄ': 'RR',
-  'ೌ': 'Y',
-};
-const PRE: Record<string, string> = {
-  'ೆ': 'e',
-  'ೇ': 'E',
-  'ೈ': 'ee',
-  'ೊ': 'e',
-  'ೋ': 'F',
-};
-const POSTX: Record<string, string> = {
-  'ೊ': 'a',
-  'ೋ': 'a',
-};
-const KD = '೦೧೨೩೪೫೬೭೮೯';
-
-function kn2tu(t: string): string {
-  let o = '';
-  let i = 0;
-  const n = t.length;
-  const isC = (c: string | undefined): c is string =>
-    typeof c === 'string' && Object.prototype.hasOwnProperty.call(C, c);
-
-  while (i < n) {
-    const c = t[i];
-    if (t.startsWith('ಶ್ರೀ', i)) {
-      o += 'SArXI';
-      i += 4;
-      continue;
-    }
-    if (t.startsWith('ಓಂ', i)) {
-      o += 'FAamXA';
-      i += 2;
-      continue;
-    }
-    if (c in IV) {
-      let s = IV[c];
-      i++;
-      if ((c === 'ಎ' || c === 'ಏ') && t[i] === '*') {
-        s = c === 'ಎ' ? 'oA' : 'OA';
-        i++;
-      }
-      o += s;
-      continue;
-    }
-    if (isC(c)) {
-      const cl = [C[c]];
-      let hal = false;
-      let rep = false;
-      i++;
-      while (t[i] === '್') {
-        if (isC(t[i + 1])) {
-          cl.push(C[t[i + 1]]);
-          i += 2;
-        } else {
-          hal = true;
-          i++;
-          break;
-        }
-      }
-      if (c === 'ರ' && cl.length > 1) {
-        rep = true;
-        cl.shift();
-      }
-      let s = cl.join('A');
-      if (rep) s += 'f';
-      if (hal) s += 'A';
-      let pre = '';
-      let post = '';
-      const v = t[i];
-      if (v in POST) {
-        post = POST[v];
-        i++;
-      } else if (v in PRE) {
-        pre = PRE[v];
-        post = POSTX[v] || '';
-        i++;
-        if (t[i] === '*' && (v === 'ೆ' || v === 'ೇ')) {
-          pre = v === 'ೆ' ? 'o' : 'O';
-          i++;
-        }
-      }
-      if (t[i] === '಼') i++;
-      let m = '';
-      if (t[i] === 'ಂ') {
-        m = 'M';
-        i++;
-      } else if (t[i] === 'ಃ') {
-        m = 'H';
-        i++;
-      }
-      o += pre + s + post + m;
-      continue;
-    }
-    if (c in POST) {
-      o += POST[c];
-      i++;
-      continue;
-    }
-    if (c in PRE) {
-      o += PRE[c] + (POSTX[c] || '');
-      i++;
-      continue;
-    }
-    if (c === 'ಂ') {
-      o += 'M';
-      i++;
-      continue;
-    }
-    if (c === 'ಃ') {
-      o += 'H';
-      i++;
-      continue;
-    }
-    if (c === '್') {
-      o += 'A';
-      i++;
-      continue;
-    }
-    const d = KD.indexOf(c);
-    if (d >= 0) {
-      o += String(d);
-      i++;
-      continue;
-    }
-    if (c === '\u200c' || c === '\u200d') {
-      i++;
-      continue;
-    }
-    o += c;
-    i++;
-  }
-  return o;
-}
-
-const IVL: [string, string][] = Object.entries(IV)
-  .map(([k, v]): [string, string] => [v, k])
-  .concat([
-    ['oA', 'ಎ*'],
-    ['OA', 'ಏ*'],
-    ['SArXI', 'ಶ್ರೀ'],
-    ['FAamXA', 'ಓಂ'],
-  ])
-  .sort((a, b) => b[0].length - a[0].length);
-
-const PI: Record<string, string> = {
-  a: 'ಾ',
-  i: 'ಿ',
-  I: 'ೀ',
-  u: 'ು',
-  U: 'ೂ',
-  R: 'ೃ',
-  RR: 'ೄ',
-  Y: 'ೌ',
-};
-
-function tu2kn(t: string): string {
-  let o = '';
-  let i = 0;
-  const n = t.length;
-  const mc = (p: number): string | null =>
-    t.startsWith('Xh', p) ? 'Xh' : t[p] && t[p] in R && t[p] !== 'X' ? t[p] : null;
-
-  while (i < n) {
-    let hit: [string, string] | null = null;
-    for (const [k, v] of IVL) {
-      if (t.startsWith(k, i)) {
-        hit = [k, v];
-        break;
-      }
-    }
-    if (hit) {
-      o += hit[1];
-      i += hit[0].length;
-      continue;
-    }
-    let p = i;
-    let pre = '';
-    if (t.startsWith('ee', p)) {
-      pre = 'ee';
-      p += 2;
-    } else if (t[p] && 'eEFoO'.includes(t[p])) {
-      pre = t[p];
-      p++;
-    }
-    const f = mc(p);
-    if (f) {
-      const cl = [f];
-      p += f.length;
-      let hal = false;
-      let rep = false;
-      while (t[p] === 'A') {
-        const g = mc(p + 1);
-        if (g) {
-          cl.push(g);
-          p += 1 + g.length;
-        } else {
-          hal = true;
-          p++;
-          break;
-        }
-      }
-      if (t[p] === 'f') {
-        rep = true;
-        p++;
-      }
-      let post = '';
-      if (t.startsWith('RR', p)) {
-        post = 'RR';
-        p += 2;
-      } else if (t[p] && 'aiIuURY'.includes(t[p])) {
-        post = t[p];
-        p++;
-      }
-      let sg = '';
-      if (pre) {
-        sg =
-          pre === 'e'
-            ? post === 'a'
-              ? 'ೊ'
-              : 'ೆ'
-            : pre === 'F'
-            ? 'ೋ'
-            : pre === 'E'
-            ? 'ೇ'
-            : pre === 'ee'
-            ? 'ೈ'
-            : pre === 'o'
-            ? 'ೆ*'
-            : 'ೇ*';
-        if (post && !(post === 'a' && (pre === 'e' || pre === 'F'))) {
-          sg += PI[post] || '';
-        }
-      } else if (post) {
-        sg = PI[post] || '';
-      }
-      let m = '';
-      if (t[p] === 'M') {
-        m = 'ಂ';
-        p++;
-      } else if (t[p] === 'H') {
-        m = 'ಃ';
-        p++;
-      }
-      o +=
-        (rep ? 'ರ್' : '') +
-        cl.map((x) => R[x]).join('್') +
-        (hal ? '್' : '') +
-        sg +
-        m;
-      i = p;
-      continue;
-    }
-    if (pre) {
-      o +=
-        pre === 'e'
-          ? 'ೆ'
-          : pre === 'F'
-          ? 'ೋ'
-          : pre === 'E'
-          ? 'ೇ'
-          : pre === 'ee'
-          ? 'ೈ'
-          : pre === 'o'
-          ? 'ೆ*'
-          : 'ೇ*';
-      i = p;
-      continue;
-    }
-    if (t[i] === 'M') {
-      o += 'ಂ';
-      i++;
-      continue;
-    }
-    if (t[i] === 'H') {
-      o += 'ಃ';
-      i++;
-      continue;
-    }
-    if (/[0-9]/.test(t[i])) {
-      o += KD[Number(t[i])];
-      i++;
-      continue;
-    }
-    o += t[i];
-    i++;
-  }
-  return o;
-}
-
-// ============================================================================
-// DATASETS: DICTIONARY (D), SARI TULU PAIRS (W), SENTENCES (S)
-// ============================================================================
-const D: [string, string, string, string][] = `ಅಬಡೆ|abade|ಹುರುಳಿ ಕಾಯಿ|A kind of bean
-ಅಬದು|abadu|ಗೊರಸು|Hoof
-ಅಬ್ಬೇಸೊ|abbeso|ಅಭ್ಯಾಸ|Study, practice
-ಅಬೆ|abe|ಕುಟ್ಟುವುದು (ಭತ್ತ)|To pound rice
-ಅಚ್ಚಿಬೆಲ್ಲೊ|accibello|ಅಚ್ಚು ಬೆಲ್ಲ|Jaggery cakes cast in moulds
-ಅಡಕ್ಕತ್ತರಿ|adakkattari|ಅಡಿಕೆ ಕತ್ತರಿ|Scissors used to crush areca nuts
-ಅಡಂಗಾಯಿ|adangayi|ಒಂದು ರೀತಿಯ ಉಪ್ಪಿನಕಾಯಿ|A kind of pickle
-ಅಡ್ಡಬೇಲಿ|addabeli|ಅಡ್ಡ ಬೇಲಿ|Partition fence
-ಅಡ್ಡದಂಡಿಗೆ|addadandige|ಪಲ್ಲಕ್ಕಿ|Open palanquin
-ಅಡ್ಡಪುದರು|addapudaru|ಅಡ್ಡಹೆಸರು|Nickname
-ಅಡಿಗೆ|adige|ಅಡುಗೆ; ಪದಾರ್ಥ|Cooking; a dish
-ಅಡ್ಪಿಲು|adpilu|ಅಡುಗೆ ಮನೆ|Kitchen
-ಅಜ್ಜ|ajja|ಅಜ್ಜ|Grandfather
-ಅಜ್ಜಿ|ajji|ಅಜ್ಜಿ|Grandmother
-ಅಕ್ಕ|akka|ಅಕ್ಕ; ಹಿರಿಯ ಮಹಿಳೆ|Elder sister; an elderly woman
-ಅಕ್ಕರೆ|akkare|ಪ್ರೀತಿ, ಮಮತೆ|Affection, fondness
-ಅಂಗಡಿ|angadi|ಅಂಗಡಿ|A shop
-ಅಂಗಿ|angi|ಅಂಗಿ ಅಥವಾ ಶರ್ಟ್|A coat or shirt
-ಅಂಜಲು|anjalu|ಅಂಜಲ್ ಮೀನು|Seer fish
-ಅರಮನೆ|aramane|ಅರಮನೆ|Palace
-ಅರಸು|arasu|ರಾಜ|King, monarch
-ಅಪ್ಪೆ|appe|ತಾಯಿ|Mother
-ಅಮ್ಮೆ|amme|ತಂದೆ|Father
-ಅಣ್ಣೆ|anne|ಅಣ್ಣ|Elder brother
-ಆನೆ|ane|ಆನೆ|Elephant
-ಆಕಾಸೊ|akaso|ಆಕಾಶ|Sky
-ಆಸ್ತಿ|asti|ಆಸ್ತಿ|Property
-ಆಟಿ|ati|ಆಟಿ ಮಾಸ|Fourth solar month
-ಇಲ್ಲು|illu|ಮನೆ|House
-ಇರ್ಲು|irlu|ರಾತ್ರಿ|Night, darkness
-ಇಟ್ಟಿಗೆ|ittige|ಇಟ್ಟಿಗೆ|Brick
-ಇಮೆ|ime|ರೆಪ್ಪೆ|Eyelash
-ಇಜಿನು|ijinu|ದಾಲ್ಚಿನ್ನಿ|Cinnamon
-ಇರೆ|ire|ಎಲೆ|Leaf
-ಈಟಿ|iti|ಈಟಿ|A spear
-ಉಪ್ಪು|uppu|ಉಪ್ಪು|Salt
-ಉನ್ಪು|unpu|ಅನ್ನ|Cooked rice
-ಉರು|uru|ಗ್ರಾಮ|Village
-ಉಂಗಿಲೊ|ungilo|ಉಂಗುರ|A ring
-ಉಂಡೆ|unde|ಉಂಡೆ|Round sweetmeat
-ಉಲ್ಲಾಯೆ|ullaye|ಒಡೆಯ|Master, lord
-ಉಮಿಲು|umilu|ಸೊಳ್ಳೆ|Mosquito, gnat
-ಸೊಲ್ಮೆಲು|solmelu|ನಮಸ್ಕಾರ / ವಂದನೆ|Greetings / thank you`
-  .split('\n')
-  .map((l) => l.split('|') as [string, string, string, string]);
-
-const W: [string, string][] = `ಬೀಗರು|ಪೊದ್ದೆರ್
-ಚಿಲ್ಲರೆ|ಚುಂಗುಡಿ
-ನಾಣ್ಯ|ಪಾವೊಲಿ
-ಪಂಕ್ತಿ|ಪಂತೆ*
-ಗೊರಸು|ಅಬಡ್
-ಬೆಲೆ|ಬಿಲೆ*
-ಮಡಿಲು|ಮಟ್ಟೆಲ್
-ಬಿಡುವು|ಪುರ್ಸೊತ್ತು
-ದಾರಿದ್ರ್ಯ|ಜದ್ರ
-ಅಸ್ಥಿಪಂಜರ|ಎಲ್ಕೊಟೆ
-ಗುಂಡಿ|ಗುರಿ
-ಆಭರಣ|ಪದ್ದೈಯ್
-ತಲೆಹೊಟ್ಟು|ತುಗಲ್
-ಪ್ರಾರ್ಥನೆ|ಸುಗಿಪು
-ಮೈದಾನ|ಅಡ್ಕ
-ಎಳ್ಳು|ಎಡ್ಮೆ*
-ಕಿವುಡ|ಕೆಪ್ಪೆ
-ಮೂಕ|ಪೊಟ್ಟೆ
-ಗೆರೆ|ಗೀಟ್
-ಉಸಿರು|ಸುಯಿಲ್
-ಗುಡಿಸಲು|ಗುಡ್ಚಿಲ್
-ಸೇವೆ|ಚಾಕ್ರಿ
-ಹಸಿ|ಪಜ್ಜಿ
-ಮೂಲೆ|ಕೋಂಟು
-ಗಾಳಿ|ಕಾತ್
-ವಾಸನೆ|ಮೂರಿ
-ಸೊಂಟ|ಒಕ್ಕ
-ಕಂಬ|ಕಮ್ಮ
-ಹುಲಿ|ಪಿಲಿ
-ಕರು|ಕಂಜಿ
-ದನ|ಪತ್ತ
-ಮೂಗು|ಮೂಂಕು
-ಕಿವಿ|ಕೆಬಿ
-ಬೆರಳು|ಬಿರೆಲ್
-ತೋಟ|ದೋಟ
-ತಲೆ|ಮಂಡೆ
-ಕೋಳಿ|ಕೋರಿ`
-  .split('\n')
-  .map((l) => l.split('|') as [string, string]);
-
-const S: [string, string, string, Exclude<SentenceCategory, 'All'>][] = `ಅಪ್ಪೆ , ಅಮ್ಮ|ಅಮ್ಮ|Mother|Family
-ಅಮ್ಮೆ , ಪೊಪ್ಪ|ಅಪ್ಪ|Father|Family
-ಯಾನು ಕಲೆದ್ಪೋತೆ|ನಾನು ಕಳೆದುಹೋಗಿದ್ದೇನೆ|I am lost|Common
-ಹೋಟೆಲ್ ಓಲು ಉಂಡು?|ಹೋಟೆಲ್ ಎಲ್ಲಿ ಇದೆ?|Where is the hotel?|Travel
-ಬಸ್ ನಿಲ್ದಾಣ ಓಲ್ ಉಂಡು?|ಬಸ್ ನಿಲ್ದಾಣ ಎಲ್ಲಿ?|Where is the bus stop?|Travel
-ಈರ್ ಸಹಾಯ ಮಲ್ಪುವರ್?|ನೀವು ಸಹಾಯ ಮಾಡುತ್ತೀರಾ?|Can you help me?|Common
-ಎಂಕ್ ಸಹಾಯ ಮಲ್ಪುಲೆ.|ನನಗೆ ಸಹಾಯ ಮಾಡಿ|Help me|Common
-ಯೆಂಕ್ ಅವು ಬೊಡ್ಚಿ .|ನನಗೆ ಅದು ಬೇಡ|I don’t want that|Common
-ಎಂಕ್ ಉಂದು ಬೋಡು.|ನನಗೆ ಇದು ಬೇಕು|I want this|Common
-ಉಂದೆಕ್ ಯೆತ್?|ಇದು ಎಷ್ಟು?|How much is this?|Common
-ಎಂಕ್ ಉಂದು ಇಷ್ಟ ಆಂಡ್|ನನಗೆ ಇಷ್ಟವಾಗಿದೆ|I like this|Common
-ಉಂದು ಎಡ್ಡೆ ಉಂಡು|ಇದು ಚೆನ್ನಾಗಿದೆ|This is good|Common
-ಎಂಕು ಗೊತ್ತು ಇಜ್ಜಿ.|ನನಗೆ ಗೊತ್ತಿಲ್ಲ|I don’t know|Common
-ಯೆಂಕ್ ಬಾಜೆಲ್ ಆತ್ಂಡ್|ನನಗೆ ದಾಹವಾಗಿದೆ|I am thirsty|Common
-ಯೆಂಕ್ ಬಡವು ಆತ್ಂಡ್|ನನಗೆ ಹಸಿವಾಗಿದೆ|I am hungry|Common
-ಎಂಕ್ ನೀರ್ ಬೋಡು.|ನನಗೆ ನೀರು ಬೇಕು|I need water|Common
-ಉಂದು ಎಂಚಿನ?|ಇದು ಏನು?|What is this?|Common
-ಇರ್ನ ಪುದರ್ ಯೆಂಚ ?|ನಿಮ್ಮ ಹೆಸರು ಏನು?|What is your name?|Common
-ಯೀರ್ ಎಂಚ ಉಲ್ಲರ್?|ನೀವು ಹೇಗಿದ್ದೀರಾ?|How are you?|Common
-ಯಾನ್ ಹುಷಾರ್ ಉಲ್ಲೆ.|ನಾನು ಚೆನ್ನಾಗಿದ್ದೇನೆ|I am fine|Common
-ಸೊಲ್ಮೆಲು|ಧನ್ಯವಾದಗಳು|Thank you|Common`
-  .split('\n')
-  .map(
-    (l) =>
-      l.split('|') as [string, string, string, Exclude<SentenceCategory, 'All'>]
-  );
-
-// ============================================================================
-// PHONETIC TYPING, MULTI-SCRIPT CONVERSION & ROMANIZATION
-// ============================================================================
-const VW: Record<string, string> = {
-  aa: 'ಆ',
-  ai: 'ಐ',
-  au: 'ಔ',
-  ee: 'ಏ',
-  ii: 'ಈ',
-  oo: 'ಓ',
-  uu: 'ಊ',
-  RRu: 'ಋ',
-  a: 'ಅ',
-  e: 'ಎ',
-  i: 'ಇ',
-  o: 'ಒ',
-  u: 'ಉ',
-  A: 'ಆ',
-  E: 'ಏ',
-  I: 'ಈ',
-  O: 'ಓ',
-  U: 'ಊ',
-};
-const VS: Record<string, string> = {
-  aa: 'ಾ',
-  ai: 'ೈ',
-  au: 'ೌ',
-  ee: 'ೇ',
-  ii: 'ೀ',
-  oo: 'ೋ',
-  uu: 'ೂ',
-  RRu: 'ೃ',
-  a: '',
-  e: 'ೆ',
-  i: 'ಿ',
-  o: 'ೊ',
-  u: 'ು',
-  A: 'ಾ',
-  E: 'ೇ',
-  I: 'ೀ',
-  O: 'ೋ',
-  U: 'ೂ',
-};
-const CS: Record<string, string> = {
-  kh: 'ಖ',
-  gh: 'ಘ',
-  ch: 'ಛ',
-  jh: 'ಝ',
-  Th: 'ಠ',
-  Dh: 'ಢ',
-  th: 'ಥ',
-  dh: 'ಧ',
-  ph: 'ಫ',
-  bh: 'ಭ',
-  sh: 'ಶ',
-  Sh: 'ಷ',
-  k: 'ಕ',
-  g: 'ಗ',
-  c: 'ಚ',
-  j: 'ಜ',
-  T: 'ಟ',
-  D: 'ಡ',
-  N: 'ಣ',
-  t: 'ತ',
-  d: 'ದ',
-  n: 'ನ',
-  p: 'ಪ',
-  b: 'ಬ',
-  m: 'ಮ',
-  y: 'ಯ',
-  r: 'ರ',
-  l: 'ಲ',
-  v: 'ವ',
-  w: 'ವ',
-  s: 'ಸ',
-  h: 'ಹ',
-  L: 'ಳ',
-  S: 'ಶ',
-  f: 'ಫ',
-  z: 'ಜ',
-  '~g': 'ಙ',
-  '~j': 'ಞ',
-};
-
-function pick(s: string, i: number, T: Record<string, string>): string | null {
-  for (const n of [3, 2, 1]) {
-    const k = s.substr(i, n);
-    if (k.length === n && Object.prototype.hasOwnProperty.call(T, k)) return k;
-  }
-  return null;
-}
-
-function phon(s: string): string {
-  let o = '';
-  let pend = false;
-  let i = 0;
-  while (i < s.length) {
-    let k = pick(s, i, CS);
-    if (k) {
-      o += CS[k] + '್';
-      pend = true;
-      i += k.length;
-      continue;
-    }
-    k = pick(s, i, VW);
-    if (k) {
-      if (pend) {
-        o = o.slice(0, -1) + VS[k];
-      } else {
-        o += VW[k];
-      }
-      pend = false;
-      i += k.length;
-      continue;
-    }
-    if (s[i] === 'M' || s[i] === 'H') {
-      if (pend) o = o.slice(0, -1);
-      o += s[i] === 'M' ? 'ಂ' : 'ಃ';
-      pend = false;
-      i++;
-      continue;
-    }
-    o += s[i];
-    pend = false;
-    i++;
-  }
-  return o;
-}
-
-const RC: Record<string, string> = {
-  ಕ: 'k',
-  ಖ: 'kh',
-  ಗ: 'g',
-  ಘ: 'gh',
-  ಙ: 'ng',
-  ಚ: 'ch',
-  ಛ: 'chh',
-  ಜ: 'j',
-  ಝ: 'jh',
-  ಞ: 'ny',
-  ಟ: 'T',
-  ಠ: 'Th',
-  ಡ: 'D',
-  ಢ: 'Dh',
-  ಣ: 'N',
-  ತ: 't',
-  ಥ: 'th',
-  ದ: 'd',
-  ಧ: 'dh',
-  ನ: 'n',
-  ಪ: 'p',
-  ಫ: 'ph',
-  ಬ: 'b',
-  ಭ: 'bh',
-  ಮ: 'm',
-  ಯ: 'y',
-  ರ: 'r',
-  ಲ: 'l',
-  ವ: 'v',
-  ಶ: 'sh',
-  ಷ: 'Sh',
-  ಸ: 's',
-  ಹ: 'h',
-  ಳ: 'L',
-};
-const RV: Record<string, string> = {
-  ಅ: 'a',
-  ಆ: 'aa',
-  ಇ: 'i',
-  ಈ: 'ii',
-  ಉ: 'u',
-  ಊ: 'uu',
-  ಋ: 'ru',
-  ೠ: 'ruu',
-  ಎ: 'e',
-  ಏ: 'ee',
-  ಐ: 'ai',
-  ಒ: 'o',
-  ಓ: 'oo',
-  ಔ: 'au',
-};
-const RS: Record<string, string> = {
-  'ಾ': 'aa',
-  'ಿ': 'i',
-  'ೀ': 'ii',
-  'ು': 'u',
-  'ೂ': 'uu',
-  'ೃ': 'ru',
-  'ೆ': 'e',
-  'ೇ': 'ee',
-  'ೈ': 'ai',
-  'ೊ': 'o',
-  'ೋ': 'oo',
-  'ೌ': 'au',
-  'ಂ': 'm',
-  'ಃ': 'h',
-};
-
-function kn2rom(t: string): string {
-  let o = '';
-  const a = [...t];
-  for (let i = 0; i < a.length; i++) {
-    const c = a[i];
-    if (RC[c]) {
-      const n = a[i + 1];
-      if (n === '್') {
-        o += RC[c];
-        i++;
-      } else if (RS[n] && n !== 'ಂ' && n !== 'ಃ') {
-        o += RC[c] + RS[n];
-        i++;
-      } else {
-        o += RC[c] + 'a';
-      }
-    } else if (RV[c]) {
-      o += RV[c];
-    } else if (RS[c]) {
-      o += RS[c];
-    } else if (c !== '*' && c !== '್') {
-      o += c;
-    }
-  }
-  return o;
-}
-
-function rom(t: string): string {
-  return t.replace(/[\u0C80-\u0CFF*]+/g, kn2rom);
-}
-
-const PG: Record<string, string[]> = {
-  Numbers: [...'1234567890'],
-  Vowels: [...'ಅಆಇಈಉಊಋೠಎಏಐಒಓಔ', 'ಎ*', 'ಏ*'],
-  Signs: [...'ಾಿೀುೂೃೄೆೇೈೊೋೌಂಃ್', 'ೆ*', 'ೇ*'],
-  Consonants: [
-    ...'ಕಖಗಘಙಚಛಜಝಞಟಠಡಢಣತಥದಧನಪಫಬಭಮಯರಲವಶಷಸಹಳ',
-  ],
-  'Joined & digits': ['ಕ್ಷ', 'ತ್ರ', 'ಜ್ಞ', 'ಶ್ರೀ', 'ಓಂ', ...'೦೧೨೩೪೫೬೭೮೯'],
-};
-
-const PG_NAMES: Record<string, string> = {
-  Numbers: 'Tulu numbers (ಅಂಕೆ) 1-9, 0',
-  Vowels: 'Vowels (ಸ್ವರ)',
-  Signs: 'Vowel signs & marks (ಮಾತ್ರೆ)',
-  Consonants: 'Consonants (ವ್ಯಂಜನ)',
-  'Joined & digits': 'Joined letters & digits',
-};
-
-const NM: Record<string, string> = {
-  harshith: 'ಹರ್ಷಿತ್',
-  harshit: 'ಹರ್ಷಿತ್',
-  harsha: 'ಹರ್ಷ',
-  harshitha: 'ಹರ್ಷಿತಾ',
-  kaushik: 'ಕೌಶಿಕ್',
-  arjun: 'ಅರ್ಜುನ್',
-  ramesh: 'ರಮೇಶ್',
-  suresh: 'ಸುರೇಶ್',
-  ganesh: 'ಗಣೇಶ್',
-  mahesh: 'ಮಹೇಶ್',
-  rajesh: 'ರಾಜೇಶ್',
-  naresh: 'ನರೇಶ್',
-  dinesh: 'ದಿನೇಶ್',
-  prashanth: 'ಪ್ರಶಾಂತ್',
-  prashant: 'ಪ್ರಶಾಂತ್',
-  pradeep: 'ಪ್ರದೀಪ್',
-  sandeep: 'ಸಂದೀಪ್',
-  deepak: 'ದೀಪಕ್',
-  rakshith: 'ರಕ್ಷಿತ್',
-  rakshit: 'ರಕ್ಷಿತ್',
-  sumith: 'ಸುಮಿತ್',
-  sumit: 'ಸುಮಿತ್',
-  nithin: 'ನಿತಿನ್',
-  nitin: 'ನಿತಿನ್',
-  sachin: 'ಸಚಿನ್',
-  manjunath: 'ಮಂಜುನಾಥ್',
-  krishna: 'ಕೃಷ್ಣ',
-  shiva: 'ಶಿವ',
-  vishnu: 'ವಿಷ್ಣು',
-  lakshmi: 'ಲಕ್ಷ್ಮಿ',
-  divya: 'ದಿವ್ಯ',
-  pooja: 'ಪೂಜಾ',
-  priya: 'ಪ್ರಿಯಾ',
-  ananya: 'ಅನನ್ಯ',
-  shreya: 'ಶ್ರೇಯಾ',
-  karthik: 'ಕಾರ್ತಿಕ್',
-  kartik: 'ಕಾರ್ತಿಕ್',
-  kishore: 'ಕಿಶೋರ್',
-  naveen: 'ನವೀನ್',
-  vinay: 'ವಿನಯ್',
-  ajay: 'ಅಜಯ್',
-  vijay: 'ವಿಜಯ್',
-  ravi: 'ರವಿ',
-  anil: 'ಅನಿಲ್',
-  sunil: 'ಸುನಿಲ್',
-  santosh: 'ಸಂತೋಷ್',
-  sharath: 'ಶರತ್',
-  suhas: 'ಸುಹಾಸ್',
-  mangaluru: 'ಮಂಗಳೂರು',
-  mangalore: 'ಮಂಗಳೂರು',
-  udupi: 'ಉಡುಪಿ',
-  bengaluru: 'ಬೆಂಗಳೂರು',
-  bangalore: 'ಬೆಂಗಳೂರು',
-  karnataka: 'ಕರ್ನಾಟಕ',
-  india: 'ಭಾರತ',
-  tulu: 'ತುಳು',
-  tulunadu: 'ತುಳುನಾಡು',
-  kannada: 'ಕನ್ನಡ',
-  english: 'ಇಂಗ್ಲಿಷ್',
-  rama: 'ರಾಮ',
-  sita: 'ಸೀತಾ',
-  radha: 'ರಾಧಾ',
-  kiran: 'ಕಿರಣ್',
-  pavan: 'ಪವನ್',
-  ashok: 'ಅಶೋಕ್',
-  anand: 'ಆನಂದ್',
-  lokesh: 'ಲೋಕೇಶ್',
-  yogesh: 'ಯೋಗೇಶ್',
-  umesh: 'ಉಮೇಶ್',
-  ganapathi: 'ಗಣಪತಿ',
-  doctor: 'ಡಾಕ್ಟರ್',
-  hospital: 'ಹಾಸ್ಪಿಟಲ್',
-  computer: 'ಕಂಪ್ಯೂಟರ್',
-  mobile: 'ಮೊಬೈಲ್',
-  phone: 'ಫೋನ್',
-  water: 'ವಾಟರ್',
-  mother: 'ಮದರ್',
-  father: 'ಫಾದರ್',
-  school: 'ಸ್ಕೂಲ್',
-  hotel: 'ಹೋಟೆಲ್',
-  bus: 'ಬಸ್',
-  car: 'ಕಾರ್',
-  train: 'ಟ್ರೈನ್',
-  office: 'ಆಫೀಸ್',
-  market: 'ಮಾರ್ಕೆಟ್',
-  college: 'ಕಾಲೇಜ್',
-  bank: 'ಬ್ಯಾಂಕ್',
-  ticket: 'ಟಿಕೆಟ್',
-  tea: 'ಟೀ',
-  coffee: 'ಕಾಫಿ',
-  hello: 'ಹಲೋ',
-  sorry: 'ಸಾರಿ',
-  please: 'ಪ್ಲೀಸ್',
-  email: 'ಇಮೇಲ್',
-  internet: 'ಇಂಟರ್ನೆಟ್',
-  app: 'ಆ್ಯಪ್',
-  thanks: 'ಥ್ಯಾಂಕ್ಸ್',
-};
-
-const EK: Record<string, string[]> = {
-  water: ['ನೀರು'],
-  mother: ['ಅಮ್ಮ'],
-  father: ['ಅಪ್ಪ'],
-  house: ['ಮನೆ'],
-  home: ['ಮನೆ'],
-  food: ['ಊಟ'],
-  rice: ['ಅಕ್ಕಿ', 'ಅನ್ನ'],
-  school: ['ಶಾಲೆ'],
-  book: ['ಪುಸ್ತಕ'],
-  friend: ['ಸ್ನೇಹಿತ'],
-  love: ['ಪ್ರೀತಿ'],
-  name: ['ಹೆಸರು'],
-  hello: ['ನಮಸ್ಕಾರ'],
-  thanks: ['ಧನ್ಯವಾದ'],
-  thank: ['ಧನ್ಯವಾದ'],
-  welcome: ['ಸ್ವಾಗತ'],
-  good: ['ಒಳ್ಳೆಯ'],
-  village: ['ಹಳ್ಳಿ'],
-  city: ['ನಗರ'],
-  sun: ['ಸೂರ್ಯ'],
-  moon: ['ಚಂದ್ರ'],
-  tree: ['ಮರ'],
-  river: ['ನದಿ'],
-  sea: ['ಸಮುದ್ರ'],
-  day: ['ದಿನ'],
-  night: ['ರಾತ್ರಿ'],
-  morning: ['ಬೆಳಗ್ಗೆ'],
-  evening: ['ಸಂಜೆ'],
-  fire: ['ಬೆಂಕಿ'],
-  milk: ['ಹಾಲು'],
-  fish: ['ಮೀನು'],
-  temple: ['ದೇವಸ್ಥಾನ'],
-  god: ['ದೇವರು'],
-  king: ['ರಾಜ'],
-  queen: ['ರಾಣಿ'],
-  child: ['ಮಗು'],
-  boy: ['ಹುಡುಗ'],
-  girl: ['ಹುಡುಗಿ'],
-  woman: ['ಹೆಣ್ಣು', 'ಮಹಿಳೆ'],
-  one: ['ಒಂದು'],
-  two: ['ಎರಡು'],
-  three: ['ಮೂರು'],
-  four: ['ನಾಲ್ಕು'],
-  five: ['ಐದು'],
-  six: ['ಆರು'],
-  seven: ['ಏಳು'],
-  eight: ['ಎಂಟು'],
-  nine: ['ಒಂಬತ್ತು'],
-  ten: ['ಹತ್ತು'],
-  yes: ['ಹೌದು'],
-  no: ['ಇಲ್ಲ'],
-  beautiful: ['ಸುಂದರ'],
-  big: ['ದೊಡ್ಡ'],
-  small: ['ಚಿಕ್ಕ'],
-  new: ['ಹೊಸ'],
-  old: ['ಹಳೆಯ'],
-  money: ['ಹಣ'],
-  time: ['ಸಮಯ'],
-  life: ['ಜೀವನ'],
-  world: ['ಪ್ರಪಂಚ'],
-  language: ['ಭಾಷೆ'],
-  sister: ['ಅಕ್ಕ', 'ತಂಗಿ'],
-  brother: ['ಅಣ್ಣ', 'ತಮ್ಮ'],
-  wife: ['ಹೆಂಡತಿ'],
-  husband: ['ಗಂಡ'],
-  teacher: ['ಶಿಕ್ಷಕ'],
-  student: ['ವಿದ್ಯಾರ್ಥಿ'],
-  doctor: ['ವೈದ್ಯ'],
-};
-
-const EM: Record<string, string[]> = {};
-(() => {
-  const add = (e: string, k: string) => {
-    const clean = e
-      .toLowerCase()
-      .replace(/^(a|an|the|to) /, '')
-      .trim();
-    if (!/^[a-z' -]+$/.test(clean) || !k) return;
-    if (!EM[clean]) EM[clean] = [];
-    if (!EM[clean].includes(k)) EM[clean].push(k);
-  };
-  D.forEach((d) => {
-    const ks = d[2]
-      .split(/[\/,]/)
-      .map((x) => x.trim())
-      .filter((x) => /^[\u0C80-\u0CFF ]+$/.test(x));
-    if (!ks.length || ks.length > 3) return;
-    d[3].split(/[,\/;]/).forEach((e) => ks.forEach((k) => add(e, k)));
-  });
-  S.forEach((s) => {
-    s[2].split(/[,\/;]/).forEach((e) => add(e, (s[1] || '').trim()));
-  });
-})();
-
-const TK =
-  /chh|ksh|sh|th|dh|ch|kh|gh|jh|ph|bh|ck|aa|ee|ii|oo|uu|ai|au|[a-z]/g;
-
-interface TrlOptions {
-  sh?: string;
-  th?: string;
-  t?: string;
-  d?: string;
-  dh?: string;
-  la?: number;
-  fa?: number;
-  le?: number;
-}
-
-function trl(w: string, o: TrlOptions = {}): string {
-  const tk = w.toLowerCase().match(TK) || [];
-  let la = false;
-  const out: string[] = [];
-  tk.forEach((t, i) => {
-    const p = tk[i - 1];
-    const n = tk[i + 1];
-    let r = t;
-    if (t === 'sh') {
-      const ret = o.sh ? o.sh === 'ಷ' : p === 'r' || Boolean(n && /^[ntm]/.test(n));
-      r = ret ? 'Sh' : 'sh';
-    } else if (t === 'th') r = o.th === 'ಥ' ? 'th' : 't';
-    else if (t === 't') r = o.t === 'ಟ' ? 'T' : 't';
-    else if (t === 'd') r = o.d === 'ಡ' ? 'D' : 'd';
-    else if (t === 'dh') r = o.dh === 'ದ' ? 'd' : 'dh';
-    else if (t === 'chh') r = 'ch';
-    else if (t === 'ch') r = 'c';
-    else if (t === 'ck') r = 'k';
-    else if (t === 'ksh') r = 'kSh';
-    else if (t === 'c') r = n && /^[eiy]/.test(n) ? 's' : 'k';
-    else if (t === 'e' && n === 'sh') r = 'ee';
-    else if (t === 'x') r = 'kSh';
-    else if (t === 'q') r = 'k';
-    else if (t === 'a' && o.la && !la) {
-      la = true;
-      r = 'aa';
-    } else if ((t === 'e' || t === 'o') && o.le) r = t + t;
-    out.push(r);
-  });
-  let s = out.join('');
-  if (o.fa && /a$/.test(s) && !/aa$/.test(s)) s = s.replace(/a$/, 'aa');
-  return phon(s);
-}
-
-const candsEnCache = new Map<string, [string, string][]>();
-function candsEn(w: string, pm: boolean): [string, string][] {
-  const lw = w.toLowerCase();
-  const key = lw + (pm ? '1' : '0');
-  if (candsEnCache.has(key)) return candsEnCache.get(key)!;
-  const out: [string, string][] = [];
-  const add = (k: string, t: string) => {
-    if (k && !out.some((o) => o[0] === k)) out.push([k, t]);
-  };
-  const mean = [...(EK[lw] || []), ...(EM[lw] || [])];
-  if (pm) mean.forEach((k) => add(k, 'meaning'));
-  if (NM[lw]) add(NM[lw], 'common spelling');
-  add(trl(lw), 'sounds like');
-  mean.forEach((k) => add(k, 'meaning'));
-  const tk: string[] = lw.match(TK) ?? [];
-  const has = (t: string) => tk.includes(t);
-  const V: TrlOptions[] = [];
-  if (has('sh')) V.push({ sh: 'ಷ' }, { sh: 'ಶ' });
-  if (has('th')) V.push({ th: 'ಥ' });
-  if (has('t')) V.push({ t: 'ಟ' });
-  if (has('d')) V.push({ d: 'ಡ' });
-  if (has('t') || has('d')) V.push({ t: 'ಟ', d: 'ಡ' });
-  if (has('dh')) V.push({ dh: 'ದ' });
-  if (/a$/.test(lw) && !/aa$/.test(lw)) V.push({ fa: 1 });
-  const fa = tk.indexOf('a');
-  if (fa >= 0 && fa < tk.length - 1) V.push({ la: 1 });
-  if (has('e') || has('o')) V.push({ le: 1 });
-  V.forEach((o) => add(trl(lw, o), 'other spelling'));
-  const r = out.slice(0, 8);
-  candsEnCache.set(key, r);
-  return r;
-}
-
-const WRE =
-  /[A-Za-z]+|[\u0900-\u0C7F\u0D00-\u0D7F][\u0900-\u0C7F\u0D00-\u0D7F\u200c\u200d]*/g;
-
-function scr(w: string): ScriptKey {
-  const c = w.codePointAt(0) || 0;
-  if (c < 0x0900) return 'latin';
-  if (c < 0x0980) return 'dev';
-  if (c < 0x0a00) return 'ben';
-  if (c < 0x0a80) return 'gur';
-  if (c < 0x0b00) return 'guj';
-  if (c < 0x0b80) return 'odi';
-  if (c < 0x0c00) return 'tam';
-  if (c < 0x0c80) return 'tel';
-  return 'mal';
-}
-
-const SCN: Record<ScriptKey, string> = {
-  latin: 'Latin letters',
-  dev: 'Devanagari',
-  ben: 'Bengali script',
-  gur: 'Gurmukhi',
-  guj: 'Gujarati script',
-  odi: 'Odia script',
-  tam: 'Tamil script',
-  tel: 'Telugu script',
-  mal: 'Malayalam script',
-};
-
-const LGO: Record<ScriptKey, [string, string][]> = {
-  latin: [
-    ['en', 'English'],
-    ['rm', 'Roman Kannada / Tulu / Hindi'],
-  ],
-  dev: [
-    ['hi', 'Hindi'],
-    ['mr', 'Marathi'],
-    ['sa', 'Sanskrit'],
-    ['ne', 'Nepali'],
-  ],
-  ben: [
-    ['bn', 'Bengali'],
-    ['as', 'Assamese'],
-  ],
-  gur: [['pa', 'Punjabi']],
-  guj: [['gu', 'Gujarati']],
-  odi: [['or', 'Odia']],
-  tam: [['ta', 'Tamil']],
-  tel: [['te', 'Telugu']],
-  mal: [['ml', 'Malayalam']],
-};
-
-const RMK = new Set(
-  'namaste namaskara namaskaram hegiddira hegide yenu enu alla illa beku ide idu adu nanna ninna nimma namma mane ooru uru kya hai nahi nahin mera meri tum aap hum kaise accha acha bahut kaun kyun naanu neenu avanu avalu banni tuluva ullar'.split(
-    ' '
-  )
-);
-const ENS = new Set(
-  'the is are was and of to in for with that this you your it on be have not from but or my we they will can'.split(
-    ' '
-  )
-);
-
-const BS: Record<Exclude<ScriptKey, 'latin'>, number> = {
-  dev: 0x0900,
-  ben: 0x0980,
-  gur: 0x0a00,
-  guj: 0x0a80,
-  odi: 0x0b00,
-  tam: 0x0b80,
-  tel: 0x0c00,
-  mal: 0x0d00,
-};
-
-const SPX: Record<number, string> = {
-  0x0ba9: 'ನ',
-  0x0bb1: 'ರ',
-  0x0bb4: 'ಳ',
-  0x0d34: 'ಳ',
-  0x0d31: 'ರ',
-  0x0c31: 'ರ',
-  0x0b5c: 'ಡ',
-  0x0b5d: 'ಢ',
-  0x0b5f: 'ಯ',
-  0x0b71: 'ವ',
-  0x09dc: 'ಡ',
-  0x09dd: 'ಢ',
-  0x09df: 'ಯ',
-  0x0958: 'ಕ',
-  0x0959: 'ಖ',
-  0x095a: 'ಗ',
-  0x095b: 'ಜ',
-  0x095c: 'ಡ',
-  0x095d: 'ಢ',
-  0x095e: 'ಫ',
-  0x095f: 'ಯ',
-  0x0950: 'ಓಂ',
-  0x0901: 'ಂ',
-  0x0981: 'ಂ',
-  0x0a70: 'ಂ',
-  0x0a71: '',
-  0x0964: '.',
-  0x0965: '.',
-  0x0911: 'ಒ',
-  0x090d: 'ಎ',
-  0x0945: 'ೆ',
-  0x0949: 'ೊ',
-  0x09ce: 'ತ್',
-  0x0d7a: 'ಣ್',
-  0x0d7b: 'ನ್',
-  0x0d7c: 'ರ್',
-  0x0d7d: 'ಲ್',
-  0x0d7e: 'ಳ್',
-  0x0d7f: 'ಕ್',
-  0x0a91: 'ಒ',
-  0x0ac9: 'ೊ',
-  0x0a8d: 'ಎ',
-  0x0ac5: 'ೆ',
-  0x0a59: 'ಖ',
-  0x0a5a: 'ಗ',
-  0x0a5b: 'ಜ',
-  0x0a5e: 'ಫ',
-};
-const TST: Record<string, string> = {
-  க: 'ಗ',
-  ச: 'ಜ',
-  ட: 'ಡ',
-  த: 'ದ',
-  ப: 'ಬ',
-};
-
-function i2k(s: string, o: { tv?: 'in' | 'all' } = {}): string {
-  let r = '';
-  const a = [...s];
-  a.forEach((ch, i) => {
-    const c = ch.codePointAt(0) || 0;
-    if (c === 0x200c || c === 0x200d) return;
-    if (SPX[c] !== undefined) {
-      r += SPX[c];
-      return;
-    }
-    let sc: Exclude<ScriptKey, 'latin'> | null = null;
-    for (const k of Object.keys(BS) as Exclude<ScriptKey, 'latin'>[]) {
-      if (c >= BS[k] && c < BS[k] + 0x80) {
-        sc = k;
-        break;
-      }
-    }
-    if (!sc) {
-      r += ch;
-      return;
-    }
-    const d = c - BS[sc];
-    if (d >= 0x66 && d <= 0x6f) {
-      r += String(d - 0x66);
-      return;
-    }
-    if (sc === 'tam' && o.tv && TST[ch]) {
-      const pv = a[i - 1];
-      const vo =
-        o.tv === 'all' ||
-        (i > 0 && !(pv === '்' && !'ஙஞணநமன'.includes(a[i - 2] || '')));
-      r += vo ? TST[ch] : String.fromCodePoint(c + 0x100);
-      return;
-    }
-    r += String.fromCodePoint(0x0c80 + d);
-  });
-  return r;
-}
-
-function indicC(w: string, sc: Exclude<ScriptKey, 'latin'>, lg: string): [string, string][] {
-  const out: [string, string][] = [];
-  const add = (k: string, t: string) => {
-    if (k && !out.some((o) => o[0] === k)) out.push([k, t]);
-  };
-  add(i2k(w), 'same sounds');
-  if (
-    sc === 'dev' &&
-    (lg === 'hi' || lg === 'ne') &&
-    /[\u0915-\u0939\u0958-\u095F]$/.test(w)
-  ) {
-    add(i2k(w) + '್', 'Hindi sound (no final a)');
-  }
-  if (sc === 'tam') {
-    add(i2k(w, { tv: 'in' }), 'voiced inside word');
-    add(i2k(w, { tv: 'all' }), 'all voiced');
-  }
-  return out;
-}
-
-function romanC(w: string): [string, string][] {
-  const out: [string, string][] = [];
-  const add = (k: string | undefined, t: string) => {
-    if (k && !out.some((o) => o[0] === k)) out.push([k, t]);
-  };
-  const lw = w.toLowerCase();
-  add(NM[lw], 'common spelling');
-  add(phon(w), 'as typed');
-  add(phon(lw), 'lowercase sounds');
-  if (/a$/.test(lw) && !/aa$/.test(lw)) {
-    add(phon(lw.replace(/a$/, 'aa')), 'long final a');
-  }
-  const ai = [...lw.matchAll(/a/g)].map((m) => m.index ?? 0);
-  if (ai.length > 1) {
-    const idx = ai[ai.length - 2];
-    add(phon(lw.slice(0, idx) + 'aa' + lw.slice(idx + 1)), 'long a before last');
-  }
-  const lo = lw.replace(/e/g, 'ee').replace(/o/g, 'oo');
-  add(phon(lo), 'long e / o');
-  if (/a$/.test(lw) && !/aa$/.test(lw)) {
-    add(phon(lo.replace(/a$/, 'aa')), 'long e / o / final a');
-  }
-  add(trl(lw), 'English sounds');
-  return out;
-}
-
-const L_HL = [
-  ...'ಅಆಇಈಉಊಋಎಏಐಒಓಔಕಖಗಘಙಚಛಜಝಞಟಠಡಢಣತಥದಧನಪಫಬಭಮಯರಲವಶಷಸಹಳ',
-];
-const L_IV = [0, 1, 3, 7, 16, 35];
 
 function safeGetJson<T>(key: string, fallback: T): T {
   try {
@@ -1302,9 +117,14 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
   const [text, setText] = useState<string>('');
   const [mode, setMode] = useState<InputMode>('en');
   const [convertOther, setConvertOther] = useState<boolean>(true);
-  const [preferMeaning, setPreferMeaning] = useState<boolean>(() =>
-    safeGetJson<string | number>('tp_pm', 0) === '1' || safeGetJson<number>('tp_pm', 0) === 1
-  );
+  const [translationPref, setTranslationPref] = useState<TranslationPreference>(() => {
+    const saved = safeGetJson<string | number>('tp_pm', 'gt');
+    if (saved === '2' || saved === 2 || saved === 'tu') return 'tu';
+    if (saved === '0' || saved === 0 || saved === 'sound') return 'sound';
+    if (saved === '1' || saved === 1 || saved === 'kn') return 'gt';
+    if (saved === 'gt') return 'gt';
+    return 'gt';
+  });
   const [fontSize, setFontSize] = useState<number>(34);
   const [showKeyboard, setShowKeyboard] = useState<boolean>(true);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
@@ -1316,6 +136,21 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
     safeGetJson<Record<string, string>>('tp_lg', {})
   );
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
+  const [expandedWords, setExpandedWords] = useState<Record<string, boolean>>({});
+
+  // Live Google Translate + Google Input Tools state
+  const [googleEnabled, setGoogleEnabled] = useState<boolean>(true);
+  const [googleLoading, setGoogleLoading] = useState<boolean>(false);
+  const [googleData, setGoogleData] = useState<{
+    queryKey: string;
+    translatedText: string;
+    romanization: string;
+    detectedLang: string;
+    alternatives: { kn: string; tag: string }[];
+    wordSuggestions: Record<string, { kn: string; tag: string }[]>;
+  } | null>(null);
+  const [sentenceChoice, setSentenceChoice] = useState<string | null>(null);
+  const [useWordByWord, setUseWordByWord] = useState<boolean>(false);
 
   // Nudi phonetic composing buffer refs
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1430,16 +265,146 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
     [autoLatinLang, langChoice]
   );
 
+  // Script counts & distinct words for language confirmation + candidate verifier
+  const { scriptCounts, distinctWords } = useMemo(() => {
+    const cnt: Partial<Record<ScriptKey, number>> = {};
+    const ws: string[] = [];
+    (text.match(WRE) || []).forEach((w) => {
+      const s = scr(w);
+      cnt[s] = (cnt[s] || 0) + 1;
+      const lw = w.toLowerCase();
+      if (!ws.some((x) => x.toLowerCase() === lw)) ws.push(w);
+    });
+    return { scriptCounts: cnt, distinctWords: ws };
+  }, [text]);
+
+  const nonKannadaText = useMemo(
+    () => text.replace(/[\u0C80-\u0CFF\u200c\u200d*]+/g, ' ').replace(/\s+/g, ' ').trim(),
+    [text]
+  );
+
+  const activeSourceLang = useMemo(() => {
+    const scripts = Object.keys(scriptCounts) as ScriptKey[];
+    if (scripts.length === 1) {
+      return effLang(scripts[0]);
+    }
+    if (scripts.length === 0) return 'en';
+    if (scripts.includes('latin') && scripts.length === 1) {
+      return effLang('latin');
+    }
+    return 'auto';
+  }, [effLang, scriptCounts]);
+
+  const googleQueryKey = `${activeSourceLang}|${nonKannadaText}`;
+
+  useEffect(() => {
+    setSentenceChoice(null);
+  }, [googleQueryKey]);
+
+  useEffect(() => {
+    if (!convertOther || !googleEnabled || mode !== 'en' || !nonKannadaText) {
+      setGoogleLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setGoogleLoading(true);
+      try {
+        const res = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            text: nonKannadaText,
+            sourceLang: activeSourceLang,
+            words: distinctWords.slice(0, 12),
+          }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          ok?: boolean;
+          translatedText?: string;
+          romanization?: string;
+          detectedLang?: string;
+          alternatives?: { kn: string; tag: string }[];
+          wordSuggestions?: Record<string, { kn: string; tag: string }[]>;
+        };
+        if (data?.ok) {
+          setGoogleData({
+            queryKey: googleQueryKey,
+            translatedText: data.translatedText || '',
+            romanization: data.romanization || '',
+            detectedLang: data.detectedLang || activeSourceLang,
+            alternatives: Array.isArray(data.alternatives) ? data.alternatives : [],
+            wordSuggestions: data.wordSuggestions || {},
+          });
+        }
+      } catch (err) {
+        if ((err as Error)?.name !== 'AbortError') {
+          // Quietly keep local engine active if offline
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setGoogleLoading(false);
+        }
+      }
+    }, 240);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [activeSourceLang, convertOther, distinctWords, googleEnabled, googleQueryKey, mode, nonKannadaText]);
+
   const getCands = useCallback(
     (w: string): [string, string][] => {
       const sc = scr(w);
-      if (sc !== 'latin') {
-        return indicC(w, sc, effLang(sc));
+      const localCands: [string, string][] =
+        sc !== 'latin'
+          ? indicC(w, sc, effLang(sc))
+          : effLang('latin') === 'rm'
+          ? romanC(w)
+          : candsEn(w, translationPref);
+
+      const gWordList =
+        googleEnabled && googleData?.queryKey === googleQueryKey
+          ? googleData.wordSuggestions[w.toLowerCase()] || []
+          : [];
+
+      if (gWordList.length === 0) return localCands;
+
+      const merged: [string, string][] = [];
+      const addMerged = (kk: string, tag: string) => {
+        const clean = kk.trim();
+        if (!clean || merged.some((m) => m[0] === clean)) return;
+        merged.push([clean, tag]);
+      };
+
+      if (translationPref === 'tu') {
+        localCands
+          .filter(([, tag]) => tag === 'Tulu word')
+          .forEach(([kk, tag]) => addMerged(kk, tag));
+        gWordList.forEach((g) => addMerged(g.kn, g.tag));
+        localCands.forEach(([kk, tag]) => addMerged(kk, tag));
+      } else if (translationPref === 'sound' || effLang('latin') === 'rm') {
+        gWordList
+          .filter((g) => g.tag.toLowerCase().includes('phonetic') || g.tag.toLowerCase().includes('input'))
+          .forEach((g) => addMerged(g.kn, g.tag));
+        localCands
+          .filter(([, tag]) => tag === 'recommended' || tag === 'phonetic' || tag === 'common spelling')
+          .forEach(([kk, tag]) => addMerged(kk, tag));
+        gWordList.forEach((g) => addMerged(g.kn, g.tag));
+        localCands.forEach(([kk, tag]) => addMerged(kk, tag));
+      } else {
+        // 'gt' / 'kn' mode: Google Translate results first, then Input Tools + local dictionary/phonetics
+        gWordList.forEach((g) => addMerged(g.kn, g.tag));
+        localCands.forEach(([kk, tag]) => addMerged(kk, tag));
       }
-      if (effLang('latin') === 'rm') return romanC(w);
-      return candsEn(w, preferMeaning);
+
+      return merged.slice(0, 14);
     },
-    [effLang, preferMeaning]
+    [effLang, googleData, googleEnabled, googleQueryKey, translationPref]
   );
 
   const getChosen = useCallback(
@@ -1460,12 +425,54 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
     [getChosen, mode]
   );
 
+  const hasCurrentWordOverride = useMemo(
+    () => distinctWords.some((w) => Boolean(overrides[w.toLowerCase()])),
+    [distinctWords, overrides]
+  );
+
+  const activeGoogleFullTranslation = useMemo(() => {
+    if (
+      !convertOther ||
+      !googleEnabled ||
+      mode !== 'en' ||
+      useWordByWord ||
+      activeSourceLang === 'rm' ||
+      (translationPref !== 'gt' && translationPref !== 'kn') ||
+      !googleData ||
+      googleData.queryKey !== googleQueryKey ||
+      !googleData.translatedText
+    ) {
+      return '';
+    }
+    // For multi-word sentences, use full-sentence Google Translate unless user explicitly switched to Pick Word-by-Word;
+    // for a single word, honor its word-level override immediately.
+    if (distinctWords.length === 1 && hasCurrentWordOverride) return '';
+    return sentenceChoice || googleData.translatedText;
+  }, [
+    activeSourceLang,
+    convertOther,
+    distinctWords.length,
+    googleData,
+    googleEnabled,
+    googleQueryKey,
+    hasCurrentWordOverride,
+    mode,
+    sentenceChoice,
+    translationPref,
+    useWordByWord,
+  ]);
+
   const toKannadaText = useCallback(
-    (raw: string): string =>
-      convertOther
-        ? raw.replace(/[^\u0C80-\u0CFF]+/g, translitSegment)
-        : raw,
-    [convertOther, translitSegment]
+    (raw: string): string => {
+      if (!convertOther) return raw;
+      if (activeGoogleFullTranslation && raw === text) {
+        if (!/[\u0C80-\u0CFF]/.test(raw)) {
+          return activeGoogleFullTranslation;
+        }
+      }
+      return raw.replace(/[^\u0C80-\u0CFF]+/g, translitSegment);
+    },
+    [activeGoogleFullTranslation, convertOther, text, translitSegment]
   );
 
   const kannadaResolved = useMemo(() => toKannadaText(text), [text, toKannadaText]);
@@ -1474,6 +481,9 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
 
   // Output display chunks (preserving non-Kannada styling when Other languages -> Tulu is off)
   const outputChunks = useMemo(() => {
+    if (convertOther && activeGoogleFullTranslation && !/[\u0C80-\u0CFF]/.test(text)) {
+      return [{ key: 0, isLatin: false, val: kn2tu(activeGoogleFullTranslation) }];
+    }
     const tokens =
       text.match(/[\u0C80-\u0CFF][\u0C80-\u0CFF\u200c\u200d*]*|[^\u0C80-\u0CFF]+/g) ||
       [];
@@ -1486,20 +496,7 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
       }
       return { key: idx, isLatin: true, val: r };
     });
-  }, [convertOther, text, translitSegment]);
-
-  // Script counts & distinct words for language confirmation + candidate verifier
-  const { scriptCounts, distinctWords } = useMemo(() => {
-    const cnt: Partial<Record<ScriptKey, number>> = {};
-    const ws: string[] = [];
-    (text.match(WRE) || []).forEach((w) => {
-      const s = scr(w);
-      cnt[s] = (cnt[s] || 0) + 1;
-      const lw = w.toLowerCase();
-      if (!ws.some((x) => x.toLowerCase() === lw)) ws.push(w);
-    });
-    return { scriptCounts: cnt, distinctWords: ws };
-  }, [text]);
+  }, [activeGoogleFullTranslation, convertOther, text, translitSegment]);
 
   // Helper to insert/delete inside textarea
   const insertAtCursor = useCallback((str: string) => {
@@ -2221,10 +1218,29 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
 
             {/* Output Column */}
             <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-4 sm:p-5 space-y-3 shadow-[0_3px_0_#2F3E4E] dark:shadow-[0_3px_0_#020617]">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
-                  Tulu Lipi Preview (Baravu)
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
+                    Tulu Lipi Preview (Baravu)
+                  </span>
+                  {convertOther && mode === 'en' && googleEnabled && (
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                        googleLoading
+                          ? 'bg-[#FEF3C7] text-[#92400E] border-[#F59E0B]/40'
+                          : googleData?.queryKey === googleQueryKey && googleData.translatedText
+                          ? 'bg-[#CEE5DC] dark:bg-emerald-500/20 text-[#12805C] dark:text-emerald-300 border-[#12805C]/30'
+                          : 'bg-white dark:bg-[#0B1120] text-[#475569] dark:text-slate-300 border-[#2F3E4E]/20'
+                      }`}
+                    >
+                      {googleLoading
+                        ? 'Google Translating…'
+                        : googleData?.queryKey === googleQueryKey && googleData.translatedText
+                        ? `Google Translate (${googleData.detectedLang} → kn)`
+                        : 'Google Translate Ready'}
+                    </span>
+                  )}
+                </div>
                 <label className="inline-flex items-center gap-2 text-xs text-[#475569] dark:text-slate-300 font-medium">
                   <span>Size ({fontSize}px)</span>
                   <input
@@ -2365,28 +1381,58 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
               <strong className="font-display text-sm text-[#2F3E4E] dark:text-slate-100">
                 Any language → Kannada → Tulu: Confirm Spellings
               </strong>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
-                  aria-pressed={preferMeaning}
-                  onClick={() => {
-                    const next = !preferMeaning;
-                    setPreferMeaning(next);
-                    safeSetJson('tp_pm', next ? '1' : '0');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border-[1.5px] cursor-pointer ${
-                    preferMeaning
-                      ? 'bg-[#F9C80E] text-[#2F3E4E] border-[#2F3E4E]'
+                  aria-pressed={googleEnabled}
+                  onClick={() => setGoogleEnabled((g) => !g)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border-[1.5px] cursor-pointer ${
+                    googleEnabled
+                      ? 'bg-[#CEE5DC] dark:bg-emerald-500/20 text-[#12805C] dark:text-emerald-300 border-[#2F3E4E] dark:border-emerald-500/40'
                       : 'bg-white dark:bg-[#0B1120] text-[#475569] dark:text-slate-300 border-[#2F3E4E]/30 dark:border-slate-700'
                   }`}
                 >
-                  Translate known words: {preferMeaning ? 'ON' : 'OFF'}
+                  Google Translator: {googleEnabled ? 'ON' : 'OFF'}
                 </button>
+                <div
+                  role="group"
+                  aria-label="Word conversion preference"
+                  className="inline-flex rounded-lg border-[1.5px] border-[#2F3E4E]/30 dark:border-slate-700 bg-white dark:bg-[#0B1120] p-0.5"
+                >
+                  {(
+                    [
+                      ['gt', 'Google Translate', 'gt'],
+                      ['sound', 'Sounds / Phonetic', '0'],
+                      ['tu', 'Sari Tulu Word', '2'],
+                    ] as [TranslationPreference, string, string][]
+                  ).map(([prefKey, prefLabel, storeVal]) => (
+                    <button
+                      key={prefKey}
+                      type="button"
+                      aria-pressed={translationPref === prefKey || (prefKey === 'gt' && translationPref === 'kn')}
+                      onClick={() => {
+                        setTranslationPref(prefKey);
+                        setUseWordByWord(false);
+                        safeSetJson('tp_pm', storeVal);
+                      }}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
+                        translationPref === prefKey || (prefKey === 'gt' && translationPref === 'kn')
+                          ? 'bg-[#F9C80E] text-[#2F3E4E] border border-[#2F3E4E]'
+                          : 'text-[#475569] dark:text-slate-300 hover:bg-[#FEF2C8] dark:hover:bg-slate-800 border border-transparent'
+                      }`}
+                    >
+                      {prefLabel}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   onClick={() => {
                     setOverrides({});
                     setLangChoice({});
+                    setExpandedWords({});
+                    setSentenceChoice(null);
+                    setUseWordByWord(false);
                     safeSetJson('tp_ov', {});
                     safeSetJson('tp_lg', {});
                     triggerNotice('Saved word choices cleared');
@@ -2402,12 +1448,69 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
               {!convertOther
                 ? 'Turn on “Other languages → Tulu” above to convert non-Kannada text automatically.'
                 : distinctWords.length
-                ? '1) Confirm the detected language. 2) Tap the right Kannada spelling for each word or type your own and press Enter.'
-                : 'Type or paste text in any language (e.g. Harshith, राम, தமிழ், తెలుగు, മലയാളം) to review & confirm word spellings.'}
+                ? '1) Confirm the detected language. 2) Review Google Translate sentence alternatives or tap any Kannada/Tulu suggestion per word (expand “+ more” for up to 14 options), or type Kannada / English phonetics (e.g. cherri).'
+                : 'Type or paste text in any language (e.g. cherry, good morning, how are you, Harshith, नमस्ते, வணக்கம்) for instant Google Translate + Tulu Lipi.'}
             </p>
 
             {convertOther && (
               <div className="space-y-2">
+                {/* Google Translate Full Sentence Card (when 2+ words & Google data present) */}
+                {googleEnabled &&
+                  distinctWords.length > 1 &&
+                  activeSourceLang !== 'rm' &&
+                  googleData?.queryKey === googleQueryKey &&
+                  googleData.alternatives.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#2F3E4E]/12 dark:border-slate-700/80">
+                      <span className="font-bold text-xs text-[#12805C] dark:text-emerald-400 min-w-[84px]">
+                        Full Sentence
+                      </span>
+                      {googleData.alternatives.slice(0, 5).map((alt) => {
+                        const isActive =
+                          Boolean(activeGoogleFullTranslation) &&
+                          (sentenceChoice || googleData.translatedText) === alt.kn;
+                        return (
+                          <button
+                            key={alt.kn}
+                            type="button"
+                            aria-pressed={isActive}
+                            onClick={() => {
+                              setUseWordByWord(false);
+                              setSentenceChoice(alt.kn);
+                              // Clear word overrides so full-sentence Google Translate displays cleanly
+                              const nextOv = { ...overrides };
+                              distinctWords.forEach((w) => delete nextOv[w.toLowerCase()]);
+                              setOverrides(nextOv);
+                              safeSetJson('tp_ov', nextOv);
+                            }}
+                            className={`inline-flex flex-col items-start px-3 py-1 rounded-xl border text-left transition cursor-pointer ${
+                              isActive
+                                ? 'bg-[#F9C80E] text-[#2F3E4E] border-[#2F3E4E] shadow-xs'
+                                : 'bg-white dark:bg-[#0B1120] text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/25 dark:border-slate-700 hover:bg-[#FEF2C8] dark:hover:bg-slate-800'
+                            }`}
+                          >
+                            <span className="text-xs font-semibold">{alt.kn}</span>
+                            <span className="tulu-lipi-font text-base leading-tight">
+                              {kn2tu(alt.kn)}
+                            </span>
+                            <span className="text-[10px] opacity-75">{alt.tag}</span>
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        aria-pressed={useWordByWord || !activeGoogleFullTranslation}
+                        onClick={() => setUseWordByWord(true)}
+                        className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer ${
+                          useWordByWord || !activeGoogleFullTranslation
+                            ? 'bg-[#2F3E4E] text-white border-[#2F3E4E] dark:bg-[#F9C80E] dark:text-[#0F172A]'
+                            : 'bg-white dark:bg-[#0B1120] text-[#475569] dark:text-slate-300 border-[#2F3E4E]/25 dark:border-slate-700'
+                        }`}
+                      >
+                        Pick Word-by-Word
+                      </button>
+                    </div>
+                  )}
+
                 {/* Language rows */}
                 {(Object.keys(scriptCounts) as ScriptKey[]).map((sc) => {
                   const ok = Boolean(langChoice[sc]);
@@ -2462,6 +1565,26 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
                   if (overrides[k] && !list.some((o) => o[0] === overrides[k])) {
                     list.unshift([overrides[k], 'your spelling']);
                   }
+                  const isExpanded = Boolean(expandedWords[k]);
+                  let visibleList = isExpanded ? list : list.slice(0, 6);
+                  if (!isExpanded && !visibleList.some(([kk]) => kk === cur)) {
+                    const chosenItem = list.find(([kk]) => kk === cur);
+                    if (chosenItem) {
+                      visibleList = [chosenItem, ...visibleList.slice(0, 5)];
+                    }
+                  }
+                  const hiddenCount = Math.max(0, list.length - visibleList.length);
+                  const rawCustom = customInputs[k] || '';
+                  const resolvedCustom = resolveCustomSpellingInput(rawCustom);
+                  const applyCustom = () => {
+                    if (!resolvedCustom) return;
+                    setUseWordByWord(true);
+                    const next = { ...overrides, [k]: resolvedCustom };
+                    setOverrides(next);
+                    safeSetJson('tp_ov', next);
+                    setCustomInputs((prev) => ({ ...prev, [k]: '' }));
+                  };
+
                   return (
                     <div
                       key={w}
@@ -2478,53 +1601,96 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
                               : 'bg-[#FEF3C7] text-[#92400E]'
                           }`}
                         >
-                          {overrides[k] ? '✓ chosen' : 'check'}
+                          {overrides[k] ? '✓ chosen' : 'pick best'}
                         </span>
                       )}
-                      {list.map(([kk, tag]) => (
-                        <button
-                          key={`${kk}-${tag}`}
-                          type="button"
-                          aria-pressed={kk === cur}
-                          onClick={() => {
-                            const next = { ...overrides, [k]: kk };
-                            setOverrides(next);
-                            safeSetJson('tp_ov', next);
-                          }}
-                          className={`inline-flex flex-col items-start px-3 py-1 rounded-xl border text-left transition cursor-pointer ${
-                            kk === cur
-                              ? 'bg-[#F9C80E] text-[#2F3E4E] border-[#2F3E4E]'
-                              : 'bg-white dark:bg-[#0B1120] text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/25 dark:border-slate-700 hover:bg-[#FEF2C8] dark:hover:bg-slate-800'
-                          }`}
-                        >
-                          <span className="text-sm font-semibold">{kk}</span>
-                          <span className="tulu-lipi-font text-lg leading-tight">
-                            {kn2tu(kk)}
-                          </span>
-                          <span className="text-[10px] opacity-75">{tag}</span>
-                        </button>
-                      ))}
-                      <input
-                        type="text"
-                        value={customInputs[k] || ''}
-                        onChange={(e) =>
-                          setCustomInputs((prev) => ({ ...prev, [k]: e.target.value }))
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const val = (customInputs[k] || '').trim();
-                            if (val) {
-                              const next = { ...overrides, [k]: val };
+                      {visibleList.map(([kk, tag]) => {
+                        const isSpecialTag =
+                          tag.startsWith('Google') ||
+                          tag === 'Tulu word' ||
+                          tag === 'Kannada meaning' ||
+                          tag === 'recommended' ||
+                          tag === 'standard spelling' ||
+                          tag === 'your spelling';
+                        return (
+                          <button
+                            key={`${kk}-${tag}`}
+                            type="button"
+                            aria-pressed={kk === cur}
+                            onClick={() => {
+                              setUseWordByWord(true);
+                              const next = { ...overrides, [k]: kk };
                               setOverrides(next);
                               safeSetJson('tp_ov', next);
-                              setCustomInputs((prev) => ({ ...prev, [k]: '' }));
-                            }
+                            }}
+                            className={`inline-flex flex-col items-start px-3 py-1 rounded-xl border text-left transition cursor-pointer ${
+                              kk === cur
+                                ? 'bg-[#F9C80E] text-[#2F3E4E] border-[#2F3E4E] shadow-xs'
+                                : 'bg-white dark:bg-[#0B1120] text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/25 dark:border-slate-700 hover:bg-[#FEF2C8] dark:hover:bg-slate-800'
+                            }`}
+                          >
+                            <span className="text-sm font-semibold">{kk}</span>
+                            <span className="tulu-lipi-font text-lg leading-tight">
+                              {kn2tu(kk)}
+                            </span>
+                            <span
+                              className={`text-[10px] leading-tight mt-0.5 ${
+                                kk === cur
+                                  ? 'font-bold text-[#2F3E4E]'
+                                  : isSpecialTag
+                                  ? 'font-semibold text-[#12805C] dark:text-emerald-400'
+                                  : 'opacity-75'
+                              }`}
+                            >
+                              {tag}
+                            </span>
+                          </button>
+                        );
+                      })}
+                      {list.length > 6 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedWords((prev) => ({ ...prev, [k]: !prev[k] }))
                           }
-                        }}
-                        placeholder="Other spelling…"
-                        aria-label={`Custom Kannada spelling for ${w}`}
-                        className="w-32 px-2.5 py-1.5 rounded-xl border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs text-[#2F3E4E] dark:text-slate-100"
-                      />
+                          className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold border border-dashed border-[#2F3E4E]/35 dark:border-slate-600 bg-white/70 dark:bg-[#0B1120] text-[#2F3E4E] dark:text-slate-200 hover:bg-[#FEF2C8] dark:hover:bg-slate-800 cursor-pointer"
+                        >
+                          {isExpanded
+                            ? 'Show fewer'
+                            : `+ ${hiddenCount} more ${hiddenCount === 1 ? 'option' : 'options'}`}
+                        </button>
+                      )}
+                      <div className="inline-flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={rawCustom}
+                          onChange={(e) =>
+                            setCustomInputs((prev) => ({ ...prev, [k]: e.target.value }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              applyCustom();
+                            }
+                          }}
+                          placeholder="Other / phonetic…"
+                          aria-label={`Custom Kannada or phonetic spelling for ${w}`}
+                          className="w-36 px-2.5 py-1.5 rounded-xl border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs text-[#2F3E4E] dark:text-slate-100"
+                        />
+                        {rawCustom.trim() && resolvedCustom && (
+                          <button
+                            type="button"
+                            onClick={applyCustom}
+                            title={`Apply ${resolvedCustom}`}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#12805C] hover:bg-[#0f6b4d] text-white text-[11px] font-bold cursor-pointer"
+                          >
+                            <span>Apply: {resolvedCustom}</span>
+                            <span className="tulu-lipi-font text-sm leading-none">
+                              {kn2tu(resolvedCustom)}
+                            </span>
+                          </button>
+                        )}
+                      </div>
                       {overrides[k] && (
                         <button
                           type="button"

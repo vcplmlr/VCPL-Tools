@@ -1730,5 +1730,236 @@ export function createApiRouter(): Router {
     });
   });
 
+  // Google Translate + Google Input Tools Kannada Bridge for Tulusiri Pro
+  const translateCache = new Map<string, { ts: number; data: unknown }>();
+  const TRANSLATE_CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+  const translateLimiter = createRateLimiter(120, 60_000);
+
+  const ALLOWED_GT_LANGS = new Set([
+    'auto',
+    'en',
+    'hi',
+    'mr',
+    'sa',
+    'ne',
+    'bn',
+    'as',
+    'pa',
+    'gu',
+    'or',
+    'ta',
+    'te',
+    'ml',
+    'kn',
+  ]);
+
+  async function fetchGoogleTranslateKn(query: string, sl: string) {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(
+      sl
+    )}&tl=kn&dt=t&dt=bd&dt=at&dt=rm&q=${encodeURIComponent(query)}`;
+    const resp = await fetch(url, {
+      signal: AbortSignal.timeout(4500),
+    });
+    if (!resp.ok) {
+      throw new Error(`Google Translate HTTP ${resp.status}`);
+    }
+    const raw = (await resp.json()) as any[];
+    const segments = Array.isArray(raw?.[0]) ? raw[0] : [];
+    const translatedText = segments
+      .map((seg) => (Array.isArray(seg) && typeof seg[0] === 'string' ? seg[0] : ''))
+      .join('')
+      .trim();
+
+    let romanization = '';
+    for (const seg of segments) {
+      if (Array.isArray(seg) && typeof seg[2] === 'string' && seg[2].trim()) {
+        romanization = seg[2].trim();
+        break;
+      }
+    }
+
+    const alternatives: { kn: string; tag: string }[] = [];
+    const pushAlt = (kn: string, tag: string) => {
+      const clean = kn.trim();
+      if (!clean || !/[\u0C80-\u0CFF]/.test(clean)) return;
+      if (!alternatives.some((a) => a.kn === clean)) {
+        alternatives.push({ kn: clean, tag });
+      }
+    };
+
+    if (translatedText) {
+      pushAlt(translatedText, 'Google Translate');
+    }
+
+    // Alternate sentence translations (dt=at -> raw[5])
+    if (Array.isArray(raw?.[5])) {
+      for (const block of raw[5]) {
+        const list = Array.isArray(block?.[2]) ? block[2] : [];
+        for (const entry of list) {
+          if (Array.isArray(entry) && typeof entry[0] === 'string') {
+            pushAlt(entry[0], 'Google alternative');
+          }
+        }
+      }
+    }
+
+    // Dictionary synonyms (dt=bd -> raw[1])
+    if (Array.isArray(raw?.[1])) {
+      for (const group of raw[1]) {
+        const pos = typeof group?.[0] === 'string' && group[0] ? `Google ${group[0]}` : 'Google meaning';
+        const list = Array.isArray(group?.[1]) ? group[1] : [];
+        for (const word of list) {
+          if (typeof word === 'string') {
+            pushAlt(word, pos);
+          }
+        }
+      }
+    }
+
+    const detectedLang = typeof raw?.[2] === 'string' ? raw[2] : sl;
+    return { translatedText, romanization, detectedLang, alternatives };
+  }
+
+  async function fetchGoogleInputToolsKn(word: string): Promise<string[]> {
+    const clean = word.trim();
+    if (!clean || !/^[A-Za-z]+$/.test(clean)) return [];
+    const url = `https://inputtools.google.com/request?text=${encodeURIComponent(
+      clean
+    )}&itc=kn-t-i0-und&num=8&cp=0&cs=1&ie=utf-8&oe=utf-8`;
+    try {
+      const resp = await fetch(url, { signal: AbortSignal.timeout(3500) });
+      if (!resp.ok) return [];
+      const data = (await resp.json()) as any[];
+      const list = data?.[1]?.[0]?.[1];
+      if (!Array.isArray(list)) return [];
+      return list.filter(
+        (x): x is string =>
+          typeof x === 'string' &&
+          /[\u0C80-\u0CFF]/.test(x) &&
+          !/[A-Za-z]/.test(x)
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  router.post('/translate', translateLimiter, async (req, res) => {
+    try {
+      const body = req.body as {
+        text?: unknown;
+        sourceLang?: unknown;
+        words?: unknown;
+      };
+      const text = typeof body?.text === 'string' ? body.text.trim().slice(0, 2000) : '';
+      const rawSl = typeof body?.sourceLang === 'string' ? body.sourceLang.trim().toLowerCase() : 'auto';
+      const isRomanIndic = rawSl === 'rm';
+      const sl = ALLOWED_GT_LANGS.has(rawSl) ? rawSl : 'auto';
+
+      const requestedWords = Array.isArray(body?.words)
+        ? body.words
+            .filter((w): w is string => typeof w === 'string' && w.trim().length > 0 && w.trim().length <= 48)
+            .map((w) => w.trim())
+        : [];
+      const uniqueWords: string[] = [];
+      for (const w of requestedWords) {
+        const lw = w.toLowerCase();
+        if (!uniqueWords.some((u) => u.toLowerCase() === lw)) {
+          uniqueWords.push(w);
+        }
+        if (uniqueWords.length >= 12) break;
+      }
+
+      if (!text && uniqueWords.length === 0) {
+        res.status(400).json({ ok: false, error: 'Text is required for translation.' });
+        return;
+      }
+
+      const cacheKey = `${sl}|${isRomanIndic ? 'rm' : 'tr'}|${text}|${uniqueWords.join(',')}`;
+      const cached = translateCache.get(cacheKey);
+      if (cached && Date.now() - cached.ts < TRANSLATE_CACHE_TTL_MS) {
+        res.json(cached.data);
+        return;
+      }
+
+      // 1. Full text Google Translate (skip when explicit Roman Kannada/Tulu/Hindi mode so names/Tulu aren't mangled)
+      let gtFull: Awaited<ReturnType<typeof fetchGoogleTranslateKn>> | null = null;
+      if (text && !isRomanIndic) {
+        try {
+          gtFull = await fetchGoogleTranslateKn(text, sl);
+        } catch (err) {
+          console.warn('Google Translate full-text lookup failed:', err instanceof Error ? err.message : err);
+        }
+      }
+
+      // 2. Per-word Google Input Tools + Google Translate candidates in parallel
+      const wordSuggestions: Record<string, { kn: string; tag: string }[]> = {};
+      await Promise.all(
+        uniqueWords.map(async (w) => {
+          const lw = w.toLowerCase();
+          const list: { kn: string; tag: string }[] = [];
+          const pushWord = (kn: string, tag: string) => {
+            const c = kn.trim();
+            if (!c || !/[\u0C80-\u0CFF]/.test(c)) return;
+            if (!list.some((item) => item.kn === c)) {
+              list.push({ kn: c, tag });
+            }
+          };
+
+          const isLatinWord = /^[A-Za-z]+$/.test(w);
+          const [itList, gtWord] = await Promise.all([
+            isLatinWord ? fetchGoogleInputToolsKn(w) : Promise.resolve([]),
+            // If there's only 1 word matching text, reuse gtFull instead of double-calling!
+            !isRomanIndic
+              ? gtFull && text.toLowerCase() === lw
+                ? Promise.resolve(gtFull)
+                : fetchGoogleTranslateKn(w, isLatinWord ? 'en' : sl).catch(() => null)
+              : Promise.resolve(null),
+          ]);
+
+          if (isRomanIndic) {
+            itList.forEach((kn, idx) =>
+              pushWord(kn, idx === 0 ? 'Google Input (recommended)' : 'Google Input')
+            );
+          } else {
+            if (gtWord?.alternatives?.length) {
+              gtWord.alternatives.forEach((alt) => pushWord(alt.kn, alt.tag));
+            }
+            itList.forEach((kn, idx) =>
+              pushWord(kn, idx === 0 ? 'Google phonetic' : 'Google phonetic alt')
+            );
+          }
+
+          if (list.length > 0) {
+            wordSuggestions[lw] = list.slice(0, 10);
+          }
+        })
+      );
+
+      const payload = {
+        ok: Boolean(gtFull || Object.keys(wordSuggestions).length > 0),
+        translatedText: gtFull?.translatedText || '',
+        romanization: gtFull?.romanization || '',
+        detectedLang: gtFull?.detectedLang || (isRomanIndic ? 'rm' : sl),
+        alternatives: gtFull?.alternatives || [],
+        wordSuggestions,
+      };
+
+      if (payload.ok) {
+        if (translateCache.size >= 500) {
+          const oldestKey = translateCache.keys().next().value;
+          if (oldestKey) translateCache.delete(oldestKey);
+        }
+        translateCache.set(cacheKey, { ts: Date.now(), data: payload });
+      }
+
+      res.json(payload);
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Translation failed.',
+      });
+    }
+  });
+
   return router;
 }

@@ -272,6 +272,7 @@ export default defineConfig(() => {
       },
     },
     optimizeDeps: {
+      entries: ['index.html', 'src/main.tsx'],
       include: [
         'react',
         'react-dom',

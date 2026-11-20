@@ -20,6 +20,13 @@ import {
   Trash2,
 } from 'lucide-react';
 import {
+  buildNpciUpiIntentUrl,
+  sanitizeNpciNote,
+  sanitizeNpciPayeeName,
+  sanitizeNpciRef,
+  validateNpciUpiIntentUrl,
+} from '../../utils/npciUpiValidator';
+import {
   safeReadStorage,
   safeRemoveStorage,
   safeWriteStorage,
@@ -227,28 +234,9 @@ const BANK_VPA_SUFFIX_HINTS: Record<string, string[]> = {
   AUBL: ['@aubank', '@ybl'],
 };
 
-function sanitizePayeeName(raw: string): string {
-  return raw
-    .replace(/[^a-zA-Z0-9 ._-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 50);
-}
-
-function sanitizeNote(raw: string): string {
-  return raw
-    .replace(/[^a-zA-Z0-9 ._-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 50);
-}
-
-function sanitizeRef(raw: string): string {
-  return raw
-    .replace(/[^A-Za-z0-9._-]/g, '')
-    .trim()
-    .slice(0, 35);
-}
+const sanitizePayeeName = sanitizeNpciPayeeName;
+const sanitizeNote = sanitizeNpciNote;
+const sanitizeRef = sanitizeNpciRef;
 
 export const QrUpiStudioView: React.FC = () => {
   const initialDraft = useMemo(
@@ -587,37 +575,18 @@ export const QrUpiStudioView: React.FC = () => {
   const effectivePayload = useMemo(() => {
     if (!effectiveUpiId || !sanitizedBusinessName) return '';
 
-    // Strict NPCI parameter order & RFC 3986 %20 encoding (never '+' for spaces)
-    const parts: string[] = [
-      `pa=${effectiveUpiId}`,
-      `pn=${encodeURIComponent(sanitizedBusinessName)}`,
-    ];
-
-    if (parsedAmount > 0) {
-      parts.push(`am=${parsedAmount.toFixed(2)}`);
-    }
-
-    parts.push('cu=INR');
-
-    const cleanTr = sanitizeRef(invoiceRef);
-    if (cleanTr) {
-      parts.push(`tr=${encodeURIComponent(cleanTr)}`);
-    }
-
-    const cleanNote = sanitizeNote(remarks);
-    if (cleanNote) {
-      parts.push(`tn=${encodeURIComponent(cleanNote)}`);
-    }
-
-    // Only emit Merchant Category Code & mode on verified VPA merchant profiles
-    // Sending unverified commercial MCCs on raw .ifsc.npci triggers bank rejections
-    if (activeTab === 'upi' && collectionMode === 'merchant' && /^\d{4}$/.test(mcc)) {
-      parts.push(`mc=${mcc}`);
-      parts.push(parsedAmount > 0 ? 'mode=01' : 'mode=02');
-      parts.push('purpose=00');
-    }
-
-    return `upi://pay?${parts.join('&')}`;
+    const isMerchant = activeTab === 'upi' && collectionMode === 'merchant' && /^\d{4}$/.test(mcc);
+    return buildNpciUpiIntentUrl({
+      pa: effectiveUpiId,
+      pn: sanitizedBusinessName,
+      am: parsedAmount > 0 ? parsedAmount : undefined,
+      cu: 'INR',
+      tr: invoiceRef,
+      tn: remarks,
+      mc: isMerchant ? mcc : undefined,
+      mode: isMerchant ? (parsedAmount > 0 ? '01' : '02') : undefined,
+      purpose: isMerchant ? '00' : undefined,
+    });
   }, [
     activeTab,
     collectionMode,
@@ -629,10 +598,18 @@ export const QrUpiStudioView: React.FC = () => {
     sanitizedBusinessName,
   ]);
 
+  // Pre-render NPCI UPI Intent URL Specification Verification Gate
+  const intentValidation = useMemo(
+    () => validateNpciUpiIntentUrl(effectivePayload),
+    [effectivePayload]
+  );
+
+  const canRenderQr = validation.isReady && intentValidation.isValid && Boolean(effectivePayload);
+
   // ISO/IEC 18004 & NPCI BHIM QR Compliant Generation:
-  // margin: 4 modules pure #FFFFFF quiet zone, Error Correction Q (25% damage tolerance)
+  // Strictly gated behind NPCI Intent URL verification before rendering matrix
   useEffect(() => {
-    if (!effectivePayload) {
+    if (!canRenderQr) {
       setQrUrl('');
       return;
     }
@@ -657,7 +634,7 @@ export const QrUpiStudioView: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [effectivePayload]);
+  }, [canRenderQr, effectivePayload]);
 
   const handleSavePayeeProfile = () => {
     if (!validation.isReady) {
@@ -787,7 +764,7 @@ export const QrUpiStudioView: React.FC = () => {
   };
 
   const downloadStandeeJpg = () => {
-    if (!qrUrl || !validation.isReady) return;
+    if (!qrUrl || !canRenderQr) return;
 
     const canvas = document.createElement('canvas');
     canvas.width = 760;
@@ -1009,6 +986,14 @@ export const QrUpiStudioView: React.FC = () => {
   ]);
 
   const preFlightChecks = useMemo(() => {
+    const intentChecks = intentValidation.checks.map((chk) => ({
+      id: chk.id,
+      label: chk.label,
+      passed: chk.passed,
+      statusText: chk.statusText,
+      detail: chk.detail,
+    }));
+
     if (activeTab === 'bank') {
       return [
         {
@@ -1028,72 +1013,12 @@ export const QrUpiStudioView: React.FC = () => {
               }`
             : 'Enter 11-char IFSC',
         },
-        {
-          id: 'pa-lower',
-          label: 'NPCI .ifsc.npci Address Syntax',
-          passed: Boolean(
-            effectiveUpiId &&
-              effectiveUpiId.endsWith('.ifsc.npci') &&
-              effectiveUpiId === effectiveUpiId.toLowerCase()
-          ),
-          statusText:
-            effectiveUpiId &&
-            effectiveUpiId.endsWith('.ifsc.npci') &&
-            effectiveUpiId === effectiveUpiId.toLowerCase()
-              ? 'Valid'
-              : 'Pending',
-          detail: effectiveUpiId || 'Waiting for A/C + IFSC',
-        },
-        {
-          id: 'tpap-block',
-          label: 'GPay / PhonePe / Paytm QR Scan',
-          passed: false,
-          statusText: 'VPA Needed',
-          detail:
-            'Consumer TPAP apps block raw @ifsc.npci QRs ("Could not load banking name"). Switch to UPI ID (VPA) for all apps.',
-        },
-        {
-          id: 'am-cu',
-          label: 'NPCI Currency (INR) & Amount Lock',
-          passed: parsedAmount >= 0 && validation.isReady,
-          statusText: parsedAmount >= 0 && validation.isReady ? 'Formatted' : 'Pending',
-          detail: parsedAmount > 0 ? `am=${parsedAmount.toFixed(2)}&cu=INR` : 'Open Amount · cu=INR',
-        },
+        ...intentChecks,
       ];
     }
 
-    return [
-      {
-        id: 'vpa-format',
-        label: 'Verified VPA Syntax (All PSP Apps)',
-        passed: validation.isReady && Boolean(effectiveUpiId),
-        statusText: validation.isReady && Boolean(effectiveUpiId) ? 'Verified' : 'Pending',
-        detail: effectiveUpiId || 'Enter username@bankhandle',
-      },
-      {
-        id: 'am-cu',
-        label: 'NPCI Currency (INR) & Amount Lock',
-        passed: parsedAmount >= 0 && validation.isReady,
-        statusText: parsedAmount >= 0 && validation.isReady ? 'Verified' : 'Pending',
-        detail: parsedAmount > 0 ? `am=${parsedAmount.toFixed(2)}&cu=INR` : 'Open Amount · cu=INR',
-      },
-      {
-        id: 'rfc-pn',
-        label: 'RFC 3986 %20 Payee Name Encoding',
-        passed: sanitizedBusinessName.length >= 2,
-        statusText: sanitizedBusinessName.length >= 2 ? 'Verified' : 'Pending',
-        detail: sanitizedBusinessName || 'Enter payee name',
-      },
-    ];
-  }, [
-    activeTab,
-    effectiveUpiId,
-    ifscLookupStatus,
-    parsedAmount,
-    sanitizedBusinessName,
-    validation.isReady,
-    verifiedIfsc,
-  ]);
+    return intentChecks;
+  }, [activeTab, ifscLookupStatus, intentValidation.checks, verifiedIfsc]);
 
   const accountsMatch =
     Boolean(cleanAccount) &&
@@ -1784,7 +1709,7 @@ export const QrUpiStudioView: React.FC = () => {
           <span className="font-display font-extrabold text-xs text-[#2F3E4E]">
             {activeTab === 'bank' ? 'BHIM / Bank App QR (.ifsc.npci)' : 'Scan to Pay & Deposit to Bank'}
           </span>
-          {validation.isReady ? (
+          {canRenderQr ? (
             activeTab === 'bank' ? (
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#B45309]">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -1793,9 +1718,14 @@ export const QrUpiStudioView: React.FC = () => {
             ) : (
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#12805C]">
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>All UPI Apps Ready</span>
+                <span>NPCI Verified · All Apps Ready</span>
               </span>
             )
+          ) : validation.isReady && !intentValidation.isValid ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#B42318]">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span>NPCI Validation Blocked</span>
+            </span>
           ) : (
             <span className="text-[11px] font-bold text-[#B45309]">Setup Required</span>
           )}
@@ -1803,7 +1733,7 @@ export const QrUpiStudioView: React.FC = () => {
 
         {/* High-Contrast QR Matrix Frame with Strict White Quiet Zone */}
         <div className="vcpl-qr-box bg-white p-4 rounded-2xl w-60 h-60 flex flex-col justify-center items-center border-2 border-[#2F3E4E]">
-          {qrUrl && validation.isReady ? (
+          {qrUrl && canRenderQr ? (
             <img
               src={qrUrl}
               alt={`UPI Payment QR for ${sanitizedBusinessName}`}
@@ -1813,7 +1743,9 @@ export const QrUpiStudioView: React.FC = () => {
             <div className="text-center px-3 space-y-2">
               <QrCode className="w-8 h-8 text-[#64748B] mx-auto" aria-hidden="true" />
               <p className="text-xs font-semibold text-[#475569] leading-relaxed">
-                {validation.issues[0] || 'Enter valid UPI or Bank A/C details to generate QR'}
+                {(!validation.isReady && validation.issues[0]) ||
+                  (effectivePayload && !intentValidation.isValid && intentValidation.errors[0]) ||
+                  'Enter valid UPI or Bank A/C details to generate QR'}
               </p>
             </div>
           )}
@@ -1821,7 +1753,7 @@ export const QrUpiStudioView: React.FC = () => {
 
         {/* Beneficiary & Deposit Destination Verification */}
         <div className="text-center space-y-1.5 w-full">
-          {validation.isReady ? (
+          {canRenderQr ? (
             <>
               <p className="font-display font-extrabold text-base text-[#2F3E4E] truncate px-2">
                 {sanitizedBusinessName}
@@ -1866,13 +1798,34 @@ export const QrUpiStudioView: React.FC = () => {
         </div>
 
         {/* Live NPCI URI & Bank Verification Diagnostics */}
-        <div className="w-full rounded-xl border border-[#2F3E4E]/25 bg-[#FFFDF5] p-3 space-y-1.5 no-print">
-          <p className="text-[11px] font-display font-extrabold text-[#2F3E4E]">
-            NPCI Bank &amp; URI Verification Checks
-          </p>
+        <div className="w-full rounded-xl border border-[#2F3E4E]/25 bg-[#FFFDF5] p-3 space-y-2 no-print">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-display font-extrabold text-[#2F3E4E]">
+              Pre-Render NPCI Intent URL Verification
+            </p>
+            <span
+              className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                canRenderQr
+                  ? 'bg-[#CEE5DC] text-[#12805C]'
+                  : effectivePayload && !intentValidation.isValid
+                  ? 'bg-[#FEE2E2] text-[#B42318]'
+                  : 'bg-[#FEF2C8] text-[#B45309]'
+              }`}
+            >
+              {canRenderQr
+                ? 'NPCI Gate Passed'
+                : effectivePayload && !intentValidation.isValid
+                ? 'Gate Blocked'
+                : 'Awaiting Input'}
+            </span>
+          </div>
           <ul className="space-y-1">
             {preFlightChecks.map((chk) => (
-              <li key={chk.id} className="flex items-center justify-between gap-2 text-[11px]">
+              <li
+                key={chk.id}
+                title={chk.detail}
+                className="flex items-center justify-between gap-2 text-[11px]"
+              >
                 <span className="inline-flex items-center gap-1.5 text-[#334155] min-w-0">
                   {chk.passed ? (
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#12805C] shrink-0" aria-hidden="true" />
@@ -1891,6 +1844,15 @@ export const QrUpiStudioView: React.FC = () => {
               </li>
             ))}
           </ul>
+          {effectivePayload && intentValidation.errors.length > 0 && (
+            <div className="p-2 rounded-lg bg-[#FEE2E2]/80 border border-[#B42318]/40 text-[11px] text-[#991B1B] space-y-0.5">
+              {intentValidation.errors.map((err, idx) => (
+                <p key={idx} className="font-semibold">
+                  • {err}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* NPCI URI Preview */}
@@ -1907,7 +1869,7 @@ export const QrUpiStudioView: React.FC = () => {
         <div className="grid grid-cols-3 gap-2 w-full no-print">
           <button
             type="button"
-            disabled={!effectivePayload}
+            disabled={!canRenderQr}
             onClick={() => copyValue(effectivePayload, 'uri')}
             className="inline-flex items-center justify-center gap-1.5 py-2.5 px-2 min-h-[42px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap"
           >
@@ -1925,11 +1887,11 @@ export const QrUpiStudioView: React.FC = () => {
           </button>
 
           <a
-            href={qrUrl && validation.isReady ? qrUrl : undefined}
+            href={qrUrl && canRenderQr ? qrUrl : undefined}
             download={`UPI_QR_${(sanitizedBusinessName || 'Payment').replace(/\s+/g, '_')}.png`}
-            aria-disabled={!qrUrl || !validation.isReady}
+            aria-disabled={!qrUrl || !canRenderQr}
             className={`inline-flex items-center justify-center gap-1.5 py-2.5 px-2 min-h-[42px] rounded-xl border-[1.5px] text-xs font-display font-extrabold transition-colors whitespace-nowrap ${
-              qrUrl && validation.isReady
+              qrUrl && canRenderQr
                 ? 'border-[#2F3E4E] bg-[#F9C80E] hover:bg-[#FFE1B3] text-[#2F3E4E] shadow-[0_2px_0_#2F3E4E]'
                 : 'border-[#2F3E4E]/30 bg-[#FEF2C8]/60 text-[#64748B] pointer-events-none'
             }`}
@@ -1940,7 +1902,7 @@ export const QrUpiStudioView: React.FC = () => {
 
           <button
             type="button"
-            disabled={!effectivePayload}
+            disabled={!canRenderQr}
             onClick={handleShare}
             className="inline-flex items-center justify-center gap-1.5 py-2.5 px-2 min-h-[42px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#CEE5DC] text-xs font-bold text-[#2F3E4E] transition-colors cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap"
           >
@@ -1953,7 +1915,7 @@ export const QrUpiStudioView: React.FC = () => {
         <div className="w-full space-y-2 no-print">
           <button
             type="button"
-            disabled={!qrUrl || !validation.isReady}
+            disabled={!qrUrl || !canRenderQr}
             onClick={downloadStandeeJpg}
             className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 min-h-[44px] rounded-xl bg-[#2F3E4E] hover:bg-[#1E293B] text-[#FFFDF5] border-[1.5px] border-[#2F3E4E] shadow-[0_3px_0_#1E293B] text-xs font-display font-extrabold transition-all cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap"
           >
@@ -1964,7 +1926,7 @@ export const QrUpiStudioView: React.FC = () => {
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              disabled={!qrUrl || !validation.isReady}
+              disabled={!qrUrl || !canRenderQr}
               onClick={handlePrint}
               className="inline-flex items-center justify-center gap-1.5 py-2 px-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap"
             >
@@ -1974,7 +1936,7 @@ export const QrUpiStudioView: React.FC = () => {
 
             <button
               type="button"
-              disabled={!qrUrl || !validation.isReady}
+              disabled={!qrUrl || !canRenderQr}
               onClick={handleSaveStandeePdf}
               className="inline-flex items-center justify-center gap-1.5 py-2 px-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap"
             >
@@ -1983,10 +1945,10 @@ export const QrUpiStudioView: React.FC = () => {
             </button>
 
             <a
-              href={effectivePayload || undefined}
-              aria-disabled={!effectivePayload}
+              href={canRenderQr ? effectivePayload : undefined}
+              aria-disabled={!canRenderQr}
               className={`inline-flex items-center justify-center gap-1.5 py-2 px-3 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] text-xs font-bold transition-colors whitespace-nowrap ${
-                effectivePayload
+                canRenderQr
                   ? 'bg-[#CEE5DC] hover:bg-[#b8dcd0] text-[#2F3E4E]'
                   : 'bg-white text-[#64748B] border-[#2F3E4E]/30 pointer-events-none'
               }`}

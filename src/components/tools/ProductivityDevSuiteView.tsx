@@ -32,6 +32,10 @@ import {
   printHtmlDocument,
   printTargetElement,
 } from '../../utils/printReport';
+import {
+  buildNpciUpiIntentUrl,
+  validateNpciUpiIntentUrl,
+} from '../../utils/npciUpiValidator';
 import { ToolExportBar } from './ToolExportBar';
 
 interface ProductivityDevSuiteViewProps {
@@ -465,15 +469,16 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
 
   const upiUri = useMemo(() => {
     if (!upiVpa.trim()) return '';
-    const params = new URLSearchParams({
-      pa: upiVpa.trim(),
+    return buildNpciUpiIntentUrl({
+      pa: upiVpa,
       pn: upiName.trim() || 'Merchant',
+      am: upiAmount && Number(upiAmount) > 0 ? Number(upiAmount) : undefined,
       cu: 'INR',
+      tn: upiNote.trim() || undefined,
     });
-    if (upiAmount && Number(upiAmount) > 0) params.set('am', Number(upiAmount).toFixed(2));
-    if (upiNote.trim()) params.set('tn', upiNote.trim());
-    return `upi://pay?${params.toString()}`;
   }, [upiVpa, upiName, upiAmount, upiNote]);
+
+  const upiValidation = useMemo(() => validateNpciUpiIntentUrl(upiUri), [upiUri]);
 
   const hasVcardInput = Boolean(
     [cardName, cardRole, cardOrg, cardPhone, cardEmail, cardCity].some((v) => v.trim().length > 0)
@@ -489,15 +494,22 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
     let payload = '';
     if (tool.id === 'vcard-visiting-card-qr') payload = hasVcardInput ? vcardString : '';
     else if (tool.id === 'review-qr-poster') payload = posterUrl.trim();
-    else if (tool.id === 'shop-payment-poster' || tool.id === 'upi-merchant-validator') payload = upiUri;
+    else if (tool.id === 'shop-payment-poster' || tool.id === 'upi-merchant-validator') {
+      payload = upiValidation.isValid ? upiUri : '';
+    }
     if (!payload) {
       setQrDataUrl('');
       return;
     }
-    QRCode.toDataURL(payload, { width: 320, margin: 2, color: { dark: '#2F3E4E', light: '#FFFFFF' } })
+    QRCode.toDataURL(payload, {
+      width: 320,
+      margin: 4,
+      errorCorrectionLevel: 'Q',
+      color: { dark: '#2F3E4E', light: '#FFFFFF' },
+    })
       .then(setQrDataUrl)
       .catch(() => setQrDataUrl(''));
-  }, [tool.id, hasVcardInput, vcardString, posterUrl, upiUri]);
+  }, [tool.id, hasVcardInput, vcardString, posterUrl, upiUri, upiValidation.isValid]);
 
   const headerBanner = (
     <div className="pb-5 border-b border-[#2F3E4E]/15 dark:border-slate-700 no-print">
@@ -1784,12 +1796,23 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
                 <input type="number" value={upiAmount} onChange={(e) => setUpiAmount(e.target.value)} placeholder="500" className="w-full px-3 py-2 rounded-xl border border-[#2F3E4E]/45 dark:border-slate-600 bg-white dark:bg-[#0F172A] text-[#2F3E4E] dark:text-slate-100 font-mono" />
               </div>
             </div>
-            <div className={`p-4 rounded-xl border ${!trimmed ? 'bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-700' : match ? 'bg-[#CEE5DC]/65 dark:bg-emerald-950/60 border-emerald-700/30 dark:border-emerald-500/35' : 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-700/50'}`}>
+            <div className={`p-4 rounded-xl border ${!trimmed ? 'bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-700' : upiValidation.isValid ? 'bg-[#CEE5DC]/65 dark:bg-emerald-950/60 border-emerald-700/30 dark:border-emerald-500/35' : 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-700/50'}`}>
               <p className="font-bold text-sm text-[#2F3E4E] dark:text-slate-100 flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-[#12805C] dark:text-emerald-400" />
-                {!trimmed ? 'Enter a UPI VPA (e.g. merchant@oksbi) to validate & build QR' : match ? `Valid NPCI VPA Syntax (${pspInfo})` : 'Invalid UPI VPA format (expected username@bankhandle)'}
+                {!trimmed
+                  ? 'Enter a UPI VPA (e.g. merchant@oksbi) to validate & build QR'
+                  : upiValidation.isValid
+                  ? `NPCI Intent Verified (${pspInfo || 'Valid UPI URI'})`
+                  : upiValidation.errors[0] || 'Invalid UPI VPA / NPCI intent URL'}
               </p>
               {upiUri && <p className="font-mono text-[11px] text-[#475569] dark:text-slate-300 mt-2 break-all">{upiUri}</p>}
+              {trimmed && upiValidation.errors.length > 0 && (
+                <ul className="mt-2 space-y-0.5 text-[11px] text-rose-700 dark:text-rose-300 font-semibold">
+                  {upiValidation.errors.map((err, i) => (
+                    <li key={i}>• {err}</li>
+                  ))}
+                </ul>
+              )}
             </div>
             <ToolExportBar
               onClear={() => {
@@ -1801,18 +1824,22 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
               onCopy={() => void copyText(upiUri)}
               copied={copied}
               copyLabel="Copy UPI URI"
-              onJson={() => downloadJsonFile({ vpa: upiVpa, name: upiName, amount: upiAmount, psp: pspInfo, valid: Boolean(match), upiUri }, 'upi_validation.json')}
-              disabled={!upiUri}
+              onJson={() => downloadJsonFile({ vpa: upiVpa, name: upiName, amount: upiAmount, psp: pspInfo, valid: upiValidation.isValid, tpapCompatible: upiValidation.tpapCompatible, errors: upiValidation.errors, upiUri }, 'upi_validation.json')}
+              disabled={!upiValidation.isValid}
             />
           </div>
           <div className="md:col-span-5 md:sticky md:top-20 flex flex-col items-center justify-center p-6 rounded-2xl bg-white dark:bg-white border-[1.5px] border-[#2F3E4E] dark:border-slate-600 overflow-hidden vcpl-qr-box">
-            {qrDataUrl ? (
+            {qrDataUrl && upiValidation.isValid ? (
               <>
                 <img src={qrDataUrl} alt="UPI Verification QR" className="w-44 h-44" />
-                <span className="text-[11px] font-mono font-bold text-[#475569] mt-2">Scan in GPay / PhonePe / Paytm</span>
+                <span className="text-[11px] font-mono font-bold text-[#475569] mt-2">
+                  {upiValidation.tpapCompatible ? 'NPCI Verified · GPay / PhonePe / Paytm Ready' : 'NPCI Valid · BHIM / Bank Apps'}
+                </span>
               </>
             ) : (
-              <span className="text-xs text-[#64748B] font-semibold py-12 text-center">Enter UPI ID to preview payment QR</span>
+              <span className="text-xs text-[#64748B] font-semibold py-12 text-center">
+                {trimmed && !upiValidation.isValid ? upiValidation.errors[0] : 'Enter UPI ID to preview payment QR'}
+              </span>
             )}
           </div>
         </div>
@@ -1865,6 +1892,15 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
               <input value={upiVpa} onChange={(e) => setUpiVpa(e.target.value)} placeholder="UPI ID (merchant@oksbi)" className="w-full px-3 py-2 rounded-xl border border-[#2F3E4E]/45 dark:border-slate-600 bg-white dark:bg-[#0F172A] text-[#2F3E4E] dark:text-slate-100 font-mono" />
               <input type="number" value={upiAmount} onChange={(e) => setUpiAmount(e.target.value)} placeholder="Fixed Amount ₹ (Optional)" className="w-full px-3 py-2 rounded-xl border border-[#2F3E4E]/45 dark:border-slate-600 bg-white dark:bg-[#0F172A] text-[#2F3E4E] dark:text-slate-100 font-mono" />
               <input value={upiNote} onChange={(e) => setUpiNote(e.target.value)} placeholder="Payment Note" className="w-full px-3 py-2 rounded-xl border border-[#2F3E4E]/45 dark:border-slate-600 bg-white dark:bg-[#0F172A] text-[#2F3E4E] dark:text-slate-100" />
+              {upiVpa.trim() && (
+                <div className={`p-2.5 rounded-xl border text-[11px] font-semibold ${upiValidation.isValid ? 'bg-[#CEE5DC]/60 border-emerald-700/30 text-[#12805C] dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-rose-50 border-rose-300 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300'}`}>
+                  {upiValidation.isValid
+                    ? upiValidation.tpapCompatible
+                      ? 'NPCI Intent Verified · Ready for GPay, PhonePe, Paytm & BHIM'
+                      : 'NPCI Intent Valid · BHIM / Bank Apps Only'
+                    : upiValidation.errors[0]}
+                </div>
+              )}
             </>
           )}
 
