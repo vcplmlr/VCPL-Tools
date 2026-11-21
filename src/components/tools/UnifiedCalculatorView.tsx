@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Calculator, RotateCcw } from 'lucide-react';
 import { FINANCIAL_CALCULATORS } from '../../data/financialCalculators';
 import { ToolCatalogItem } from '../../types/tools';
+import { copyTextToClipboard } from '../../hooks/useRightClickProtection';
 import {
   downloadExcelWorkbook,
   downloadJsonFile,
@@ -69,6 +70,7 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
   const [attHeld, setAttHeld] = useState<string>('');
   const [attPresent, setAttPresent] = useState<string>('');
   const [attTarget, setAttTarget] = useState<number>(75);
+  const [studentCopied, setStudentCopied] = useState<boolean>(false);
 
   const syntheticExamTool: ToolCatalogItem = useMemo(() => {
     const list = activeTab === 'dates' ? DATE_HEALTH_CALCULATORS : EXAM_CALCULATORS;
@@ -540,6 +542,22 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
             return (
               <ToolExportBar
                 onClear={clearAllStudent}
+                onCopy={() => {
+                  const summaryLines = [
+                    'Student Academic & Attendance Summary',
+                    `Board (${studentBoard.toUpperCase()}): ${marksObt}/${maxMarks} (${boardPct.toFixed(2)}%)`,
+                    `Cumulative CGPA: ${cgpa.toFixed(2)} (AICTE Eq: ${cgpa > 0 ? Math.max(0, (cgpa - 0.75) * 10).toFixed(1) : '0.0'}%)`,
+                    `Attendance: ${presNum}/${heldNum} (${attPct.toFixed(1)}%, Target: ${attTarget}%)`,
+                  ];
+                  void copyTextToClipboard(summaryLines.join('\n')).then((ok) => {
+                    if (ok) {
+                      setStudentCopied(true);
+                      window.setTimeout(() => setStudentCopied(false), 1800);
+                    }
+                  });
+                }}
+                copied={studentCopied}
+                copyLabel="Copy Summary"
                 onExcel={() => {
                   downloadExcelWorkbook({
                     filename: 'Student_GPA_Summary.xlsx',

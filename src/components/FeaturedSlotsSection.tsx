@@ -16,8 +16,8 @@ import {
   X,
 } from 'lucide-react';
 import {
+  PUBLIC_TOOLS_CATALOG,
   TOOL_SECTION_HEADS,
-  TOOLS_CATALOG,
   getToolsForCategory,
   sortToolsForSuite,
   toolMatchesCategory,
@@ -51,7 +51,7 @@ const SUITE_KEYS: { key: Exclude<ToolFilterType, 'All'>; label: string }[] = [
 ];
 
 const FILTER_TABS: { key: ToolFilterType; label: string; count: number }[] = [
-  { key: 'All', label: 'All', count: TOOLS_CATALOG.filter((t) => t.id !== 'gstr1-return-prep').length },
+  { key: 'All', label: 'All', count: PUBLIC_TOOLS_CATALOG.filter((t) => t.id !== 'gstr1-return-prep').length },
   ...SUITE_KEYS.map(({ key, label }) => ({
     key,
     label,
@@ -112,7 +112,7 @@ export function FeaturedSlotsSection({
       (head) => activeFilter === 'All' || head.key === activeFilter
     )
       .map((head) => {
-        const filteredSectionTools = TOOLS_CATALOG.filter((tool) => {
+        const filteredSectionTools = PUBLIC_TOOLS_CATALOG.filter((tool) => {
           if (tool.id === 'gstr1-return-prep') return false;
           const matchesSuite =
             activeFilter === 'All' && q
@@ -164,7 +164,7 @@ export function FeaturedSlotsSection({
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-8 border-b border-[#2F3E4E]/15 dark:border-slate-800">
           <div className="space-y-2 max-w-2xl">
             <p className="text-xs font-semibold text-[#334155] dark:text-slate-400">
-              Browser Workspace Directory · {TOOLS_CATALOG.length} Live Modules
+              Browser Workspace Directory · {PUBLIC_TOOLS_CATALOG.length} Live Modules
             </p>
             <h2 className="font-display font-extrabold text-[clamp(1.85rem,3.4vw,2.6rem)] leading-[1.1] text-[#2F3E4E] dark:text-slate-50 tracking-tight [text-wrap:balance]">
               Tools &amp; Workspaces by Suite
@@ -208,7 +208,7 @@ export function FeaturedSlotsSection({
             >
               <span>
                 {activeFilter === 'All'
-                  ? `All Tools (${TOOLS_CATALOG.length})`
+                  ? `All Tools (${PUBLIC_TOOLS_CATALOG.length})`
                   : `Open ${activeFilter} Page (${activeFilterTotalCount})`}
               </span>
               <ArrowRight className="w-4 h-4" />
@@ -221,7 +221,7 @@ export function FeaturedSlotsSection({
           <div
             role="tablist"
             aria-label="Filter tools by suite"
-            className="w-full flex flex-nowrap items-center justify-between gap-1 overflow-x-auto p-1.5 rounded-xl bg-[#FFFDF5]/75 dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700"
+            className="w-full flex flex-nowrap items-center justify-between gap-1 overflow-x-auto vcpl-touch-scroll p-1.5 rounded-xl bg-[#FFFDF5]/75 dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700"
           >
             {FILTER_TABS.map((tab) => {
               const isActive = activeFilter === tab.key;

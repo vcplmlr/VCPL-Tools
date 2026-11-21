@@ -8,13 +8,69 @@
 }
 
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overflow-x: clip;
+  }
+
   body {
     font-family: var(--font-sans);
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
   }
 
   h1, h2, h3, h4 {
     font-family: var(--font-display);
   }
+
+  button,
+  a,
+  [role="button"],
+  [role="tab"],
+  summary,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  html,
+  body,
+  body * {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="image"]):not([type="hidden"]),
+  textarea,
+  select,
+  [contenteditable=""],
+  [contenteditable="true"],
+  [contenteditable="plaintext-only"],
+  [data-allow-copy="true"],
+  [data-allow-copy="true"] * {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+}
+
+@media (max-width: 639px) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
+.vcpl-touch-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -887,9 +943,108 @@ a:hover .vcpl-wordmark-ls,
 }
 
 /* =========================================================
+   YOUTUBE-STYLE VCPL TOP LOADING BAR (THEME COLORS + GLOW)
+   ========================================================= */
+@keyframes vcpl-yt-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes vcpl-yt-peg-pulse {
+  0%, 100% {
+    opacity: 0.92;
+    transform: rotate(2deg) translateY(-1px) scaleX(1);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(2deg) translateY(-1px) scaleX(1.14);
+  }
+}
+
+.vcpl-yt-bar {
+  background: linear-gradient(
+    90deg,
+    #7D0B0B 0%,
+    #9E2A2B 20%,
+    #F9C80E 48%,
+    #FFE1B3 66%,
+    #12805C 82%,
+    #9E2A2B 94%,
+    #7D0B0B 100%
+  );
+  background-size: 200% 100%;
+  animation: vcpl-yt-flow 1.4s linear infinite;
+  box-shadow:
+    0 1px 10px rgba(158, 42, 43, 0.58),
+    0 2px 18px rgba(249, 200, 14, 0.85),
+    0 4px 28px rgba(18, 128, 92, 0.52);
+}
+
+.dark .vcpl-yt-bar {
+  background: linear-gradient(
+    90deg,
+    #9E2A2B 0%,
+    #F9C80E 34%,
+    #FFE1B3 56%,
+    #34D399 78%,
+    #9E2A2B 100%
+  );
+  background-size: 200% 100%;
+  box-shadow:
+    0 1px 12px rgba(158, 42, 43, 0.65),
+    0 2px 22px rgba(249, 200, 14, 0.92),
+    0 4px 32px rgba(52, 211, 153, 0.62);
+}
+
+.vcpl-yt-glow-aura {
+  background: linear-gradient(
+    90deg,
+    rgba(125, 11, 11, 0.55) 0%,
+    rgba(158, 42, 43, 0.65) 26%,
+    rgba(249, 200, 14, 0.95) 60%,
+    rgba(18, 128, 92, 0.72) 100%
+  );
+  filter: blur(5px);
+}
+
+.dark .vcpl-yt-glow-aura {
+  background: linear-gradient(
+    90deg,
+    rgba(158, 42, 43, 0.72) 0%,
+    rgba(249, 200, 14, 1) 52%,
+    rgba(52, 211, 153, 0.85) 100%
+  );
+  filter: blur(6px);
+}
+
+.vcpl-yt-peg {
+  box-shadow:
+    0 0 12px 3px rgba(249, 200, 14, 0.95),
+    0 0 24px 6px rgba(18, 128, 92, 0.72),
+    0 0 32px 6px rgba(158, 42, 43, 0.45),
+    0 0 6px 1px #FFFDF5;
+  animation: vcpl-yt-peg-pulse 0.85s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.dark .vcpl-yt-peg {
+  box-shadow:
+    0 0 14px 3px rgba(249, 200, 14, 1),
+    0 0 28px 6px rgba(52, 211, 153, 0.85),
+    0 0 36px 7px rgba(158, 42, 43, 0.55),
+    0 0 6px 2px #FFFDF5;
+}
+
+/* =========================================================
    REDUCED MOTION ACCESSIBILITY
    ========================================================= */
 @media (prefers-reduced-motion: reduce) {
+  .vcpl-yt-bar,
+  .vcpl-yt-peg,
   .animate-spin-slow,
   .animate-arc-spin,
   .animate-dash-flow,

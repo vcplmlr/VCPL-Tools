@@ -151,6 +151,19 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
   } | null>(null);
   const [sentenceChoice, setSentenceChoice] = useState<string | null>(null);
   const [useWordByWord, setUseWordByWord] = useState<boolean>(false);
+  const googleCacheRef = useRef<
+    Map<
+      string,
+      {
+        queryKey: string;
+        translatedText: string;
+        romanization: string;
+        detectedLang: string;
+        alternatives: { kn: string; tag: string }[];
+        wordSuggestions: Record<string, { kn: string; tag: string }[]>;
+      }
+    >
+  >(new Map());
 
   // Nudi phonetic composing buffer refs
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -307,6 +320,13 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
       return;
     }
 
+    const cachedClient = googleCacheRef.current.get(googleQueryKey);
+    if (cachedClient) {
+      setGoogleData(cachedClient);
+      setGoogleLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setGoogleLoading(true);
@@ -324,6 +344,7 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
         if (!res.ok) return;
         const data = (await res.json()) as {
           ok?: boolean;
+          rateLimited?: boolean;
           translatedText?: string;
           romanization?: string;
           detectedLang?: string;
@@ -331,14 +352,22 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
           wordSuggestions?: Record<string, { kn: string; tag: string }[]>;
         };
         if (data?.ok) {
-          setGoogleData({
+          const entry = {
             queryKey: googleQueryKey,
             translatedText: data.translatedText || '',
             romanization: data.romanization || '',
             detectedLang: data.detectedLang || activeSourceLang,
             alternatives: Array.isArray(data.alternatives) ? data.alternatives : [],
             wordSuggestions: data.wordSuggestions || {},
-          });
+          };
+          if (!data.rateLimited) {
+            if (googleCacheRef.current.size >= 120) {
+              const oldest = googleCacheRef.current.keys().next().value;
+              if (oldest) googleCacheRef.current.delete(oldest);
+            }
+            googleCacheRef.current.set(googleQueryKey, entry);
+          }
+          setGoogleData(entry);
         }
       } catch (err) {
         if ((err as Error)?.name !== 'AbortError') {
@@ -349,7 +378,7 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
           setGoogleLoading(false);
         }
       }
-    }, 240);
+    }, 450);
 
     return () => {
       controller.abort();
@@ -1013,7 +1042,7 @@ export const TulusiriProView: React.FC<TulusiriProViewProps> = ({ tool }) => {
               </span>
               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#FEE2E2] dark:bg-rose-950/70 text-[#7D0B0B] dark:text-rose-200 border border-[#2F3E4E] dark:border-rose-500/40">
                 <TulunaduFlagIcon size="sm" />
-                <span>Special Tools</span>
+                <span>Special</span>
               </span>
               <span className="px-2 py-0.5 rounded bg-[#B45309] text-[#FFFDF5] border border-[#2F3E4E] dark:border-amber-400/50">
                 Beta Testing

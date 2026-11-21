@@ -9,6 +9,8 @@ Allow: /
 Disallow: /assets/aistudio/
 Disallow: /api/
 Disallow: /income-tax-fy-2026-27.html
+Disallow: /locked
+Disallow: /locked-tools
 Disallow: /404
 Disallow: /not-found
 

@@ -25,7 +25,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import { TOOLS_CATALOG, getToolById } from '../data/toolsCatalog';
+import { PUBLIC_TOOLS_CATALOG, getToolById } from '../data/toolsCatalog';
 import { ReleaseStatusTicker } from './ReleaseStatusTicker';
 import { TulunaduFlagIcon } from './TulunaduFlagIcon';
 
@@ -150,42 +150,6 @@ const HERO_SPOTLIGHT_BOXES: SpotlightBoxItem[] = [
   },
   {
     step: '13',
-    id: 'incentive-report-tool',
-    title: 'Incentive Report Tool',
-    subtitle: 'Passcode locked · Tally ledger PDFs, deal sheets & OCR audit',
-    icon: FileSpreadsheet,
-    isNew: true,
-    locked: true,
-  },
-  {
-    step: '14',
-    id: 'dbs-pnl-reports',
-    title: 'DBS P&L & Reports Tool',
-    subtitle: 'Passcode locked · DBS ZIP/CSV to 7-tab P&L & Excel report',
-    icon: FileSpreadsheet,
-    isNew: true,
-    locked: true,
-  },
-  {
-    step: '15',
-    id: 'bmw-statement-reconciler',
-    title: 'Customer Ledger (Purchase Only)',
-    subtitle: 'Passcode locked · Multi-quarter BMW SOA vs Tally 14-tab audit',
-    icon: GitCompareArrows,
-    isNew: true,
-    locked: true,
-  },
-  {
-    step: '16',
-    id: 'fuel-report-generator',
-    title: 'Monthly Fuel Report Generator',
-    subtitle: 'Passcode locked · Upload PDF or Excel IOCL report · Formula XLSX',
-    icon: Fuel,
-    isNew: true,
-    locked: true,
-  },
-  {
-    step: '17',
     id: 'covering-letter-generator',
     title: 'Covering Letter Generator',
     subtitle: 'Passcode locked · Tally ledger PDF & OCR to Word & PDF',
@@ -194,7 +158,7 @@ const HERO_SPOTLIGHT_BOXES: SpotlightBoxItem[] = [
     locked: true,
   },
   {
-    step: '18',
+    step: '14',
     id: 'letterhead-invoice-maker',
     title: 'Letterhead Invoice Maker',
     subtitle: 'Tally invoice on company letterhead & seal above Authorised Signatory',
@@ -202,7 +166,7 @@ const HERO_SPOTLIGHT_BOXES: SpotlightBoxItem[] = [
     isNew: true,
   },
   {
-    step: '19',
+    step: '15',
     id: 'textlift-ocr-pro',
     title: 'Textlift OCR Pro',
     subtitle: 'Open access · Photos, scans & PDFs to Text, GST Entities & Excel',
@@ -210,51 +174,8 @@ const HERO_SPOTLIGHT_BOXES: SpotlightBoxItem[] = [
     isNew: true,
   },
   {
-    step: '20',
-    id: 'bmw-vendor-ledger-reconciler',
-    title: 'BMW Vendor Ledger Reconciliation',
-    subtitle: 'Passcode locked · SAP vendor ledger vs Tally bridge & claim check',
-    icon: GitCompareArrows,
-    isNew: true,
-    locked: true,
-  },
-  {
-    step: '21',
-    id: 'bmw-claims-reconciler',
-    title: 'BMW Claims Reconciler',
-    subtitle: 'Passcode locked · DMS invoices vs credit/debit notes & claims',
-    icon: ClipboardCheck,
-    isNew: true,
-    locked: true,
-  },
-  {
-    step: '22',
-    id: 'vcpl-rtgs-neft-form',
-    title: 'VCPL Bulk Bank Transfer Form',
-    subtitle: 'Passcode locked · Same Bank (SBI) & NEFT/RTGS bulk transfer letters',
-    icon: Landmark,
-    isNew: true,
-    locked: true,
-  },
-  {
-    step: '23',
-    id: 'tds-26as-tally-reco',
-    title: '26AS ⇄ Tally Ledger Reco',
-    subtitle: 'Open access · Form 26AS/ATS vs Tally TDS/TCS ledgers & Pro ExcelJS',
-    icon: GitCompareArrows,
-    isNew: true,
-  },
-  {
-    step: '24',
-    id: 'upcoming-tool-24',
-    title: 'New Utility Coming Soon',
-    subtitle: 'Upcoming GST & ledger reconciliation tool coming soon',
-    icon: Receipt,
-    comingSoon: true,
-  },
-  {
-    step: '25',
-    id: 'upcoming-tool-25',
+    step: '16',
+    id: 'upcoming-tool-16',
     title: 'New Utility Coming Soon',
     subtitle: 'Upcoming dealership productivity module coming soon',
     icon: Sparkles,
@@ -299,7 +220,7 @@ export function HeroSection({
   const searchResults = useMemo(() => {
     const q = heroQuery.trim().toLowerCase();
     if (!q) return [];
-    const matches = TOOLS_CATALOG.filter(
+    const matches = PUBLIC_TOOLS_CATALOG.filter(
       (tool) =>
         tool.title.toLowerCase().includes(q) ||
         tool.code.toLowerCase().includes(q) ||
@@ -320,7 +241,7 @@ export function HeroSection({
   return (
     <section
       id="top"
-      className="relative w-full bg-[#FEF2C8] dark:bg-[#0B1120] pt-5 pb-14 sm:pt-7 sm:pb-16 md:pt-8 md:pb-20 overflow-hidden transition-colors duration-200"
+      className="relative w-full bg-[#FEF2C8] dark:bg-[#0B1120] pt-5 pb-14 sm:pt-7 sm:pb-16 md:pt-8 md:pb-20 overflow-x-clip transition-colors duration-200"
     >
       <div className="max-w-[1280px] mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6 relative">
         {/* Upper-right dashed connector accent kept clear of headline and spotlight cards */}
@@ -382,7 +303,7 @@ export function HeroSection({
                   setIsSearchFocused(false);
                 }
               }}
-              placeholder={`Search ${TOOLS_CATALOG.length} live tools — IFSC, PIN Code, PDF to Word, 26AS, EMI...`}
+              placeholder={`Search ${PUBLIC_TOOLS_CATALOG.length} live tools — IFSC, PIN Code, PDF to Word, 26AS, EMI...`}
               aria-label="Search VCPL tools"
               className="w-full px-3.5 py-3.5 bg-transparent dark:bg-transparent text-sm sm:text-[15px] text-[#2F3E4E] dark:text-slate-100 placeholder:text-[#64748B] dark:placeholder:text-slate-400 font-medium focus:outline-none"
             />
@@ -489,7 +410,7 @@ export function HeroSection({
               <button
                 type="button"
                 onClick={onExploreClick}
-                aria-label={`Explore all ${TOOLS_CATALOG.length} VCPL tools`}
+                aria-label={`Explore all ${PUBLIC_TOOLS_CATALOG.length} VCPL tools`}
                 className="w-11 h-11 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-[#CEE5DC] dark:bg-emerald-900/55 hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] dark:border-emerald-400/50 text-[#2F3E4E] dark:text-emerald-200 dark:hover:text-[#0F172A] flex items-center justify-center shadow-[0_3px_0_#2F3E4E] dark:shadow-[0_3px_0_#020617] transition-all duration-150 hover:-translate-y-0.5 cursor-pointer shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E]"
               >
                 <ArrowUpRight className="w-5 h-5 sm:w-7 sm:h-7 stroke-[2.4]" />
@@ -548,7 +469,7 @@ export function HeroSection({
                 onClick={() => onQuickLaunchTool(currentDomain.toolId)}
                 aria-live="polite"
                 title={`Open ${currentDomain.label}`}
-                className="relative inline-flex items-center justify-center min-w-[180px] sm:min-w-[290px] md:min-w-[350px] px-3.5 sm:px-4 py-1 rounded-xl bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] dark:border-[#F9C80E] shadow-[0_3px_0_#2F3E4E] dark:shadow-[0_3px_0_#020617] overflow-hidden cursor-pointer transition-transform duration-150 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E]"
+                className="relative inline-flex items-center justify-center min-w-[min(100%,180px)] sm:min-w-[290px] md:min-w-[350px] px-3.5 sm:px-4 py-1 rounded-xl bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] dark:border-[#F9C80E] shadow-[0_3px_0_#2F3E4E] dark:shadow-[0_3px_0_#020617] overflow-hidden cursor-pointer transition-transform duration-150 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E]"
               >
                 <AnimatePresence mode="wait">
                   <motion.span
@@ -578,7 +499,7 @@ export function HeroSection({
               onClick={onExploreClick}
               className="w-full sm:w-auto min-h-[44px] px-7 py-3 rounded-lg bg-[#2F3E4E] dark:bg-[#F9C80E] hover:bg-[#1E293B] dark:hover:bg-[#FDE047] text-[#FFFDF5] dark:text-[#0F172A] border-[1.5px] border-[#2F3E4E] dark:border-[#F9C80E] text-sm sm:text-[15px] font-semibold transition-all duration-150 active:translate-y-0.5 cursor-pointer whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E]"
             >
-              Explore All {TOOLS_CATALOG.length} Tools
+              Explore All {PUBLIC_TOOLS_CATALOG.length} Tools
             </button>
 
             <button
@@ -592,13 +513,13 @@ export function HeroSection({
 
         </div>
 
-        {/* Modern Running Release Status Line Above the 25 Spotlight Boxes */}
+        {/* Modern Running Release Status Line Above the 16 Spotlight Boxes */}
         <div className="mt-9 pt-6 border-t border-[#2F3E4E]/15 dark:border-slate-800">
           <ReleaseStatusTicker />
         </div>
 
-        {/* 25 Spotlight Boxes (5x5 Structure): 22 Live Flagship Tools + 3 Coming Soon Slots */}
-        <div className="relative z-10 mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 max-w-[1400px] mx-auto">
+        {/* 16 Spotlight Boxes (4x4 Structure): 15 Live Flagship Tools + 1 Coming Soon Slot */}
+        <div className="relative z-10 mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 max-w-[1400px] mx-auto">
           {HERO_SPOTLIGHT_BOXES.map((box) => {
             const Icon = box.icon;
             const catalogTool = box.comingSoon ? undefined : getToolById(box.id);
@@ -715,7 +636,7 @@ export function HeroSection({
         {/* Compact Quick-Launch Bar for Directory Utilities (IFSC, PIN Code & RTO) */}
         <div className="relative z-10 mt-6 max-w-[1400px] mx-auto">
           <div className="flex flex-wrap items-center justify-center gap-3">
-            {/* 1. Tulusiri Pro – Tulu Lipi Studio (Special Tools · Beta Testing) */}
+            {/* 1. Tulusiri Pro – Tulu Lipi Studio (Special · Beta Testing) */}
             <button
               type="button"
               onClick={() => {
@@ -732,7 +653,7 @@ export function HeroSection({
                   Learn Tulu · Tulusiri Pro
                 </span>
                 <span className="block font-mono text-[10px] font-semibold text-[#B45309] dark:text-amber-400 group-hover:text-[#2F3E4E] dark:group-hover:text-[#0F172A]">
-                  Special Tools · Beta Testing
+                  Special · Beta Testing
                 </span>
               </span>
               <ArrowUpRight

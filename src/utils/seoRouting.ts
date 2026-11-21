@@ -7,8 +7,8 @@ import {
 import { LEGAL_PAGES, LegalPageSlug, SITE_CONTACT } from '../data/legalPagesData';
 import { RTO_BY_CODE } from '../data/rtoDatabase';
 import {
+  PUBLIC_TOOLS_CATALOG,
   TOOL_CATEGORIES,
-  TOOLS_CATALOG,
   getToolById,
   getToolsForCategory,
 } from '../data/toolsCatalog';
@@ -41,6 +41,7 @@ export type ParsedRoute =
   | { view: 'all-tools'; filter: ToolFilterType; initialQuery?: string }
   | { view: 'tool'; toolId: string; fullScreen?: boolean; subParam?: string }
   | { view: 'legal'; slug: LegalPageSlug }
+  | { view: 'locked' }
   | { view: 'sitemap' }
   | { view: 'not-found'; path: string; statusCode?: HttpErrorCode };
 
@@ -152,6 +153,9 @@ export function parseLocationToRoute(pathname: string, search: string): ParsedRo
     }
     if (seg in ERROR_SLUG_ALIASES) {
       return { view: 'not-found', path: pathname, statusCode: ERROR_SLUG_ALIASES[seg] };
+    }
+    if (seg === 'locked' || seg === 'locked-tools') {
+      return { view: 'locked' };
     }
     if (
       seg === 'sitemap' ||
@@ -272,7 +276,7 @@ export function parseLocationToRoute(pathname: string, search: string): ParsedRo
       };
     }
     if (firstSeg === 'assets' && toolSlug === 'aistudio') {
-      const matched = TOOLS_CATALOG.find(
+      const matched = PUBLIC_TOOLS_CATALOG.find(
         (t) => t.embedHtmlPath && t.embedHtmlPath.toLowerCase().endsWith('/' + thirdSeg)
       );
       if (matched) {
@@ -324,9 +328,9 @@ export function applySeoForRoute(route: ParsedRoute) {
     path = getAllToolsPath(route.filter);
     includeFaqSchema = true;
     if (route.filter === 'All') {
-      listedTools = TOOLS_CATALOG;
-      title = `All ${TOOLS_CATALOG.length} Free Browser Tools Directory | VCPL Tools`;
-      description = `Browse all ${TOOLS_CATALOG.length} client-side VCPL Tools across Banking Slips, Tax & GST, GST Utilities, PDF Suite, Image Studio, Typing & Text, Calculators, and QR Utilities.`;
+      listedTools = PUBLIC_TOOLS_CATALOG;
+      title = `All ${PUBLIC_TOOLS_CATALOG.length} Free Browser Tools Directory | VCPL Tools`;
+      description = `Browse all ${PUBLIC_TOOLS_CATALOG.length} client-side VCPL Tools across Banking Slips, Tax & GST, GST Utilities, PDF Suite, Image Studio, Typing & Text, Calculators, and QR Utilities.`;
       breadcrumbItems.push({ name: 'All Tools', item: `${origin}${path}` });
     } else {
       const catMeta = TOOL_CATEGORIES.find((c) => c.filterKey === route.filter);
@@ -392,6 +396,9 @@ export function applySeoForRoute(route: ParsedRoute) {
         'Arjun Bangera',
         'Kaushik Bangera',
       ].join(', ');
+      if (tool.vaultOnly) {
+        robots = 'noindex, nofollow';
+      }
       breadcrumbItems.push(
         { name: tool.categoryName, item: `${origin}${catPath}` },
         { name: tool.title, item: `${origin}${path}` }
@@ -408,11 +415,18 @@ export function applySeoForRoute(route: ParsedRoute) {
       }
       breadcrumbItems.push({ name: page.navTitle, item: `${origin}${path}` });
     }
+  } else if (route.view === 'locked') {
+    path = '/locked';
+    title = 'Locked Enterprise Vault | VCPL Tools';
+    description =
+      'Restricted access vault for authorized VCPL dealership, banking, and administrative modules.';
+    robots = 'noindex, nofollow';
+    breadcrumbItems.push({ name: 'Locked Vault', item: `${origin}/locked` });
   } else if (route.view === 'sitemap') {
     path = '/sitemap';
-    listedTools = TOOLS_CATALOG;
-    title = `HTML & XML Sitemap (${TOOLS_CATALOG.length} Tools) | VCPL Tools`;
-    description = `Complete site directory and XML sitemap for all ${TOOLS_CATALOG.length} browser-based utilities, suites, and policy pages on VCPL Tools.`;
+    listedTools = PUBLIC_TOOLS_CATALOG;
+    title = `HTML & XML Sitemap (${PUBLIC_TOOLS_CATALOG.length} Tools) | VCPL Tools`;
+    description = `Complete site directory and XML sitemap for all ${PUBLIC_TOOLS_CATALOG.length} browser-based utilities, suites, and policy pages on VCPL Tools.`;
     keywords = 'VCPL Tools sitemap, XML sitemap, all browser tools index, Arjun Bangera, Kaushik Bangera';
     breadcrumbItems.push({ name: 'Sitemap', item: `${origin}${path}` });
   } else if (route.view === 'not-found') {
@@ -420,17 +434,17 @@ export function applySeoForRoute(route: ParsedRoute) {
     const errorMeta = ERROR_PAGES_CONFIG[errorCode] ?? ERROR_PAGES_CONFIG[404];
     path = route.path || `/${errorMeta.code}`;
     title = `${errorMeta.code} – ${errorMeta.shortTitle} | VCPL Tools`;
-    description = `${errorMeta.headline} ${errorMeta.description} Explore all ${TOOLS_CATALOG.length} client-side banking, tax, PDF, image, and calculator utilities.`;
+    description = `${errorMeta.headline} ${errorMeta.description} Explore all ${PUBLIC_TOOLS_CATALOG.length} client-side banking, tax, PDF, image, and calculator utilities.`;
     robots = 'noindex, nofollow';
   }
 
   const canonicalUrl =
     route.view === 'tool' && route.fullScreen
-      ? `${origin}${getToolPath(getToolById(route.toolId) ?? TOOLS_CATALOG[0])}`
+      ? `${origin}${getToolPath(getToolById(route.toolId) ?? PUBLIC_TOOLS_CATALOG[0])}`
       : `${origin}${path}`;
   const currentUrl =
     route.view === 'tool' && route.fullScreen
-      ? `${origin}${getToolFullPath(getToolById(route.toolId) ?? TOOLS_CATALOG[0])}`
+      ? `${origin}${getToolFullPath(getToolById(route.toolId) ?? PUBLIC_TOOLS_CATALOG[0])}`
       : canonicalUrl;
   const ogImageUrl = `${origin}/og-card.svg`;
   const ogType = route.view === 'legal' ? 'article' : 'website';
@@ -546,7 +560,7 @@ export function applySeoForRoute(route: ParsedRoute) {
         mainEntity: {
           '@type': 'ItemList',
           numberOfItems: listedTools.length,
-          itemListElement: listedTools.slice(0, TOOLS_CATALOG.length).map((tool, index) => ({
+          itemListElement: listedTools.slice(0, PUBLIC_TOOLS_CATALOG.length).map((tool, index) => ({
             '@type': 'ListItem',
             position: index + 1,
             name: tool.title,

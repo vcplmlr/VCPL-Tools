@@ -35,7 +35,6 @@ import { ToolCatalogItem } from '../../types/tools';
 import { downloadBomCsv } from '../../utils/printReport';
 import { emitGlobalProgress } from '../TopLoadingBar';
 import { FileDropZone } from './FileDropZone';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface VcplRtgsNeftFormViewProps {
   tool?: ToolCatalogItem;
@@ -318,27 +317,13 @@ function VcplBuiltInLetterhead({ className = '' }: { className?: string }) {
 }
 
 export const VcplRtgsNeftFormView: React.FC<VcplRtgsNeftFormViewProps> = ({ tool, onBack }) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={tool?.code ?? 'VC-13'}
-      toolTitle={tool?.title ?? 'VCPL Bulk Bank Transfer Form'}
-      sessionKey="vcpl_rtgs_neft_form_unlocked_v1"
-      passcode="202627"
-      description="This VCPL Bulk Bank Transfer Form generator is locked for authorized dealership banking access. Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {({ lockTool }) => (
-        <VcplBulkBankTransferWorkspace tool={tool} lockTool={lockTool} onBack={onBack} />
-      )}
-    </ToolPasscodeGate>
-  );
+  return <VcplBulkBankTransferWorkspace tool={tool} onBack={onBack} />;
 };
 
 const VcplBulkBankTransferWorkspace: React.FC<{
   tool?: ToolCatalogItem;
-  lockTool: () => void;
   onBack?: () => void;
-}> = ({ tool, lockTool, onBack }) => {
+}> = ({ tool, onBack }) => {
   // 1. Letterhead
   const [letterheadMode, setLetterheadMode] = useState<LetterheadMode>('vcpl');
   const [letterheadImg, setLetterheadImg] = useState<string>('');
@@ -1222,7 +1207,7 @@ const VcplBulkBankTransferWorkspace: React.FC<{
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1 font-semibold text-[#12805C] dark:text-emerald-300">
                 <Lock className="w-3 h-3" aria-hidden="true" />
-                <span>Unlocked</span>
+                <span>Locked Vault Access</span>
               </span>
               <span aria-hidden="true">·</span>
               <span className="font-semibold text-[#B45309] dark:text-amber-300">
@@ -1255,14 +1240,6 @@ const VcplBulkBankTransferWorkspace: React.FC<{
           >
             <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Reset Default</span>
-          </button>
-          <button
-            type="button"
-            onClick={lockTool}
-            className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-[#FEF2C8] dark:bg-slate-800 hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] dark:text-slate-100 dark:hover:text-[#0F172A] transition cursor-pointer whitespace-nowrap"
-          >
-            <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Lock Tool</span>
           </button>
           {onBack && (
             <button

@@ -2867,7 +2867,7 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
   },
   'tulusiri-pro': {
     toolId: 'tulusiri-pro',
-    seoTitle: 'Tulusiri Pro – Offline Tulu Lipi Studio (Beta Testing) | Special Tools – VCPL Tools',
+    seoTitle: 'Tulusiri Pro – Offline Tulu Lipi Studio (Beta Testing) | Special – VCPL Tools',
     seoDescription:
       'Convert English, Kannada, Hindi, Tamil, Telugu & Malayalam into Tulu Lipi (Baravu font), decode legacy Baravu text, export PNG posters, browse Tulu dictionary words, and practice handwriting locally.',
     adTopic: 'Tulu Lipi, Language Learning & Regional Utility Suites',
@@ -2877,10 +2877,10 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
       'Baravu font converter',
       'Learn Tulu online',
       'Kannada to Tulu Lipi',
-      'Special Tools VCPL',
+      'Special VCPL',
     ],
     overview: [
-      'Tulusiri Pro – Tulu Lipi Studio (SP-01) is the flagship module under Special Tools on VCPL Tools, currently released in Beta Testing. It brings an offline Tulu script (Baravu) writing studio, phonetic Nudi-style input, multi-script transliteration, legacy Baravu decoder, dictionary, and interactive learning suite right into your browser with zero account sign-ups.',
+      'Tulusiri Pro – Tulu Lipi Studio (SP-01) is the flagship module under Special on VCPL Tools, currently released in Beta Testing. It brings an offline Tulu script (Baravu) writing studio, phonetic Nudi-style input, multi-script transliteration, legacy Baravu decoder, dictionary, and interactive learning suite right into your browser with zero account sign-ups.',
       'Whether you want to compose greeting posters in traditional Tulu Lipi, convert names or sentences from English, Kannada, Devanagari, Tamil, Telugu, or Malayalam, verify individual word spellings, or trace Baravu characters by hand on a canvas guide, everything executes 100% locally on your device.',
     ],
     howToUse: [
@@ -3148,6 +3148,65 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
         question: 'Does the tool use Tally opening or closing balances in the reconciliation?',
         answer:
           'No. Opening Balance / B/F and Closing Balance rows are stripped during Tally parsing so only actual transactions within your selected period range are reconciled.',
+      },
+    ],
+  },
+  'bajaj-reconciliation-desk': {
+    toolId: 'bajaj-reconciliation-desk',
+    seoTitle: 'Bajaj Reconciliation Desk – Claim Payments, GST Tracker, DMS & Tally Audit | VCPL Tools',
+    seoDescription:
+      'Reconcile Bajaj Allianz claim payment sheets and cheque reports against DMS invoices, credit notes, Tally registers, and bank statements locally in your browser with GST ageing and Excel export.',
+    adTopic: 'Insurance Claims Reconciliation, Dealership Accounting & GST Audit',
+    focusKeywords: [
+      'Bajaj reconciliation desk',
+      'Bajaj Allianz claim payment reconciliation',
+      'Bajaj GST hold release tracker',
+      'DMS vs Tally Bajaj claims audit',
+      'dealership insurance warranty reco',
+    ],
+    overview: [
+      'Bajaj Reconciliation Desk (VC-15) consolidates Bajaj Allianz Insurance and Extended Warranty claim payment reports, cheque / NEFT sheets, DMS service invoices, DMS credit notes, Tally day-book / credit-note registers, and optional bank statements into one 9-tab audit workspace.',
+      'Uploaded files are classified automatically by column headers—even if dropped into another zone—then cross-checked across 27 automated High, Medium, and Info audit rules with full multi-sheet Excel (.xlsx) and filtered CSV exports.',
+    ],
+    howToUse: [
+      {
+        stepTitle: 'Drop Bajaj Claim, Cheque, DMS, Tally & Bank Files',
+        detail:
+          'Upload .xlsx, .xls, .csv, or .pdf reports into slots 1–3. Auto-detection sorts claim payments, cheque reports, DMS invoices, credit notes, Tally registers, and bank statements automatically.',
+      },
+      {
+        stepTitle: 'Configure TDS, Tolerance, Product Map & Ageing Buckets',
+        detail:
+          'Adjust standard TDS %, rounding tolerance, warranty keyword (_EW_), product-to-segment mapping, and ageing buckets (30,60,90) in the Options panel.',
+      },
+      {
+        stepTitle: 'Inspect 9 Audit Views & Export Excel / CSV',
+        detail:
+          'Review Summary KPIs, drill down from Audit findings into Exceptions, inspect GST Tracker ageing and UTR / Bank tallies, and download the complete 9-sheet Excel workbook.',
+      },
+    ],
+    keyBenefits: [
+      {
+        title: 'GST Hold & Release Ageing Tracker',
+        detail:
+          'Matches Pay App claim payments with G-suffix GST release rows to pinpoint pending GST, over-releases, and ageing beyond configured buckets.',
+      },
+      {
+        title: '27 Automated Dealership Audit Checks',
+        detail:
+          'Flags math discrepancies, non-standard bill numbers, missing UTR receipts in Tally, unbilled claims, possible re-bills, and DMS vs Tally variances.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'What happens if I drop a Tally or DMS file in the Bajaj Claim zone?',
+        answer:
+          'Each sheet is detected by its column headings rather than upload slot, so misplaced sheets are automatically routed to their proper zone and tagged as auto-moved.',
+      },
+      {
+        question: 'Can I export the complete reconciliation workbook offline?',
+        answer:
+          'Yes. Click Export Excel to download a multi-sheet .xlsx workbook containing Summary, Bajaj_Master, Bajaj Insurance, Bajaj Warranty, GST_Tracker, UTR_Bank, Tally_DMS_Reco, Exceptions, and Audit.',
       },
     ],
   },

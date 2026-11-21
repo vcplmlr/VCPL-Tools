@@ -15,6 +15,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
+import { copyTextToClipboard } from '../../hooks/useRightClickProtection';
 import {
   downloadBomCsv,
   downloadExcelWorkbook,
@@ -108,12 +109,10 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
   const [cdRunning, setCdRunning] = useState(false);
 
   const copyText = async (txt: string) => {
-    try {
-      await navigator.clipboard.writeText(txt);
+    const ok = await copyTextToClipboard(txt);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
-    } catch {
-      // Ignore clipboard failures
     }
   };
 
@@ -542,6 +541,19 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
           </div>
 
           <ToolExportBar
+            onCopy={() =>
+              void copyText(
+                Array.from({ length: maxLen })
+                  .map((_, i) => {
+                    const l = leftLines[i] ?? '';
+                    const r = rightLines[i] ?? '';
+                    return `Line ${i + 1} [${l === r ? 'MATCH' : 'CHANGED'}]: "${l}" -> "${r}"`;
+                  })
+                  .join('\n')
+              )
+            }
+            copied={copied}
+            copyLabel="Copy Diff"
             onClear={() => {
               setDiffLeft('');
               setDiffRight('');
@@ -1081,6 +1093,15 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
           </div>
 
           <ToolExportBar
+            onCopy={() =>
+              void copyText(
+                Object.entries(STORAGE_UNITS)
+                  .map(([k, u]) => `${k}: ${(baseBytes / u.bytes).toLocaleString('en-IN', { maximumFractionDigits: 4 })}`)
+                  .join('\n')
+              )
+            }
+            copied={copied}
+            copyLabel="Copy Values"
             onClear={() => setStorageVal('')}
             onExcel={() => {
               downloadExcelWorkbook({

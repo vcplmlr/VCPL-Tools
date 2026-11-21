@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, HelpCircle, ShieldCheck } from 'lucide-react';
 import { SITE_CONTACT } from '../data/legalPagesData';
-import { TOOLS_CATALOG } from '../data/toolsCatalog';
+import { PUBLIC_TOOLS_CATALOG } from '../data/toolsCatalog';
 
 type FaqTopic = 'All' | 'Privacy & Security' | 'Banking & Tax' | 'PDF & Image' | 'General';
 
@@ -31,8 +31,8 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     id: 'free-no-signup',
     topic: 'General',
-    question: `Are all ${TOOLS_CATALOG.length} tools completely free without signup or watermarks?`,
-    answer: `Yes. Every one of our ${TOOLS_CATALOG.length} browser utilities across Banking, Tax & GST, GST Utilities, Calculator Hub, PDF Suite, Image Studio, Typing & Text, QR Utilities, and VCPL Enterprise tools works immediately without login, paywalls, daily caps, or forced VCPL watermarks.`,
+    question: `Are all ${PUBLIC_TOOLS_CATALOG.length} tools completely free without signup or watermarks?`,
+    answer: `Yes. Every one of our ${PUBLIC_TOOLS_CATALOG.length} browser utilities across Banking, Tax & GST, GST Utilities, Calculator Hub, PDF Suite, Image Studio, Typing & Text, QR Utilities, and VCPL Enterprise tools works immediately without login, paywalls, daily caps, or forced VCPL watermarks.`,
   },
   {
     id: 'official-affiliation',

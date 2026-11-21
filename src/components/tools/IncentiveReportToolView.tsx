@@ -25,7 +25,6 @@ import {
   ZoomIn,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 import {
   buildDealEvidence,
   buildDealsMatrixRows,
@@ -69,25 +68,11 @@ interface IncentiveReportToolViewProps {
 const STORAGE_KEY = 'incRules';
 type TargetBox = 1 | 2 | 3;
 
-export const IncentiveReportToolView: React.FC<IncentiveReportToolViewProps> = ({ tool, onBack }) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={tool?.code ?? 'VC-03'}
-      toolTitle={tool?.title ?? 'Incentive Report Tool'}
-      sessionKey="vcpl_incentive_unlocked_v1"
-      passcode="202627"
-      description="This tool is locked for authorized dealership reconciliation only. Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {({ lockTool }) => <IncentiveReportWorkspace tool={tool} lockTool={lockTool} />}
-    </ToolPasscodeGate>
-  );
+export const IncentiveReportToolView: React.FC<IncentiveReportToolViewProps> = ({ tool }) => {
+  return <IncentiveReportWorkspace tool={tool} />;
 };
 
-const IncentiveReportWorkspace: React.FC<{ tool?: ToolCatalogItem; lockTool: () => void }> = ({
-  tool,
-  lockTool,
-}) => {
+const IncentiveReportWorkspace: React.FC<{ tool?: ToolCatalogItem }> = ({ tool }) => {
 
   // Box cursor/focus targeting for effortless Ctrl+V placement
   const [hoveredBox, setHoveredBox] = useState<TargetBox | null>(null);
@@ -1392,7 +1377,7 @@ const IncentiveReportWorkspace: React.FC<{ tool?: ToolCatalogItem; lockTool: () 
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#2F3E4E] text-[11px] font-bold text-[#F9C80E]">
               <Lock className="w-3 h-3" aria-hidden="true" />
-              <span>Passcode Unlocked</span>
+              <span>Locked Vault Access</span>
             </span>
           </div>
           <h2 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E]">
@@ -1404,14 +1389,6 @@ const IncentiveReportWorkspace: React.FC<{ tool?: ToolCatalogItem; lockTool: () 
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={lockTool}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#2F3E4E] hover:bg-[#1E293B] text-xs font-bold text-[#F9C80E] transition cursor-pointer"
-          >
-            <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Lock Tool</span>
-          </button>
           <button
             type="button"
             onClick={handleResetAll}

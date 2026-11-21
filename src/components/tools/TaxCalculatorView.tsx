@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Calculator, CheckCircle2, Info, RotateCcw, Scale } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
+import { copyTextToClipboard } from '../../hooks/useRightClickProtection';
 import { formatINR } from '../../utils/numberToWords';
 import {
   downloadBomCsv,
@@ -102,6 +103,7 @@ export const TaxCalculatorView: React.FC<TaxCalculatorViewProps> = ({ tool, onBa
   const [hraExempt, setHraExempt] = useState<string>('');
   const [homeLoanInterest, setHomeLoanInterest] = useState<string>('');
   const [nps80CCD, setNps80CCD] = useState<string>('');
+  const [copiedSummary, setCopiedSummary] = useState<boolean>(false);
 
   const comparison = useMemo(() => {
     const grossNum = Math.max(0, Number(grossSalary) || 0);
@@ -451,6 +453,23 @@ export const TaxCalculatorView: React.FC<TaxCalculatorViewProps> = ({ tool, onBa
 
           <ToolExportBar
             onClear={handleClear}
+            onCopy={() => {
+              const summaryLines = [
+                'Income Tax Comparison (FY 2025-26 / AY 2026-27)',
+                `Gross Income: ${formatINR(comparison.totalGross)}`,
+                `New Regime Taxable: ${formatINR(comparison.taxableNew)} | Total Tax: ${formatINR(comparison.newTax.total)}`,
+                `Old Regime Taxable: ${formatINR(comparison.taxableOld)} | Total Tax: ${formatINR(comparison.oldTax.total)}`,
+                `Recommended: ${comparison.winner} (Annual Tax Saved: ${formatINR(comparison.savings)})`,
+              ];
+              void copyTextToClipboard(summaryLines.join('\n')).then((ok) => {
+                if (ok) {
+                  setCopiedSummary(true);
+                  window.setTimeout(() => setCopiedSummary(false), 1800);
+                }
+              });
+            }}
+            copied={copiedSummary}
+            copyLabel="Copy Summary"
             onExcel={() => {
               downloadExcelWorkbook({
                 filename: 'Income_Tax_FY25-26_Comparison.xlsx',

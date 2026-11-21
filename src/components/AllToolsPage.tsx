@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Layers, Search, ShieldCheck, X } from 'lucide-react';
 import {
+  PUBLIC_TOOLS_CATALOG,
   TOOL_SECTION_HEADS,
-  TOOLS_CATALOG,
   getToolsForCategory,
   sortToolsForSuite,
   toolMatchesCategory,
@@ -341,7 +341,7 @@ export function AllToolsPage({
       (head) => activeFilter === 'All' || head.key === activeFilter
     )
       .map((head) => {
-        const filteredTools = TOOLS_CATALOG.filter((tool) => {
+        const filteredTools = PUBLIC_TOOLS_CATALOG.filter((tool) => {
           if (tool.id === 'gstr1-return-prep' && activeFilter !== 'GST Utilities') {
             return false;
           }
@@ -407,7 +407,7 @@ export function AllToolsPage({
 
   const categoryTotalCount = activeCategoryHead
     ? getToolsForCategory(activeCategoryHead.key).length
-    : TOOLS_CATALOG.length;
+    : PUBLIC_TOOLS_CATALOG.length;
 
   const getGridColsClass = (count: number) => {
     if (count === 1) return 'grid grid-cols-1 max-w-xl';
@@ -445,7 +445,7 @@ export function AllToolsPage({
                   }}
                   className="hidden sm:inline text-[#334155] dark:text-slate-300 hover:text-[#2F3E4E] dark:hover:text-[#F9C80E] underline underline-offset-4 cursor-pointer"
                 >
-                  All Tools ({TOOLS_CATALOG.length})
+                  All Tools ({PUBLIC_TOOLS_CATALOG.length})
                 </button>
                 <span className="hidden sm:inline text-[#64748B] dark:text-slate-500" aria-hidden="true">
                   /
@@ -499,7 +499,7 @@ export function AllToolsPage({
               ) : (
                 <>
                   <div className="flex flex-wrap items-center gap-3 text-xs font-mono font-bold text-[#475569] dark:text-slate-400 tabular-nums">
-                    <span>{TOOLS_CATALOG.length} Live Modules</span>
+                    <span>{PUBLIC_TOOLS_CATALOG.length} Live Modules</span>
                     <span aria-hidden="true">·</span>
                     <span>{TOOL_SECTION_HEADS.length} Specialized Suites</span>
                     <span aria-hidden="true">·</span>
@@ -512,9 +512,9 @@ export function AllToolsPage({
                     All VCPL Tools — Section-Wise Directory
                   </h1>
                   <p className="text-sm text-[#475569] dark:text-slate-300 leading-relaxed">
-                    Browse all {TOOLS_CATALOG.length} client-side utilities organized across Banking,
+                    Browse all {PUBLIC_TOOLS_CATALOG.length} client-side utilities organized across Banking,
                     Tax &amp; GST, GST, Calculator Hub, PDF Suite, Image Studio, Typing &amp; Text, QR
-                    Utilities, VCPL Tools, Special Tools, and Learn Tools.
+                    Utilities, VCPL Tools, Special, and Learn Tools.
                   </p>
                 </>
               )}
@@ -529,7 +529,7 @@ export function AllToolsPage({
                 placeholder={
                   activeCategoryHead
                     ? `Filter ${categoryTotalCount} ${activeCategoryHead.key} tools...`
-                    : `Filter ${TOOLS_CATALOG.length} tools by name, code, keyword...`
+                    : `Filter ${PUBLIC_TOOLS_CATALOG.length} tools by name, code, keyword...`
                 }
                 aria-label="Filter category tools"
                 className="w-full pl-10 pr-9 py-3 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-[#FFFDF5] dark:bg-[#0B1120] shadow-[0_2px_0_#2F3E4E] dark:shadow-[0_2px_0_#020617] text-xs sm:text-sm font-medium text-[#2F3E4E] dark:text-slate-100 placeholder:text-[#64748B] dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2F3E4E] dark:focus:ring-[#F9C80E]"
@@ -615,7 +615,7 @@ export function AllToolsPage({
               }}
               className="mt-5 px-5 py-2.5 rounded-lg bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A] text-sm font-semibold cursor-pointer"
             >
-              Show All {TOOLS_CATALOG.length} Tools
+              Show All {PUBLIC_TOOLS_CATALOG.length} Tools
             </button>
           </div>
         ) : visibleGroupedSections ? (

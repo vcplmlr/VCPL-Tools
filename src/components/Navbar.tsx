@@ -11,8 +11,8 @@ import {
   Instagram,
   Keyboard,
   Landmark,
-  LayoutGrid,
   Linkedin,
+  Lock,
   Menu,
   QrCode,
   Receipt,
@@ -35,6 +35,7 @@ export type IconMenuKey =
   | 'typing-text'
   | 'vcpl-tools'
   | 'special-tools'
+  | 'locked'
   | 'learn-tools'
   | 'calculator'
   | 'all-tools';
@@ -114,8 +115,8 @@ const ICON_MENU_ITEMS: {
   { key: 'image-qr', label: 'QR & TOOLS', Icon: QrCode },
   { key: 'typing-text', label: 'TYPING & TEXT', Icon: Keyboard },
   { key: 'learn-tools', label: 'LEARN', Icon: GraduationCap },
-  { key: 'special-tools', label: 'SPECIAL TOOLS', Icon: Sparkles },
-  { key: 'all-tools', label: 'ALL', Icon: LayoutGrid },
+  { key: 'special-tools', label: 'SPECIAL', Icon: Sparkles },
+  { key: 'locked', label: 'LOCKED', Icon: Lock },
 ];
 
 const SOCIAL_LINKS = [
@@ -213,6 +214,7 @@ export function Navbar({
           >
             {ICON_MENU_ITEMS.map(({ key, label, Icon }) => {
               const isActive = activeIconMenu === key;
+              const isLockedBtn = key === 'locked';
               return (
                 <button
                   key={key}
@@ -223,14 +225,22 @@ export function Navbar({
                   }}
                   aria-current={isActive ? 'page' : undefined}
                   className={`inline-flex items-center gap-1 xl:gap-1.5 px-1.5 xl:px-2 py-1.5 rounded-lg text-[9.5px] xl:text-[10px] 2xl:text-[10.5px] font-display font-extrabold tracking-tight 2xl:tracking-wide transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer border ${
-                    isActive
+                    isLockedBtn
+                      ? isActive
+                        ? 'bg-[#7D0B0B] text-[#F9C80E] border-[#7D0B0B] ring-2 ring-[#F9C80E] shadow-[0_2px_0_#450A0A]'
+                        : 'bg-[#9E2A2B] hover:bg-[#7D0B0B] text-[#FFFDF5] border-[#7D0B0B] dark:bg-[#B91C1C] dark:hover:bg-[#991B1B] dark:border-rose-400/50 shadow-[0_2px_0_#5C0909]'
+                      : isActive
                       ? 'bg-[#2F3E4E] text-[#F9C80E] border-[#2F3E4E] dark:bg-[#F9C80E] dark:text-[#0F172A] dark:border-[#F9C80E] shadow-[0_2px_0_#1E293B]'
                       : 'bg-[#FFFDF5]/90 dark:bg-slate-900/90 text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/15 dark:border-slate-700 hover:bg-[#F9C80E]/55 dark:hover:bg-slate-800 hover:border-[#2F3E4E]/45 dark:hover:border-slate-500'
                   }`}
                 >
                   <Icon
                     className={`w-3 h-3 xl:w-3.5 xl:h-3.5 shrink-0 ${
-                      isActive
+                      isLockedBtn
+                        ? isActive
+                          ? 'text-[#F9C80E]'
+                          : 'text-[#FFFDF5]'
+                        : isActive
                         ? 'text-[#F9C80E] dark:text-[#0F172A]'
                         : 'text-[#2F3E4E] dark:text-slate-300'
                     }`}
@@ -264,13 +274,14 @@ export function Navbar({
 
         {/* Mobile & Tablet Menu Drawer */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-[#2F3E4E]/15 dark:border-slate-700/80 bg-[#FEF2C8] dark:bg-[#0B1120] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6 py-4 space-y-3">
+          <div className="lg:hidden max-h-[calc(100dvh-5rem)] overflow-y-auto border-t border-[#2F3E4E]/15 dark:border-slate-700/80 bg-[#FEF2C8] dark:bg-[#0B1120] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6 py-4 space-y-3">
             <nav
               aria-label="Mobile Navigation"
               className="grid grid-cols-2 sm:grid-cols-3 gap-2"
             >
               {ICON_MENU_ITEMS.map(({ key, label, Icon }) => {
                 const isActive = activeIconMenu === key;
+                const isLockedBtn = key === 'locked';
                 return (
                   <button
                     key={key}
@@ -281,14 +292,22 @@ export function Navbar({
                     }}
                     aria-current={isActive ? 'page' : undefined}
                     className={`inline-flex items-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg text-xs font-display font-extrabold tracking-wide border-[1.5px] transition-colors cursor-pointer ${
-                      isActive
+                      isLockedBtn
+                        ? isActive
+                          ? 'bg-[#7D0B0B] text-[#F9C80E] border-[#7D0B0B] ring-2 ring-[#F9C80E] shadow-[0_2px_0_#450A0A]'
+                          : 'bg-[#9E2A2B] hover:bg-[#7D0B0B] text-[#FFFDF5] border-[#7D0B0B] dark:bg-[#B91C1C] dark:hover:bg-[#991B1B] dark:border-rose-400/50 shadow-[0_2px_0_#5C0909]'
+                        : isActive
                         ? 'bg-[#2F3E4E] text-[#F9C80E] border-[#2F3E4E] dark:bg-[#F9C80E] dark:text-[#0F172A] dark:border-[#F9C80E]'
                         : 'bg-[#FFFDF5] dark:bg-slate-900 text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/40 dark:border-slate-700 hover:bg-[#F9C80E]/40 dark:hover:bg-slate-800'
                     }`}
                   >
                     <Icon
                       className={`w-4 h-4 shrink-0 ${
-                        isActive
+                        isLockedBtn
+                          ? isActive
+                            ? 'text-[#F9C80E]'
+                            : 'text-[#FFFDF5]'
+                          : isActive
                           ? 'text-[#F9C80E] dark:text-[#0F172A]'
                           : 'text-[#2F3E4E] dark:text-slate-300'
                       }`}

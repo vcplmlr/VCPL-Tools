@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, RotateCcw, X } from 'lucide-react';
 import { LEGAL_PAGES, LegalPageSlug, SITE_CONTACT } from '../data/legalPagesData';
-import { TOOLS_CATALOG } from '../data/toolsCatalog';
+import { PUBLIC_TOOLS_CATALOG, getToolsForCategory } from '../data/toolsCatalog';
 import { ToolCatalogItem, ToolFilterType } from '../types/tools';
 import { WhatsAppIcon } from './WhatsAppIcon';
 
@@ -10,6 +10,7 @@ export type WhatsAppPageView =
   | 'all-tools'
   | 'tool'
   | 'legal'
+  | 'locked'
   | 'sitemap'
   | 'not-found';
 
@@ -30,8 +31,8 @@ export function WhatsAppChatWidget({
   const [messageDraft, setMessageDraft] = useState('');
 
   const categoryCount = useMemo(() => {
-    if (activeFilter === 'All') return TOOLS_CATALOG.length;
-    return TOOLS_CATALOG.filter((t) => t.category === activeFilter).length;
+    if (activeFilter === 'All') return PUBLIC_TOOLS_CATALOG.length;
+    return getToolsForCategory(activeFilter).length;
   }, [activeFilter]);
 
   const contextLabel = useMemo(() => {
@@ -40,11 +41,14 @@ export function WhatsAppChatWidget({
     }
     if (view === 'all-tools') {
       return activeFilter === 'All'
-        ? `All Tools Directory (${TOOLS_CATALOG.length} Tools)`
+        ? `All Tools Directory (${PUBLIC_TOOLS_CATALOG.length} Tools)`
         : `${activeFilter} Category Page (${categoryCount} Tools)`;
     }
     if (view === 'legal' && activeLegalSlug) {
       return `${LEGAL_PAGES[activeLegalSlug]?.navTitle ?? 'Information'} Page`;
+    }
+    if (view === 'locked') {
+      return 'Locked Vault Page';
     }
     if (view === 'sitemap') {
       return 'HTML & XML Sitemap Page';
@@ -175,11 +179,11 @@ export function WhatsAppChatWidget({
         aria-expanded={isOpen}
         aria-label={isOpen ? 'Close WhatsApp support chat' : 'Open WhatsApp support chat'}
         title={isOpen ? 'Close WhatsApp' : 'WhatsApp Support'}
-        className="p-0 bg-transparent border-0 shadow-none rounded-full inline-flex items-center justify-center transition-transform hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F3E4E] focus-visible:ring-offset-2"
+        className="min-w-[44px] min-h-[44px] p-0 bg-transparent border-0 shadow-none rounded-full inline-flex items-center justify-center transition-transform hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F3E4E] focus-visible:ring-offset-2"
       >
         <WhatsAppIcon
           variant="branded"
-          className="w-10 h-10 sm:w-11 sm:h-11 drop-shadow-[0_2px_6px_rgba(15,23,42,0.22)]"
+          className="w-11 h-11 drop-shadow-[0_2px_6px_rgba(15,23,42,0.22)]"
         />
       </button>
     </div>

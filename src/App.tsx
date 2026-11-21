@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { AdBlockerNotice } from './components/AdBlockerNotice';
 import { AdSlot } from './components/AdSlot';
-import { AllToolsPage } from './components/AllToolsPage';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { CategoriesSection } from './components/CategoriesSection';
 import {
@@ -15,15 +14,10 @@ import { Footer } from './components/Footer';
 import { HeroSection } from './components/HeroSection';
 import { HighlightsBanner } from './components/HighlightsBanner';
 import { IconMenuKey, Navbar } from './components/Navbar';
-import { LegalPageView } from './components/LegalPageView';
-import { NotFoundPage } from './components/NotFoundPage';
 import { RequestSection } from './components/RequestSection';
 import { ScrollToTopButton } from './components/ScrollToTopButton';
-import { SearchModal } from './components/SearchModal';
-import { SitemapPage } from './components/SitemapPage';
-import { TopLoadingBar } from './components/TopLoadingBar';
+import { TopLoadingBar, emitGlobalProgress } from './components/TopLoadingBar';
 import { WhatsAppChatWidget } from './components/WhatsAppChatWidget';
-import { ToolWorkspace } from './components/tools/ToolWorkspace';
 import { OPEN_COOKIE_BANNER_EVENT } from './config/adsense';
 import { HttpErrorCode } from './data/errorPagesData';
 import { LegalPageSlug } from './data/legalPagesData';
@@ -44,6 +38,48 @@ import {
   getToolPath,
   parseLocationToRoute,
 } from './utils/seoRouting';
+
+const AllToolsPage = lazy(() =>
+  import('./components/AllToolsPage').then((m) => ({ default: m.AllToolsPage }))
+);
+const LockedToolsPage = lazy(() =>
+  import('./components/LockedToolsPage').then((m) => ({ default: m.LockedToolsPage }))
+);
+const LegalPageView = lazy(() =>
+  import('./components/LegalPageView').then((m) => ({ default: m.LegalPageView }))
+);
+const NotFoundPage = lazy(() =>
+  import('./components/NotFoundPage').then((m) => ({ default: m.NotFoundPage }))
+);
+const SearchModal = lazy(() =>
+  import('./components/SearchModal').then((m) => ({ default: m.SearchModal }))
+);
+const SitemapPage = lazy(() =>
+  import('./components/SitemapPage').then((m) => ({ default: m.SitemapPage }))
+);
+const ToolWorkspace = lazy(() =>
+  import('./components/tools/ToolWorkspace').then((m) => ({ default: m.ToolWorkspace }))
+);
+
+function RouteLoadingFallback() {
+  useEffect(() => {
+    emitGlobalProgress(true, 45, 'suspense-route');
+    return () => {
+      emitGlobalProgress(false, 100, 'suspense-route');
+    };
+  }, []);
+
+  return (
+    <div className="w-full min-h-[52dvh] flex items-center justify-center bg-[#FEF2C8] dark:bg-[#0B1120] px-4 py-16">
+      <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl px-7 py-6 shadow-[0_4px_0_#2F3E4E] dark:shadow-[0_4px_0_#020617] text-center space-y-2.5">
+        <div className="w-7 h-7 mx-auto rounded-full border-2 border-[#2F3E4E] dark:border-slate-600 border-t-[#F9C80E] animate-spin" />
+        <p className="font-display font-extrabold text-sm text-[#2F3E4E] dark:text-slate-100">
+          Loading Workspace...
+        </p>
+      </div>
+    </div>
+  );
+}
 
 const FAVORITES_KEY = 'vcpl_tool_favorites_v1';
 const RECENTS_KEY = 'vcpl_tool_recents_v1';
@@ -94,6 +130,7 @@ function AppShell() {
     parseLocationToRoute(window.location.pathname, window.location.search)
   );
   const [navTriggerKey, setNavTriggerKey] = useState(0);
+  const [isVaultUnlocked, setIsVaultUnlocked] = useState(false);
   const [selectedBankForSlip, setSelectedBankForSlip] = useState<BankId | undefined>(undefined);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [cookieOpen, setCookieOpen] = useState(() => {
@@ -110,6 +147,18 @@ function AppShell() {
   const [recents, setRecents] = useState<string[]>(() =>
     safeReadStorage<string[]>(RECENTS_KEY, [])
   );
+
+  useEffect(() => {
+    const handlePageExit = () => {
+      setIsVaultUnlocked(false);
+    };
+    window.addEventListener('pagehide', handlePageExit);
+    window.addEventListener('beforeunload', handlePageExit);
+    return () => {
+      window.removeEventListener('pagehide', handlePageExit);
+      window.removeEventListener('beforeunload', handlePageExit);
+    };
+  }, []);
 
   const navigateToRoute = useCallback(
     (nextRoute: ParsedRoute, targetPath: string, replace = false) => {
@@ -187,7 +236,9 @@ function AppShell() {
     (toolOrId: ToolCatalogItem | string, fullScreen = false) => {
       const tool = typeof toolOrId === 'string' ? getToolById(toolOrId) : toolOrId;
       if (!tool) return;
-      recordRecentTool(tool.id);
+      if (!tool.vaultOnly) {
+        recordRecentTool(tool.id);
+      }
       const targetPath = fullScreen ? getToolFullPath(tool) : getToolPath(tool);
       navigateToRoute({ view: 'tool', toolId: tool.id, fullScreen }, targetPath);
     },
@@ -200,6 +251,10 @@ function AppShell() {
     },
     [navigateToRoute]
   );
+
+  const handleOpenLockedVault = useCallback(() => {
+    navigateToRoute({ view: 'locked' }, '/locked');
+  }, [navigateToRoute]);
 
   const handleOpenLegalPage = useCallback(
     (slug: LegalPageSlug) => {
@@ -226,10 +281,14 @@ function AppShell() {
         handleGoHome();
         return;
       }
+      if (key === 'locked') {
+        handleOpenLockedVault();
+        return;
+      }
       const mapped = ICON_MENU_TO_FILTER[key] || 'All';
       handleOpenAllTools(mapped);
     },
-    [handleGoHome, handleOpenAllTools]
+    [handleGoHome, handleOpenAllTools, handleOpenLockedVault]
   );
 
   const activeFilter: ToolFilterType =
@@ -242,10 +301,15 @@ function AppShell() {
   const activeTool =
     route.view === 'tool' ? getToolById(route.toolId) : undefined;
 
+  const isBlockedVaultTool =
+    route.view === 'tool' && Boolean(activeTool?.vaultOnly) && !isVaultUnlocked;
+
   const activeIconMenu: IconMenuKey | null = useMemo(() => {
     if (route.view === 'home') return 'home';
+    if (route.view === 'locked') return 'locked';
     if (route.view === 'all-tools') return FILTER_TO_ICON_MENU[route.filter];
     if (route.view === 'tool' && activeTool) {
+      if (activeTool.vaultOnly) return 'locked';
       return FILTER_TO_ICON_MENU[activeTool.category];
     }
     return null;
@@ -256,7 +320,8 @@ function AppShell() {
     return found?.id ?? '';
   }, [activeFilter]);
 
-  const isToolFullScreen = route.view === 'tool' && Boolean(route.fullScreen);
+  const isToolFullScreen =
+    route.view === 'tool' && Boolean(route.fullScreen) && !isBlockedVaultTool;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFDF5] dark:bg-[#0B1120] text-[#2F3E4E] dark:text-slate-100">
@@ -327,83 +392,100 @@ function AppShell() {
           </>
         )}
 
-        {route.view === 'all-tools' && (
-          <AllToolsPage
-            activeFilter={route.filter}
-            initialSearchQuery={route.initialQuery}
-            onFilterChange={(filter) => handleOpenAllTools(filter)}
-            onBackHome={handleGoHome}
-            onOpenTool={(tool) => handleOpenTool(tool)}
-          />
-        )}
+        <Suspense fallback={<RouteLoadingFallback />}>
+          {route.view === 'all-tools' && (
+            <AllToolsPage
+              activeFilter={route.filter}
+              initialSearchQuery={route.initialQuery}
+              onFilterChange={(filter) => handleOpenAllTools(filter)}
+              onBackHome={handleGoHome}
+              onOpenTool={(tool) => handleOpenTool(tool)}
+            />
+          )}
 
-        {route.view === 'tool' && activeTool && (
-          <ToolWorkspace
-            tool={activeTool}
-            initialBank={selectedBankForSlip}
-            initialSubParam={route.subParam}
-            isRouteFullScreen={Boolean(route.fullScreen)}
-            onToggleRouteFullScreen={(full) => handleOpenTool(activeTool, full)}
-            onSyncToolSubParam={(subParam) => {
-              if (activeTool.id === 'rto-code-finder') {
-                const nextPath = subParam
-                  ? `/tools/rto-code-finder/${encodeURIComponent(subParam)}`
-                  : '/tools/rto-code-finder';
-                window.history.replaceState(null, '', nextPath);
-              } else if (activeTool.id === 'pin-code-finder') {
-                const nextPath = subParam
-                  ? `/tools/pin-code-finder/${encodeURIComponent(subParam)}`
-                  : '/tools/pin-code-finder';
-                window.history.replaceState(null, '', nextPath);
-              } else if (activeTool.id === 'bank-ifsc-finder') {
-                const nextPath = subParam
-                  ? `/tools/ifsc-code-finder/${encodeURIComponent(subParam)}`
-                  : '/bank-slips/bank-ifsc-finder';
-                window.history.replaceState(null, '', nextPath);
+          {(route.view === 'locked' || isBlockedVaultTool) && (
+            <LockedToolsPage
+              isUnlocked={isVaultUnlocked}
+              onUnlock={() => setIsVaultUnlocked(true)}
+              onLock={() => setIsVaultUnlocked(false)}
+              onBackHome={handleGoHome}
+              onOpenTool={(tool, fullScreen) => handleOpenTool(tool, fullScreen)}
+            />
+          )}
+
+          {route.view === 'tool' && activeTool && !isBlockedVaultTool && (
+            <ToolWorkspace
+              tool={activeTool}
+              initialBank={selectedBankForSlip}
+              initialSubParam={route.subParam}
+              isRouteFullScreen={Boolean(route.fullScreen)}
+              onToggleRouteFullScreen={(full) => handleOpenTool(activeTool, full)}
+              onSyncToolSubParam={(subParam) => {
+                if (activeTool.id === 'rto-code-finder') {
+                  const nextPath = subParam
+                    ? `/tools/rto-code-finder/${encodeURIComponent(subParam)}`
+                    : '/tools/rto-code-finder';
+                  window.history.replaceState(null, '', nextPath);
+                } else if (activeTool.id === 'pin-code-finder') {
+                  const nextPath = subParam
+                    ? `/tools/pin-code-finder/${encodeURIComponent(subParam)}`
+                    : '/tools/pin-code-finder';
+                  window.history.replaceState(null, '', nextPath);
+                } else if (activeTool.id === 'bank-ifsc-finder') {
+                  const nextPath = subParam
+                    ? `/tools/ifsc-code-finder/${encodeURIComponent(subParam)}`
+                    : '/bank-slips/bank-ifsc-finder';
+                  window.history.replaceState(null, '', nextPath);
+                }
+              }}
+              backLabel={activeTool.vaultOnly ? 'Back to Locked Vault' : undefined}
+              onClose={() =>
+                activeTool.vaultOnly
+                  ? handleOpenLockedVault()
+                  : handleOpenAllTools(activeTool.category)
               }
-            }}
-            onClose={() => handleOpenAllTools(activeTool.category)}
-            onOpenCategory={(cat) => handleOpenAllTools(cat)}
-            onSelectTool={(id) => handleOpenTool(id)}
-            onOpenBankSlipWithBank={(bankId) => {
-              setSelectedBankForSlip(bankId);
-              handleOpenTool('bank-slip-generator');
-            }}
-            onOpenDisclaimer={() => handleOpenLegalPage('disclaimer')}
-          />
-        )}
+              onOpenCategory={(cat) => handleOpenAllTools(cat)}
+              onSelectTool={(id) => handleOpenTool(id)}
+              onOpenBankSlipWithBank={(bankId) => {
+                setSelectedBankForSlip(bankId);
+                handleOpenTool('bank-slip-generator');
+              }}
+              onOpenDisclaimer={() => handleOpenLegalPage('disclaimer')}
+            />
+          )}
 
-        {route.view === 'legal' && (
-          <LegalPageView
-            slug={route.slug}
-            onSelectPage={handleOpenLegalPage}
-            onBackHome={handleGoHome}
-            onOpenPrivacyBanner={() => setCookieOpen(true)}
-          />
-        )}
+          {route.view === 'legal' && (
+            <LegalPageView
+              slug={route.slug}
+              onSelectPage={handleOpenLegalPage}
+              onBackHome={handleGoHome}
+              onOpenPrivacyBanner={() => setCookieOpen(true)}
+            />
+          )}
 
-        {route.view === 'sitemap' && (
-          <SitemapPage
-            onBackHome={handleGoHome}
-            onOpenAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
-            onOpenTool={(tool) => handleOpenTool(tool)}
-            onOpenLegalPage={handleOpenLegalPage}
-          />
-        )}
+          {route.view === 'sitemap' && (
+            <SitemapPage
+              onBackHome={handleGoHome}
+              onOpenAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
+              onOpenTool={(tool) => handleOpenTool(tool)}
+              onOpenLegalPage={handleOpenLegalPage}
+            />
+          )}
 
-        {route.view === 'not-found' && (
-          <NotFoundPage
-            statusCode={route.statusCode ?? 404}
-            requestedPath={route.path}
-            onGoHome={handleGoHome}
-            onExploreAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
-            onOpenCalculator={() => handleOpenTool('unified-calculator')}
-            onOpenSearch={() => setSearchModalOpen(true)}
-            onOpenLegalPage={handleOpenLegalPage}
-            onOpenSitemap={() => navigateToRoute({ view: 'sitemap' }, '/sitemap')}
-            onSelectErrorCode={handleOpenErrorPage}
-          />
-        )}
+          {route.view === 'not-found' && (
+            <NotFoundPage
+              statusCode={route.statusCode ?? 404}
+              requestedPath={route.path}
+              onGoHome={handleGoHome}
+              onExploreAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
+              onOpenCalculator={() => handleOpenTool('unified-calculator')}
+              onOpenSearch={() => setSearchModalOpen(true)}
+              onOpenLegalPage={handleOpenLegalPage}
+              onOpenSitemap={() => navigateToRoute({ view: 'sitemap' }, '/sitemap')}
+              onSelectErrorCode={handleOpenErrorPage}
+            />
+          )}
+        </Suspense>
         </AppErrorBoundary>
       </main>
 
@@ -412,6 +494,7 @@ function AppShell() {
           activeTool={activeTool}
           onHomeClick={handleGoHome}
           onOpenAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
+          onOpenLockedVault={handleOpenLockedVault}
           onOpenLegalPage={handleOpenLegalPage}
           onOpenPrivacyBanner={() => setCookieOpen(true)}
           onOpenNotFound={() => handleOpenErrorPage(404)}
@@ -420,18 +503,22 @@ function AppShell() {
         />
       )}
 
-      <SearchModal
-        isOpen={searchModalOpen}
-        onClose={() => setSearchModalOpen(false)}
-        onSelectTool={(tool) => {
-          setSearchModalOpen(false);
-          handleOpenTool(tool);
-        }}
-        activeToolId={activeTool?.id ?? null}
-        isFavorite={(id) => favorites.includes(id)}
-        onToggleFavorite={handleToggleFavorite}
-        recents={recents}
-      />
+      {searchModalOpen && (
+        <Suspense fallback={null}>
+          <SearchModal
+            isOpen={searchModalOpen}
+            onClose={() => setSearchModalOpen(false)}
+            onSelectTool={(tool) => {
+              setSearchModalOpen(false);
+              handleOpenTool(tool);
+            }}
+            activeToolId={activeTool?.id ?? null}
+            isFavorite={(id) => favorites.includes(id)}
+            onToggleFavorite={handleToggleFavorite}
+            recents={recents}
+          />
+        </Suspense>
+      )}
 
       <CookieConsentBanner
         isOpen={cookieOpen}
@@ -459,9 +546,9 @@ function AppShell() {
 
       {!isToolFullScreen && (
         <WhatsAppChatWidget
-          view={route.view}
+          view={isBlockedVaultTool ? 'locked' : route.view}
           activeFilter={activeFilter}
-          activeTool={activeTool}
+          activeTool={isBlockedVaultTool ? undefined : activeTool}
           activeLegalSlug={route.view === 'legal' ? route.slug : undefined}
         />
       )}

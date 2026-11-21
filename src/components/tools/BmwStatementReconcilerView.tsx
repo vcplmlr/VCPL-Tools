@@ -29,7 +29,6 @@ import {
 } from '../../utils/recoPeriodFilter';
 import { FileDropZone } from './FileDropZone';
 import { RecoPeriodFilterBar } from './RecoPeriodFilterBar';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface BmwStatementReconcilerViewProps {
   tool?: ToolCatalogItem;
@@ -340,25 +339,13 @@ export const BmwStatementReconcilerView: React.FC<BmwStatementReconcilerViewProp
   tool,
   onBack,
 }) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={tool?.code ?? 'VC-06'}
-      toolTitle={tool?.title ?? 'Customer Ledger (Purchase Only)'}
-      sessionKey="vcpl_bmw_stmt_unlocked_v1"
-      passcode="202627"
-      description="This Customer Ledger (Purchase Only) reconciliation workspace is locked for authorized dealership access. Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {({ lockTool }) => <BmwStatementWorkspace tool={tool} lockTool={lockTool} onBack={onBack} />}
-    </ToolPasscodeGate>
-  );
+  return <BmwStatementWorkspace tool={tool} onBack={onBack} />;
 };
 
 const BmwStatementWorkspace: React.FC<{
   tool?: ToolCatalogItem;
-  lockTool: () => void;
   onBack?: () => void;
-}> = ({ tool, lockTool, onBack }) => {
+}> = ({ tool, onBack }) => {
   const initialPrefs = useMemo(
     () => safeReadStorage<SavedPrefs>(PREFS_STORAGE_KEY, DEFAULT_PREFS),
     []
@@ -1329,7 +1316,7 @@ const BmwStatementWorkspace: React.FC<{
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#2F3E4E] text-[11px] font-bold text-[#F9C80E]">
               <Lock className="w-3 h-3" aria-hidden="true" />
-              <span>Passcode Unlocked</span>
+              <span>Locked Vault Access</span>
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white border border-[#12805C]/35 text-[11px] font-bold text-[#12805C]">
               <HardDrive className="w-3 h-3" aria-hidden="true" />
@@ -1348,14 +1335,6 @@ const BmwStatementWorkspace: React.FC<{
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={lockTool}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] cursor-pointer transition"
-          >
-            <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Lock Tool</span>
-          </button>
 
           {onBack && (
             <button

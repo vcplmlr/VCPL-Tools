@@ -4,21 +4,29 @@ import { jsPDF } from 'jspdf';
 import {
   AlertTriangle,
   BookmarkPlus,
+  Check,
   CheckCircle2,
   Clock,
+  Copy,
   CopyPlus,
   Download,
+  Eye,
   FileText,
+  FileUp,
   FolderOpen,
   HardDrive,
+  Paperclip,
   Printer,
   RotateCcw,
   Save,
+  Sparkles,
   Trash2,
   Upload,
+  X,
   XCircle,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
+import { copyTextToClipboard } from '../../hooks/useRightClickProtection';
 import {
   downloadJsonBackup,
   formatShortSavedTime,
@@ -27,6 +35,12 @@ import {
   safeRemoveStorage,
   safeWriteStorage,
 } from '../../utils/browserVault';
+import {
+  mergeRentLetterWithVendorInvoice,
+  ParsedVendorRentInvoice,
+  parseVendorRentInvoiceFile,
+} from '../../utils/vendorRentInvoiceParser';
+import { emitGlobalProgress } from '../TopLoadingBar';
 import { FileDropZone } from './FileDropZone';
 
 interface RentPaymentLetterMakerViewProps {
@@ -283,9 +297,19 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
   const [confirmWipeVault, setConfirmWipeVault] = useState<boolean>(false);
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<string>(() => new Date().toISOString());
   const [notice, setNotice] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [vendorInvoice, setVendorInvoice] = useState<{
+    parsed: ParsedVendorRentInvoice;
+    bytes: Uint8Array;
+    previewUrl: string;
+  } | null>(null);
+  const [isParsingInvoice, setIsParsingInvoice] = useState<boolean>(false);
+  const [attachInvoiceToPdf, setAttachInvoiceToPdf] = useState<boolean>(true);
+  const [showInvoicePreview, setShowInvoicePreview] = useState<boolean>(false);
+  const [letterCopied, setLetterCopied] = useState<boolean>(false);
 
   const sigFileInputRef = useRef<HTMLInputElement | null>(null);
   const backupFileInputRef = useRef<HTMLInputElement | null>(null);
+  const vendorInvoiceInputRef = useRef<HTMLInputElement | null>(null);
   const previewStageRef = useRef<HTMLDivElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const [previewScale, setPreviewScale] = useState(0.8);
@@ -311,9 +335,17 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
 
   useEffect(() => {
     if (!notice) return;
-    const t = window.setTimeout(() => setNotice(null), 3500);
+    const t = window.setTimeout(() => setNotice(null), 4000);
     return () => window.clearTimeout(t);
   }, [notice]);
+
+  useEffect(() => {
+    return () => {
+      if (vendorInvoice?.previewUrl) {
+        URL.revokeObjectURL(vendorInvoice.previewUrl);
+      }
+    };
+  }, [vendorInvoice]);
 
   useEffect(() => {
     const A4_WIDTH_PX = 794;
@@ -490,6 +522,114 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
     const file = e.target.files?.[0];
     e.target.value = '';
     loadSignatureFile(file);
+  };
+
+  const applyExtractedInvoice = (
+    parsed: ParsedVendorRentInvoice,
+    scope: 'smart' | 'amounts' | 'all'
+  ) => {
+    const chosenAmount =
+      parsed.recommendedMode === 'total'
+        ? parsed.totalAmount
+        : parsed.taxableAmount || parsed.totalAmount;
+
+    setForm((prev) => {
+      const next = { ...prev };
+
+      if (scope === 'amounts' || scope === 'all') {
+        if (parsed.rentMonth) next.month = parsed.rentMonth;
+        if (chosenAmount > 0) {
+          next.mode = parsed.recommendedMode;
+          next.rent = String(chosenAmount);
+        }
+        next.gtype = parsed.gstType;
+        if (parsed.gstType !== 'n' && parsed.gstRate > 0) {
+          next.gstr = String(parsed.gstRate);
+        }
+      } else {
+        // Smart mode: populate month/amount/tax if rent isn't filled yet, and fill only blank vendor/company fields
+        if (!prev.month.trim() && parsed.rentMonth) next.month = parsed.rentMonth;
+        if (!prev.rent.trim() && chosenAmount > 0) {
+          next.mode = parsed.recommendedMode;
+          next.rent = String(chosenAmount);
+          next.gtype = parsed.gstType;
+          if (parsed.gstType !== 'n' && parsed.gstRate > 0) {
+            next.gstr = String(parsed.gstRate);
+          }
+        }
+      }
+
+      if (scope === 'all' || scope === 'smart') {
+        const shouldFill = (current: string) => scope === 'all' || !current.trim();
+        if (shouldFill(prev.lname) && parsed.vendorName) next.lname = parsed.vendorName;
+        if (shouldFill(prev.laddr) && parsed.vendorAddress) next.laddr = parsed.vendorAddress;
+        if (shouldFill(prev.lpan) && parsed.vendorPan) next.lpan = parsed.vendorPan;
+        if (shouldFill(prev.lgst) && parsed.vendorGstin) next.lgst = parsed.vendorGstin;
+        if (shouldFill(prev.bname) && parsed.beneficiaryName) next.bname = parsed.beneficiaryName;
+        if (shouldFill(prev.lbank) && parsed.vendorBank) next.lbank = parsed.vendorBank;
+        if (shouldFill(prev.co) && parsed.companyName) next.co = parsed.companyName;
+        if (shouldFill(prev.cgst) && parsed.companyGstin) next.cgst = parsed.companyGstin;
+      }
+
+      return next;
+    });
+  };
+
+  const loadVendorInvoiceFile = async (file?: File | null) => {
+    if (!file || isParsingInvoice) return;
+    setIsParsingInvoice(true);
+    emitGlobalProgress(true, 18, 'rent-vendor-invoice');
+    try {
+      const { parsed, bytes } = await parseVendorRentInvoiceFile(file, (pct) => {
+        emitGlobalProgress(true, pct, 'rent-vendor-invoice');
+      });
+      const previewUrl = URL.createObjectURL(file);
+      setVendorInvoice((prev) => {
+        if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl);
+        return { parsed, bytes, previewUrl };
+      });
+      setAttachInvoiceToPdf(true);
+      applyExtractedInvoice(parsed, 'smart');
+
+      const summaryParts: string[] = [];
+      if (parsed.vendorName) summaryParts.push(parsed.vendorName);
+      if (parsed.rentMonth) summaryParts.push(parsed.rentMonth);
+      if (parsed.taxableAmount > 0) {
+        summaryParts.push(`Taxable ₹${inr(parsed.taxableAmount)}`);
+      } else if (parsed.totalAmount > 0) {
+        summaryParts.push(`Total ₹${inr(parsed.totalAmount)}`);
+      }
+
+      setNotice({
+        kind: 'ok',
+        text: summaryParts.length
+          ? `Vendor invoice uploaded (${summaryParts.join(' · ')}). Review & apply fields below.`
+          : `Vendor invoice "${file.name}" attached locally.`,
+      });
+    } catch (err) {
+      setNotice({
+        kind: 'err',
+        text: err instanceof Error ? err.message : 'Could not read uploaded vendor invoice PDF.',
+      });
+    } finally {
+      emitGlobalProgress(false, 100, 'rent-vendor-invoice');
+      setIsParsingInvoice(false);
+    }
+  };
+
+  const handleVendorInvoiceInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    void loadVendorInvoiceFile(file);
+  };
+
+  const handleRemoveVendorInvoice = () => {
+    setShowInvoicePreview(false);
+    setVendorInvoice((prev) => {
+      if (prev?.previewUrl) URL.revokeObjectURL(prev.previewUrl);
+      return null;
+    });
+    setNotice({ kind: 'ok', text: 'Removed attached vendor invoice file.' });
   };
 
   const extractProfileDefaults = (
@@ -735,9 +875,51 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
+  const handleCopyLetterText = () => {
+    const lines: string[] = [
+      `To,                                                  Date:- ${dmy(form.ldate)}`,
+      `${form.lname.trim() || '____'}${addressLines.length > 0 ? ',' : ''}`,
+      ...addressLines,
+      ...(landlordIds ? [landlordIds] : []),
+      '',
+      'Dear Sir,',
+      `Ref: Payment of Rent for the month of ${rentMonthDisplay}.`,
+      '',
+      `This is to inform you that we have transferred an amount of Rs.${inr(calc.net)}/- (${amountInWords(calc.net)}) from ${form.pbank.trim() || '____'} vide Ref No "${form.ref.trim() || '____'}", in favor of "${form.bname.trim() || '____'}" towards Rent for the month of ${rentMonthDisplay} through online transfer on ${dmy(form.pdate)}, to your Bank Account at ${form.lbank.trim() || '____'}. Please be noted that we are deducting Rs. ${inr(calc.tds)}/- as TDS @ ${tdsPctLabel}% from the ${calc.gb ? 'Rent plus GST' : 'Rent'} payable to you${form.gtype === 'n' ? '' : ` and adding Rs. ${inr(calc.gst)}/- towards ${gstPctLabel}% GST`}. Details are below:`,
+      '',
+      `Total Rent Payable for ${rentMonthDisplay} (taxable value): Rs.${inr(calc.base)}/-`,
+      ...(form.gtype === 'cs'
+        ? [
+            `Add: GST ${gstPctLabel}% (CGST ${halfGstPctLabel}% + SGST ${halfGstPctLabel}%): Rs.${inr(calc.gst)}/-`,
+            `  (CGST ${halfGstPctLabel}%: Rs.${inr(calc.gst / 2)}/- | SGST ${halfGstPctLabel}%: Rs.${inr(calc.gst / 2)}/-)`,
+          ]
+        : form.gtype === 'i'
+          ? [`Add: IGST ${gstPctLabel}%: Rs.${inr(calc.gst)}/-`]
+          : []),
+      ...(form.gtype !== 'n' ? [`Gross Rent incl. GST: Rs.${inr(calc.gross)}/-`] : []),
+      `Less: TDS @ ${tdsPctLabel}% on ${inr(calc.gb ? calc.gross : calc.base)}: Rs.${inr(calc.tds)}/-`,
+      `Net payable Rent: Rs.${inr(calc.net)}/-`,
+      '',
+      'Kindly accept and acknowledge as a receipt of payment.',
+      'Thanking You,',
+      `For ${form.co.trim() || '____'}.`,
+      ...(companyIds ? [companyIds] : []),
+      '',
+      'Authorized Signature',
+    ];
+    void copyTextToClipboard(lines.join('\n')).then((ok) => {
+      if (ok) {
+        setLetterCopied(true);
+        setNotice({ kind: 'ok', text: 'Copied formatted Rent Payment Letter text to clipboard.' });
+        window.setTimeout(() => setLetterCopied(false), 1800);
+      }
+    });
+  };
+
   const handleSavePdf = async () => {
     if (!sheetRef.current || isExportingPdf) return;
     setIsExportingPdf(true);
+    emitGlobalProgress(true, 25, 'rent-pdf-export');
     try {
       if (document.fonts && document.fonts.ready) {
         await document.fonts.ready;
@@ -781,6 +963,8 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
         },
       });
 
+      emitGlobalProgress(true, 68, 'rent-pdf-export');
+
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pageWidthMm = 210;
       const pageHeightMm = 297;
@@ -803,15 +987,42 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
       }
 
       const monthSlug = (form.month.trim() || 'Letter').replace(/[^\w-]+/g, '_');
-      const fileName = `Rent_Payment_Letter_${monthSlug}.pdf`;
-      pdf.save(fileName);
-      setNotice({ kind: 'ok', text: `Saved ${fileName} (A4 PDF)` });
+
+      if (vendorInvoice && attachInvoiceToPdf) {
+        emitGlobalProgress(true, 85, 'rent-pdf-export');
+        const letterBytes = pdf.output('arraybuffer');
+        const combinedBytes = await mergeRentLetterWithVendorInvoice(letterBytes, {
+          bytes: vendorInvoice.bytes,
+          isPdf: vendorInvoice.parsed.isPdf,
+          isImage: vendorInvoice.parsed.isImage,
+          fileName: vendorInvoice.parsed.fileName,
+        });
+        const combinedFileName = `Rent_Payment_Letter_${monthSlug}_with_Vendor_Invoice.pdf`;
+        const blob = new Blob([new Uint8Array(combinedBytes)], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = combinedFileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+        setNotice({
+          kind: 'ok',
+          text: `Saved ${combinedFileName} (Rent Letter + Vendor Invoice)`,
+        });
+      } else {
+        const fileName = `Rent_Payment_Letter_${monthSlug}.pdf`;
+        pdf.save(fileName);
+        setNotice({ kind: 'ok', text: `Saved ${fileName} (A4 PDF)` });
+      }
     } catch (err) {
       setNotice({
         kind: 'err',
         text: `PDF export failed (${err instanceof Error ? err.message : 'unknown error'}). Use Print (A4) instead.`,
       });
     } finally {
+      emitGlobalProgress(false, 100, 'rent-pdf-export');
       setIsExportingPdf(false);
     }
   };
@@ -1004,6 +1215,18 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
           </button>
           <button
             type="button"
+            onClick={handleCopyLetterText}
+            className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] cursor-pointer transition whitespace-nowrap shrink-0"
+          >
+            {letterCopied ? (
+              <Check className="w-3.5 h-3.5 text-[#12805C]" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
+            <span>{letterCopied ? 'Copied Text' : 'Copy Text'}</span>
+          </button>
+          <button
+            type="button"
             onClick={handleSaveToHistory}
             className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] cursor-pointer transition whitespace-nowrap shrink-0"
           >
@@ -1017,7 +1240,13 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
             className="inline-flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#2F3E4E] hover:bg-[#1E293B] text-xs font-display font-extrabold text-[#F9C80E] shadow-[0_2px_0_#1E293B] cursor-pointer transition whitespace-nowrap shrink-0 disabled:opacity-60"
           >
             <Download className="w-4 h-4" />
-            <span>{isExportingPdf ? 'Saving PDF...' : 'Save PDF'}</span>
+            <span>
+              {isExportingPdf
+                ? 'Saving PDF...'
+                : vendorInvoice && attachInvoiceToPdf
+                ? 'Save Combined PDF'
+                : 'Save PDF'}
+            </span>
           </button>
           <button
             type="button"
@@ -1287,6 +1516,205 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
         {/* Left Controls Panel */}
         {/* Left Editable Form (Scrollable Working Area on Desktop) */}
         <div className="lg:col-span-5 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1.5 bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_0_#2F3E4E] space-y-5 no-print">
+          {/* 0. Upload Vendor / Landlord Rent Invoice PDF */}
+          <section className="space-y-2.5">
+            <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-[#2F3E4E]/15">
+              <h2 className="font-display font-extrabold text-xs uppercase tracking-wider text-[#2F3E4E] flex items-center gap-1.5">
+                <FileUp className="w-3.5 h-3.5 text-[#9E2A2B]" aria-hidden="true" />
+                <span>Vendor / Landlord Invoice PDF</span>
+              </h2>
+              {vendorInvoice && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#CEE5DC] border border-[#2F3E4E]/40 text-[10px] font-mono font-bold text-[#12805C]">
+                  <Paperclip className="w-3 h-3" aria-hidden="true" />
+                  Attached
+                </span>
+              )}
+            </div>
+
+            <input
+              ref={vendorInvoiceInputRef}
+              type="file"
+              accept=".pdf,application/pdf,image/png,image/jpeg,image/webp"
+              onChange={handleVendorInvoiceInputChange}
+              className="hidden"
+            />
+
+            <FileDropZone
+              accept=".pdf,application/pdf,image/*"
+              multiple={false}
+              onFiles={(files) => {
+                if (files[0]) void loadVendorInvoiceFile(files[0]);
+              }}
+              className={`rounded-xl border-[1.5px] border-dashed p-3.5 transition ${
+                vendorInvoice
+                  ? 'border-[#12805C] bg-[#CEE5DC]/25'
+                  : 'border-[#2F3E4E]/50 bg-[#FEF2C8]/45 hover:bg-[#FEF2C8]/80'
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-extrabold text-[#2F3E4E] truncate">
+                    {isParsingInvoice
+                      ? 'Reading vendor invoice PDF locally...'
+                      : vendorInvoice
+                      ? vendorInvoice.parsed.fileName
+                      : 'Drop Vendor Invoice PDF (or Image Scan)'}
+                  </p>
+                  <p className="text-[11px] text-[#475569] mt-0.5 leading-snug">
+                    {vendorInvoice
+                      ? `${vendorInvoice.parsed.pageCount} page${
+                          vendorInvoice.parsed.pageCount > 1 ? 's' : ''
+                        } · ${Math.max(1, Math.round(vendorInvoice.parsed.fileSizeBytes / 1024))} KB · ${
+                          vendorInvoice.parsed.extractionMethod === 'pdf-text'
+                            ? 'Text PDF parsed'
+                            : 'Scanned OCR parsed'
+                        }`
+                      : 'Auto-extracts rent, GST, vendor PAN/GSTIN & attaches invoice pages to final PDF.'}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={isParsingInvoice}
+                    onClick={() => vendorInvoiceInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-[1.5px] border-[#2F3E4E] bg-[#F9C80E] hover:bg-[#FFE1B3] text-xs font-bold text-[#2F3E4E] cursor-pointer transition disabled:opacity-60"
+                  >
+                    <Upload className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>{vendorInvoice ? 'Replace PDF' : 'Upload PDF'}</span>
+                  </button>
+
+                  {vendorInvoice && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowInvoicePreview(true)}
+                        title="Preview uploaded vendor invoice"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] cursor-pointer transition"
+                      >
+                        <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveVendorInvoice}
+                        aria-label="Remove uploaded vendor invoice"
+                        className="p-1.5 rounded-lg border border-[#B91C1C]/40 bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA] cursor-pointer transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </FileDropZone>
+
+            {vendorInvoice && (
+              <div className="rounded-xl border-[1.5px] border-[#2F3E4E]/35 bg-white p-3 space-y-2.5 text-xs">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+                  <div>
+                    <span className="text-[#64748B] block">Vendor / Landlord</span>
+                    <span className="font-bold text-[#2F3E4E] break-words">
+                      {vendorInvoice.parsed.vendorName || 'Not detected'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#64748B] block">Rent Month / Period</span>
+                    <span className="font-bold text-[#2F3E4E]">
+                      {vendorInvoice.parsed.rentMonth || 'Not detected'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#64748B] block">Taxable / Total</span>
+                    <span className="font-mono font-bold text-[#12805C] tabular-nums">
+                      {vendorInvoice.parsed.taxableAmount > 0
+                        ? `₹${inr(vendorInvoice.parsed.taxableAmount)}`
+                        : '—'}
+                      {vendorInvoice.parsed.totalAmount > 0
+                        ? ` (Incl. ₹${inr(vendorInvoice.parsed.totalAmount)})`
+                        : ''}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#64748B] block">GST &amp; Invoice No</span>
+                    <span className="font-mono font-bold text-[#2F3E4E]">
+                      {vendorInvoice.parsed.gstType === 'n'
+                        ? 'No GST'
+                        : `${
+                            vendorInvoice.parsed.gstType === 'i' ? 'IGST' : 'CGST+SGST'
+                          } ${vendorInvoice.parsed.gstRate}%`}
+                      {vendorInvoice.parsed.invoiceNo ? ` · #${vendorInvoice.parsed.invoiceNo}` : ''}
+                    </span>
+                  </div>
+                  {(vendorInvoice.parsed.vendorGstin || vendorInvoice.parsed.vendorPan) && (
+                    <div className="col-span-2">
+                      <span className="text-[#64748B] block">Vendor Tax IDs</span>
+                      <span className="font-mono font-semibold text-[#2F3E4E]">
+                        {[
+                          vendorInvoice.parsed.vendorGstin
+                            ? `GSTIN: ${vendorInvoice.parsed.vendorGstin}`
+                            : '',
+                          vendorInvoice.parsed.vendorPan
+                            ? `PAN: ${vendorInvoice.parsed.vendorPan}`
+                            : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {vendorInvoice.parsed.warnings.length > 0 && (
+                  <p className="text-[11px] font-semibold text-[#92400E] bg-[#FEF2C8] px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/20">
+                    {vendorInvoice.parsed.warnings[0]}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      applyExtractedInvoice(vendorInvoice.parsed, 'amounts');
+                      setNotice({
+                        kind: 'ok',
+                        text: 'Applied Rent Month, Amount & GST settings from vendor invoice.',
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-[11px] font-bold text-[#2F3E4E] cursor-pointer transition"
+                  >
+                    <Sparkles className="w-3 h-3" aria-hidden="true" />
+                    <span>Apply Month &amp; Amount</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      applyExtractedInvoice(vendorInvoice.parsed, 'all');
+                      setNotice({
+                        kind: 'ok',
+                        text: 'Applied all vendor, landlord, tax & amount details from invoice PDF.',
+                      });
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border-[1.5px] border-[#2F3E4E] bg-[#2F3E4E] hover:bg-[#1E293B] text-[11px] font-bold text-[#F9C80E] cursor-pointer transition"
+                  >
+                    <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+                    <span>Apply All Vendor Details</span>
+                  </button>
+                </div>
+
+                <label className="flex items-center gap-2 pt-1.5 border-t border-[#2F3E4E]/15 text-[11px] font-semibold text-[#2F3E4E] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={attachInvoiceToPdf}
+                    onChange={(e) => setAttachInvoiceToPdf(e.target.checked)}
+                    className="rounded border-[#2F3E4E]"
+                  />
+                  <span>Attach Vendor Invoice PDF after Rent Letter when clicking Save PDF</span>
+                </label>
+              </div>
+            )}
+          </section>
+
           {/* This month's entries */}
           <section className="space-y-3">
             <h2 className="font-display font-extrabold text-xs uppercase tracking-wider text-[#2F3E4E] pb-1.5 border-b border-[#2F3E4E]/15">
@@ -1737,7 +2165,13 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
                 className="w-full min-h-[44px] px-4 py-2.5 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#2F3E4E] hover:bg-[#1E293B] shadow-[0_3px_0_#1E293B] font-display font-extrabold text-sm text-[#F9C80E] flex items-center justify-center gap-2 cursor-pointer transition disabled:opacity-60"
               >
                 <Download className="w-4 h-4" />
-                <span>{isExportingPdf ? 'Saving PDF...' : 'Save PDF'}</span>
+                <span>
+                  {isExportingPdf
+                    ? 'Saving PDF...'
+                    : vendorInvoice && attachInvoiceToPdf
+                    ? 'Save Combined PDF'
+                    : 'Save PDF'}
+                </span>
               </button>
               <button
                 type="button"
@@ -1757,7 +2191,9 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
               <span>Archive Month to Browser History</span>
             </button>
             <p className="text-[11px] text-[#64748B] text-center">
-              Every field auto-saves in your browser immediately. Save PDF exports a direct A4 file.
+              {vendorInvoice && attachInvoiceToPdf
+                ? 'Combined PDF exports Page 1 Rent Letter followed by your uploaded Vendor Invoice PDF.'
+                : 'Every field auto-saves in your browser immediately. Save PDF exports a direct A4 file.'}
             </p>
           </div>
         </div>
@@ -2030,6 +2466,57 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
           </div>
         </div>
       </div>
+
+      {/* Uploaded Vendor Invoice Preview Modal */}
+      {showInvoicePreview && vendorInvoice && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Uploaded Vendor Invoice Preview"
+          className="fixed inset-0 z-[105] bg-[#2F3E4E]/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 no-print"
+          onClick={() => setShowInvoicePreview(false)}
+        >
+          <div
+            className="w-full max-w-4xl h-[86dvh] bg-[#FFFDF5] border-2 border-[#2F3E4E] rounded-2xl shadow-[0_8px_0_#2F3E4E] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-b border-[#2F3E4E]/20 bg-[#FEF2C8] flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-display font-extrabold text-sm text-[#2F3E4E] truncate">
+                  {vendorInvoice.parsed.fileName}
+                </p>
+                <p className="text-[11px] text-[#475569]">
+                  {vendorInvoice.parsed.pageCount} page
+                  {vendorInvoice.parsed.pageCount > 1 ? 's' : ''} · Local Browser Preview
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInvoicePreview(false)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEE2E2] text-xs font-bold text-[#2F3E4E] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+                <span>Close</span>
+              </button>
+            </div>
+            <div className="flex-1 bg-[#E2E8F0] overflow-auto flex items-center justify-center p-2">
+              {vendorInvoice.parsed.isPdf ? (
+                <iframe
+                  src={vendorInvoice.previewUrl}
+                  title="Vendor Invoice PDF Preview"
+                  className="w-full h-full rounded-lg border border-[#2F3E4E]/25 bg-white"
+                />
+              ) : (
+                <img
+                  src={vendorInvoice.previewUrl}
+                  alt="Uploaded Vendor Invoice"
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-md bg-white"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

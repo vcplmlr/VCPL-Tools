@@ -55,7 +55,6 @@ import {
 import { filesToFileList } from '../../utils/fileDropUtils';
 import { FileDropZone } from './FileDropZone';
 import { RecoPeriodFilterBar } from './RecoPeriodFilterBar';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface BmwClaimsReconcilerViewProps {
   tool?: ToolCatalogItem;
@@ -161,27 +160,13 @@ export const BmwClaimsReconcilerView: React.FC<BmwClaimsReconcilerViewProps> = (
   tool,
   onBack,
 }) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={tool?.code ?? 'VC-12'}
-      toolTitle={tool?.title ?? 'BMW Claims Reconciler'}
-      sessionKey="vcpl_bmw_claims_unlocked_v1"
-      passcode="202627"
-      description="This BMW Claims Reconciler workspace is locked for authorized dealership access. Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {({ lockTool }) => (
-        <BmwClaimsReconcilerWorkspace tool={tool} lockTool={lockTool} onBack={onBack} />
-      )}
-    </ToolPasscodeGate>
-  );
+  return <BmwClaimsReconcilerWorkspace tool={tool} onBack={onBack} />;
 };
 
 const BmwClaimsReconcilerWorkspace: React.FC<{
   tool?: ToolCatalogItem;
-  lockTool: () => void;
   onBack?: () => void;
-}> = ({ tool, lockTool, onBack }) => {
+}> = ({ tool, onBack }) => {
   const initialOpts = useMemo(
     () => safeReadStorage<SavedClaimsOptions>(OPTS_STORAGE_KEY, DEFAULT_OPTS),
     []
@@ -553,7 +538,7 @@ const BmwClaimsReconcilerWorkspace: React.FC<{
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#2F3E4E] dark:bg-slate-800 text-[11px] font-bold text-[#F9C80E]">
               <Lock className="w-3 h-3" aria-hidden="true" />
-              <span>Passcode Unlocked</span>
+              <span>Locked Vault Access</span>
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white dark:bg-[#0B1120] border border-[#12805C]/35 dark:border-emerald-700/50 text-[11px] font-bold text-[#12805C] dark:text-emerald-300">
               <HardDrive className="w-3 h-3" aria-hidden="true" />
@@ -581,15 +566,6 @@ const BmwClaimsReconcilerWorkspace: React.FC<{
               className="bg-transparent font-mono font-bold text-xs text-[#2F3E4E] dark:text-slate-100 focus:outline-none"
             />
           </label>
-
-          <button
-            type="button"
-            onClick={lockTool}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-[#FEF2C8] dark:bg-[#0B1120] hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] dark:text-slate-100 dark:hover:text-[#0F172A] cursor-pointer transition"
-          >
-            <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Lock Tool</span>
-          </button>
 
           {onBack && (
             <button

@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
 import { useFileDrop } from './FileDropZone';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -1193,32 +1192,17 @@ export const FuelReportGeneratorView: React.FC<FuelReportGeneratorViewProps> = (
   tool,
   onBack,
 }) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={tool?.code ?? 'VC-07'}
-      toolTitle={tool?.title ?? 'Monthly Fuel Report Generator'}
-      sessionKey="vcpl_fuel_report_unlocked_v1"
-      passcode="202627"
-      description="Authorized dealership access required for Monthly Fuel Report Generator. Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {({ lockTool }) => (
-        <FuelReportGeneratorInner tool={tool} onBack={onBack} lockTool={lockTool} />
-      )}
-    </ToolPasscodeGate>
-  );
+  return <FuelReportGeneratorInner tool={tool} onBack={onBack} />;
 };
 
 interface FuelReportGeneratorInnerProps {
   tool?: ToolCatalogItem;
   onBack?: () => void;
-  lockTool: () => void;
 }
 
 const FuelReportGeneratorInner: React.FC<FuelReportGeneratorInnerProps> = ({
   tool,
   onBack,
-  lockTool,
 }) => {
   const excelInputRef = useRef<HTMLInputElement | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
@@ -1446,7 +1430,7 @@ const FuelReportGeneratorInner: React.FC<FuelReportGeneratorInnerProps> = ({
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#2F3E4E] text-[11px] font-bold text-[#F9C80E]">
               <Lock className="w-3 h-3" aria-hidden="true" />
-              <span>Passcode Unlocked</span>
+              <span>Locked Vault Access</span>
             </span>
             <span className="inline-flex items-center gap-1 text-[#12805C] font-bold">
               <HardDrive className="w-3.5 h-3.5" aria-hidden="true" />
@@ -1504,15 +1488,6 @@ const FuelReportGeneratorInner: React.FC<FuelReportGeneratorInnerProps> = ({
               </button>
             </>
           )}
-
-          <button
-            type="button"
-            onClick={lockTool}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] cursor-pointer transition whitespace-nowrap"
-          >
-            <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Lock Tool</span>
-          </button>
 
           {onBack && (
             <button

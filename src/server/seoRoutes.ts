@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { LEGAL_PAGES, LegalPageSlug } from '../data/legalPagesData.ts';
-import { TOOL_SECTION_HEADS, TOOLS_CATALOG } from '../data/toolsCatalog.ts';
+import { PUBLIC_TOOLS_CATALOG, TOOL_SECTION_HEADS } from '../data/toolsCatalog.ts';
 
 const CATEGORY_SLUG_BY_FILTER: Record<string, string> = {
   Banking: 'bank-slips',
@@ -66,7 +66,7 @@ export function buildSitemapXmlString(origin: string): string {
       changefreq: 'weekly',
       priority: '0.9',
     })),
-    ...TOOLS_CATALOG.map((tool) => ({
+    ...PUBLIC_TOOLS_CATALOG.map((tool) => ({
       loc: `${cleanOrigin}${getToolRoutePath(tool)}`,
       changefreq: 'monthly',
       priority: tool.featuredPrimary ? '0.85' : '0.8',
@@ -116,6 +116,8 @@ export function registerSeoAndAdSenseRoutes(app: express.Express): void {
       'Disallow: /assets/aistudio/',
       'Disallow: /api/',
       'Disallow: /income-tax-fy-2026-27.html',
+      'Disallow: /locked',
+      'Disallow: /locked-tools',
       'Disallow: /404',
       'Disallow: /not-found',
       '',

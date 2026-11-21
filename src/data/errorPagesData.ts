@@ -140,7 +140,7 @@ export const ERROR_PAGES_CONFIG: Record<HttpErrorCode, HttpErrorMeta> = {
     reasons: [
       'Search the current VCPL catalog for the upgraded version of this banking, GST, or PDF utility.',
       'Update any saved browser bookmarks to the current category URL from the HTML Sitemap.',
-      'Visit All Tools to see all currently maintained utilities and Special Tools.',
+      'Visit All Tools to see all currently maintained utilities and Special modules.',
     ],
     supportsRetry: false,
     statusNote: 'Retired endpoint · No forwarding alias configured',

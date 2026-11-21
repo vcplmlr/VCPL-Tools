@@ -1737,7 +1737,7 @@ export const QrUpiStudioView: React.FC = () => {
             <img
               src={qrUrl}
               alt={`UPI Payment QR for ${sanitizedBusinessName}`}
-              className="w-full h-full object-contain select-all"
+              className="w-full h-full object-contain"
             />
           ) : (
             <div className="text-center px-3 space-y-2">
@@ -1860,7 +1860,7 @@ export const QrUpiStudioView: React.FC = () => {
           <span className="block text-[11px] font-bold text-[#475569] text-center">
             NPCI UPI Payment URI
           </span>
-          <div className="px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E]/60 bg-[#FFFDF5] font-mono text-[11px] text-[#2F3E4E] break-all select-all text-center">
+          <div className="px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E]/60 bg-[#FFFDF5] font-mono text-[11px] text-[#2F3E4E] break-all text-center">
             {effectivePayload || 'upi://pay?pa=...&pn=...&cu=INR'}
           </div>
         </div>

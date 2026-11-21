@@ -10,13 +10,21 @@ import {
 } from 'lucide-react';
 import { getFinancialCalculatorById } from '../../data/financialCalculators';
 import { getToolArticle } from '../../data/toolArticlesData';
-import { TOOLS_CATALOG, getToolsForCategory } from '../../data/toolsCatalog';
+import {
+  PUBLIC_TOOLS_CATALOG,
+  VAULT_TOOLS_CATALOG,
+  getToolsForCategory,
+} from '../../data/toolsCatalog';
 import { ToolCatalogItem, ToolFilterType } from '../../types/tools';
 import { BankId } from '../../utils/bankSlipRenderers';
 import { getToolFullPath } from '../../utils/seoRouting';
 import { AdSlot } from '../AdSlot';
 import { ToolArticleSection } from '../ToolArticleSection';
+import { emitGlobalProgress } from '../TopLoadingBar';
 
+const BajajReconciliationView = lazy(() =>
+  import('./BajajReconciliationView').then((m) => ({ default: m.BajajReconciliationView }))
+);
 const BankSlipGeneratorView = lazy(() =>
   import('./BankSlipGeneratorView').then((m) => ({ default: m.BankSlipGeneratorView }))
 );
@@ -182,6 +190,13 @@ const Tds26asTallyRecoView = lazy(() =>
 );
 
 function ToolEngineFallback({ title }: { title: string }) {
+  useEffect(() => {
+    emitGlobalProgress(true, 45, 'suspense-tool');
+    return () => {
+      emitGlobalProgress(false, 100, 'suspense-tool');
+    };
+  }, []);
+
   return (
     <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-8 sm:p-10 text-center space-y-3 shadow-[0_4px_0_#2F3E4E] dark:shadow-[0_4px_0_#020617] no-print">
       <div className="w-8 h-8 mx-auto rounded-full border-2 border-[#2F3E4E] dark:border-slate-600 border-t-[#F9C80E] animate-spin" />
@@ -243,8 +258,8 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
     tool.kind === 'financial-calc' ? getFinancialCalculatorById(tool.id) : undefined;
   const articleMeta = getToolArticle(tool);
   const siblingTools = useMemo(
-    () => getToolsForCategory(tool.category),
-    [tool.category]
+    () => (tool.vaultOnly ? VAULT_TOOLS_CATALOG : getToolsForCategory(tool.category)),
+    [tool.category, tool.vaultOnly]
   );
   const categoryCount = siblingTools.length;
   const activeSiblingRef = useRef<HTMLButtonElement | null>(null);
@@ -364,7 +379,17 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 <span>{backLabel || 'Back to Tools'}</span>
               </button>
 
-              {onOpenCategory ? (
+              {tool.vaultOnly ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  title="Return to Locked Tools Vault"
+                  className="inline-flex items-center gap-1.5 px-2.5 h-9 rounded-lg bg-[#9E2A2B] hover:bg-[#7D0B0B] text-[#FFFDF5] text-xs font-bold border border-[#7D0B0B] transition cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  <span>Locked Vault ({categoryCount})</span>
+                  <span className="text-[#F9C80E] font-mono text-[11px]">· {tool.code}</span>
+                </button>
+              ) : onOpenCategory ? (
                 <button
                   type="button"
                   onClick={() => onOpenCategory(tool.category)}
@@ -372,7 +397,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                   className="inline-flex items-center gap-1.5 px-2.5 h-9 rounded-lg bg-[#2F3E4E] dark:bg-slate-800 hover:bg-[#1E293B] dark:hover:bg-slate-700 text-[#FFFDF5] text-xs font-bold border border-transparent dark:border-slate-600 transition cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <span>
-                    {tool.category} ({categoryCount})
+                    {tool.category === 'Special Tools' ? 'Special' : tool.category} ({categoryCount})
                   </span>
                   <span className="text-[#F9C80E] font-mono text-[11px]">· {tool.code}</span>
                 </button>
@@ -425,15 +450,28 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                   onChange={(e) => onSelectTool(e.target.value)}
                   className="w-full h-9 px-2.5 rounded-lg border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-semibold text-[#2F3E4E] dark:text-slate-100 focus:outline-none truncate"
                 >
-                  {TOOL_GROUPS.map((group) => (
-                    <optgroup key={group} label={group}>
-                      {TOOLS_CATALOG.filter((t) => t.category === group).map((item) => (
+                  {tool.vaultOnly ? (
+                    <optgroup label="Locked Tools Vault">
+                      {VAULT_TOOLS_CATALOG.map((item) => (
                         <option key={item.id} value={item.id}>
                           [{item.code}] {item.title}
                         </option>
                       ))}
                     </optgroup>
-                  ))}
+                  ) : (
+                    TOOL_GROUPS.map((group) => (
+                      <optgroup
+                        key={group}
+                        label={group === 'Special Tools' ? 'Special' : group}
+                      >
+                        {PUBLIC_TOOLS_CATALOG.filter((t) => t.category === group).map((item) => (
+                          <option key={item.id} value={item.id}>
+                            [{item.code}] {item.title}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -498,7 +536,11 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth"
               >
                 <span className="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#475569] dark:text-slate-400 pr-1 shrink-0">
-                  {tool.category}:
+                  {tool.vaultOnly
+                    ? 'Locked Vault:'
+                    : tool.category === 'Special Tools'
+                    ? 'Special:'
+                    : `${tool.category}:`}
                 </span>
                 {siblingTools.map((sibling) => {
                   const isCurrent = sibling.id === tool.id;
@@ -703,6 +745,10 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
 
           {tool.kind === 'tds-26as-tally-reco' && (
             <Tds26asTallyRecoView key={tool.id} tool={tool} onBack={onClose} />
+          )}
+
+          {tool.kind === 'bajaj-reconciliation-desk' && (
+            <BajajReconciliationView key={tool.id} tool={tool} onBack={onClose} />
           )}
 
           {tool.kind === 'fuel-report-generator' && (

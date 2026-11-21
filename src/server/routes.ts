@@ -1821,8 +1821,22 @@ export function createApiRouter(): Router {
 
   // Google Translate + Google Input Tools Kannada Bridge for Tulusiri Pro
   const translateCache = new Map<string, { ts: number; data: unknown }>();
+  const wordTranslateCache = new Map<
+    string,
+    {
+      ts: number;
+      data: {
+        translatedText: string;
+        romanization: string;
+        detectedLang: string;
+        alternatives: { kn: string; tag: string }[];
+      };
+    }
+  >();
+  const inFlightTranslate = new Map<string, Promise<unknown>>();
   const TRANSLATE_CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
   const translateLimiter = createRateLimiter(120, 60_000);
+  let gtRateLimitedUntil = 0;
 
   const ALLOWED_GT_LANGS = new Set([
     'auto',
@@ -1842,16 +1856,96 @@ export function createApiRouter(): Router {
     'kn',
   ]);
 
-  async function fetchGoogleTranslateKn(query: string, sl: string) {
+  interface GtKnResult {
+    translatedText: string;
+    romanization: string;
+    detectedLang: string;
+    alternatives: { kn: string; tag: string }[];
+    rateLimited?: boolean;
+  }
+
+  async function fetchMyMemoryKn(query: string, sl: string): Promise<GtKnResult | null> {
+    const clean = query.trim();
+    if (!clean || clean.length > 480) return null;
+    const src = sl === 'auto' || sl === 'rm' ? 'en' : sl;
+    if (src === 'kn') return null;
+    try {
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
+        clean
+      )}&langpair=${encodeURIComponent(src)}|kn`;
+      const resp = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      if (!resp.ok) return null;
+      const json = (await resp.json()) as {
+        responseData?: { translatedText?: string };
+        matches?: Array<{ translation?: string }>;
+      };
+      const primary = typeof json?.responseData?.translatedText === 'string'
+        ? json.responseData.translatedText.trim()
+        : '';
+      const alternatives: { kn: string; tag: string }[] = [];
+      const pushAlt = (kn: string, tag: string) => {
+        const c = kn.trim();
+        if (!c || !/[\u0C80-\u0CFF]/.test(c)) return;
+        if (!alternatives.some((a) => a.kn === c)) {
+          alternatives.push({ kn: c, tag });
+        }
+      };
+      if (primary && /[\u0C80-\u0CFF]/.test(primary)) {
+        pushAlt(primary, 'Fallback Translate');
+      }
+      if (Array.isArray(json?.matches)) {
+        for (const m of json.matches.slice(0, 4)) {
+          if (typeof m?.translation === 'string') {
+            pushAlt(m.translation, 'Fallback alternative');
+          }
+        }
+      }
+      if (!alternatives.length) return null;
+      return {
+        translatedText: alternatives[0].kn,
+        romanization: '',
+        detectedLang: src,
+        alternatives,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async function fetchGoogleTranslateKn(query: string, sl: string): Promise<GtKnResult | null> {
+    if (Date.now() < gtRateLimitedUntil) {
+      return null;
+    }
+
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(
       sl
     )}&tl=kn&dt=t&dt=bd&dt=at&dt=rm&q=${encodeURIComponent(query)}`;
-    const resp = await fetch(url, {
-      signal: AbortSignal.timeout(4500),
-    });
-    if (!resp.ok) {
-      throw new Error(`Google Translate HTTP ${resp.status}`);
+
+    let resp: globalThis.Response;
+    try {
+      resp = await fetch(url, {
+        signal: AbortSignal.timeout(4500),
+      });
+    } catch {
+      return null;
     }
+
+    if (resp.status === 429 || resp.status === 403 || resp.status === 503) {
+      // Quietly enter circuit-breaker cooldown so we stop hammering upstream on subsequent keystrokes
+      gtRateLimitedUntil = Date.now() + 90_000;
+      return {
+        translatedText: '',
+        romanization: '',
+        detectedLang: sl,
+        alternatives: [],
+        rateLimited: true,
+      };
+    }
+
+    if (!resp.ok) {
+      return null;
+    }
+
     const raw = (await resp.json()) as any[];
     const segments = Array.isArray(raw?.[0]) ? raw[0] : [];
     const translatedText = segments
@@ -1970,78 +2064,141 @@ export function createApiRouter(): Router {
         return;
       }
 
-      // 1. Full text Google Translate (skip when explicit Roman Kannada/Tulu/Hindi mode so names/Tulu aren't mangled)
-      let gtFull: Awaited<ReturnType<typeof fetchGoogleTranslateKn>> | null = null;
-      if (text && !isRomanIndic) {
-        try {
+      const existingPromise = inFlightTranslate.get(cacheKey);
+      if (existingPromise) {
+        const sharedPayload = await existingPromise;
+        res.json(sharedPayload);
+        return;
+      }
+
+      const workPromise = (async () => {
+        let rateLimited = Date.now() < gtRateLimitedUntil;
+
+        // 1. Full text translation (skip when explicit Roman Kannada/Tulu/Hindi mode so names/Tulu aren't mangled)
+        let gtFull: GtKnResult | null = null;
+        if (text && !isRomanIndic) {
           gtFull = await fetchGoogleTranslateKn(text, sl);
-        } catch (err) {
-          console.warn('Google Translate full-text lookup failed:', err instanceof Error ? err.message : err);
-        }
-      }
-
-      // 2. Per-word Google Input Tools + Google Translate candidates in parallel
-      const wordSuggestions: Record<string, { kn: string; tag: string }[]> = {};
-      await Promise.all(
-        uniqueWords.map(async (w) => {
-          const lw = w.toLowerCase();
-          const list: { kn: string; tag: string }[] = [];
-          const pushWord = (kn: string, tag: string) => {
-            const c = kn.trim();
-            if (!c || !/[\u0C80-\u0CFF]/.test(c)) return;
-            if (!list.some((item) => item.kn === c)) {
-              list.push({ kn: c, tag });
-            }
-          };
-
-          const isLatinWord = /^[A-Za-z]+$/.test(w);
-          const [itList, gtWord] = await Promise.all([
-            isLatinWord ? fetchGoogleInputToolsKn(w) : Promise.resolve([]),
-            // If there's only 1 word matching text, reuse gtFull instead of double-calling!
-            !isRomanIndic
-              ? gtFull && text.toLowerCase() === lw
-                ? Promise.resolve(gtFull)
-                : fetchGoogleTranslateKn(w, isLatinWord ? 'en' : sl).catch(() => null)
-              : Promise.resolve(null),
-          ]);
-
-          if (isRomanIndic) {
-            itList.forEach((kn, idx) =>
-              pushWord(kn, idx === 0 ? 'Google Input (recommended)' : 'Google Input')
-            );
-          } else {
-            if (gtWord?.alternatives?.length) {
-              gtWord.alternatives.forEach((alt) => pushWord(alt.kn, alt.tag));
-            }
-            itList.forEach((kn, idx) =>
-              pushWord(kn, idx === 0 ? 'Google phonetic' : 'Google phonetic alt')
-            );
+          if (gtFull?.rateLimited) {
+            rateLimited = true;
+            gtFull = null;
           }
-
-          if (list.length > 0) {
-            wordSuggestions[lw] = list.slice(0, 10);
+          if (!gtFull && Date.now() < gtRateLimitedUntil) {
+            rateLimited = true;
+            gtFull = await fetchMyMemoryKn(text, sl);
           }
-        })
-      );
-
-      const payload = {
-        ok: Boolean(gtFull || Object.keys(wordSuggestions).length > 0),
-        translatedText: gtFull?.translatedText || '',
-        romanization: gtFull?.romanization || '',
-        detectedLang: gtFull?.detectedLang || (isRomanIndic ? 'rm' : sl),
-        alternatives: gtFull?.alternatives || [],
-        wordSuggestions,
-      };
-
-      if (payload.ok) {
-        if (translateCache.size >= 500) {
-          const oldestKey = translateCache.keys().next().value;
-          if (oldestKey) translateCache.delete(oldestKey);
         }
-        translateCache.set(cacheKey, { ts: Date.now(), data: payload });
-      }
 
-      res.json(payload);
+        // 2. Per-word Google Input Tools + cached/capped Google Translate candidates
+        // Cap uncached Google Translate word lookups to 2 per request to prevent 429 bursts
+        const wordSuggestions: Record<string, { kn: string; tag: string }[]> = {};
+        let uncachedWordBudget = rateLimited || Date.now() < gtRateLimitedUntil ? 0 : 2;
+
+        // Prioritize the last words typed (most likely what the user just edited)
+        const wordsToProcess = [...uniqueWords].reverse();
+
+        await Promise.all(
+          wordsToProcess.map(async (w) => {
+            const lw = w.toLowerCase();
+            const list: { kn: string; tag: string }[] = [];
+            const pushWord = (kn: string, tag: string) => {
+              const c = kn.trim();
+              if (!c || !/[\u0C80-\u0CFF]/.test(c)) return;
+              if (!list.some((item) => item.kn === c)) {
+                list.push({ kn: c, tag });
+              }
+            };
+
+            const isLatinWord = /^[A-Za-z]+$/.test(w);
+            const wordLang = isLatinWord ? 'en' : sl;
+            const wordKey = `${wordLang}|${lw}`;
+            const cachedWord = wordTranslateCache.get(wordKey);
+            const hasFreshCachedWord =
+              cachedWord && Date.now() - cachedWord.ts < TRANSLATE_CACHE_TTL_MS;
+
+            let gtWord: GtKnResult | null = null;
+            let shouldFetchGtWord = false;
+            if (!isRomanIndic) {
+              if (gtFull && text.toLowerCase() === lw) {
+                gtWord = gtFull;
+              } else if (hasFreshCachedWord) {
+                gtWord = cachedWord.data;
+              } else if (uncachedWordBudget > 0 && Date.now() >= gtRateLimitedUntil) {
+                uncachedWordBudget -= 1;
+                shouldFetchGtWord = true;
+              }
+            }
+
+            const [itList, fetchedGtWord] = await Promise.all([
+              isLatinWord ? fetchGoogleInputToolsKn(w) : Promise.resolve([]),
+              shouldFetchGtWord ? fetchGoogleTranslateKn(w, wordLang) : Promise.resolve(null),
+            ]);
+
+            if (fetchedGtWord) {
+              if (fetchedGtWord.rateLimited) {
+                rateLimited = true;
+              } else if (fetchedGtWord.alternatives.length > 0) {
+                gtWord = fetchedGtWord;
+                if (wordTranslateCache.size >= 1500) {
+                  const oldestWord = wordTranslateCache.keys().next().value;
+                  if (oldestWord) wordTranslateCache.delete(oldestWord);
+                }
+                wordTranslateCache.set(wordKey, { ts: Date.now(), data: fetchedGtWord });
+              }
+            } else if (gtFull && text.toLowerCase() === lw && gtFull.alternatives.length > 0) {
+              if (wordTranslateCache.size >= 1500) {
+                const oldestWord = wordTranslateCache.keys().next().value;
+                if (oldestWord) wordTranslateCache.delete(oldestWord);
+              }
+              wordTranslateCache.set(wordKey, { ts: Date.now(), data: gtFull });
+            }
+
+            if (isRomanIndic) {
+              itList.forEach((kn, idx) =>
+                pushWord(kn, idx === 0 ? 'Google Input (recommended)' : 'Google Input')
+              );
+            } else {
+              if (gtWord?.alternatives?.length) {
+                gtWord.alternatives.forEach((alt) => pushWord(alt.kn, alt.tag));
+              }
+              itList.forEach((kn, idx) =>
+                pushWord(kn, idx === 0 ? 'Google phonetic' : 'Google phonetic alt')
+              );
+            }
+
+            if (list.length > 0) {
+              wordSuggestions[lw] = list.slice(0, 10);
+            }
+          })
+        );
+
+        const payload = {
+          ok: Boolean(gtFull || Object.keys(wordSuggestions).length > 0),
+          rateLimited,
+          translatedText: gtFull?.translatedText || '',
+          romanization: gtFull?.romanization || '',
+          detectedLang: gtFull?.detectedLang || (isRomanIndic ? 'rm' : sl),
+          alternatives: gtFull?.alternatives || [],
+          wordSuggestions,
+        };
+
+        if (payload.ok && !rateLimited) {
+          if (translateCache.size >= 500) {
+            const oldestKey = translateCache.keys().next().value;
+            if (oldestKey) translateCache.delete(oldestKey);
+          }
+          translateCache.set(cacheKey, { ts: Date.now(), data: payload });
+        }
+
+        return payload;
+      })();
+
+      inFlightTranslate.set(cacheKey, workPromise);
+      try {
+        const payload = await workPromise;
+        res.json(payload);
+      } finally {
+        inFlightTranslate.delete(cacheKey);
+      }
     } catch (err) {
       res.status(500).json({
         ok: false,

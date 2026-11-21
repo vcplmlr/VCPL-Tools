@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Clock, Heart, Search, Sparkles, X } from 'lucide-react';
 import {
-  TOOLS_CATALOG,
+  PUBLIC_TOOLS_CATALOG,
   getToolById,
   sortToolsForSuite,
   toolMatchesCategory,
@@ -19,7 +19,7 @@ interface SearchModalProps {
 }
 
 const MODAL_CATEGORIES: { key: ToolFilterType; label: string }[] = [
-  { key: 'All', label: `All Tools (${TOOLS_CATALOG.length})` },
+  { key: 'All', label: `All Tools (${PUBLIC_TOOLS_CATALOG.length})` },
   { key: 'Banking', label: 'Banking' },
   { key: 'Tax & GST', label: 'Tax & GST' },
   { key: 'GST Utilities', label: 'GST' },
@@ -29,7 +29,7 @@ const MODAL_CATEGORIES: { key: ToolFilterType; label: string }[] = [
   { key: 'Typing & Text', label: 'Typing & Text' },
   { key: 'Utilities', label: 'Utilities' },
   { key: 'VCPL', label: 'VCPL Tools' },
-  { key: 'Special Tools', label: 'Special Tools' },
+  { key: 'Special Tools', label: 'Special' },
   { key: 'Learn Tools', label: 'Learn Tools' },
 ];
 
@@ -82,7 +82,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
   const normalizedQuery = query.toLowerCase().trim();
 
-  const matchedTools = TOOLS_CATALOG.filter((tool) => {
+  const matchedTools = PUBLIC_TOOLS_CATALOG.filter((tool) => {
     const matchesCategory = toolMatchesCategory(tool, selectedCategory);
     if (!matchesCategory) return false;
     if (!normalizedQuery) return true;
@@ -100,7 +100,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
   const recentTools = recents
     .map((id) => getToolById(id))
-    .filter((t): t is ToolCatalogItem => Boolean(t));
+    .filter((t): t is ToolCatalogItem => Boolean(t && !t.vaultOnly));
 
   return (
     <div
@@ -122,7 +122,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search across ${TOOLS_CATALOG.length} tools (e.g. Form 26AS, PDF, QR, EMI)...`}
+            placeholder={`Search across ${PUBLIC_TOOLS_CATALOG.length} tools (e.g. Form 26AS, PDF, QR, EMI)...`}
             className="flex-1 bg-transparent dark:bg-transparent border-none text-[#2F3E4E] dark:text-slate-100 placeholder:text-[#64748B] dark:placeholder:text-slate-400 text-sm sm:text-base font-medium focus:outline-none"
           />
           {query && (
@@ -297,7 +297,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         <div className="px-4 sm:px-5 py-3 bg-[#FEF2C8]/55 dark:bg-[#131C2E] border-t border-[#2F3E4E]/15 dark:border-slate-800 text-xs font-medium text-[#475569] dark:text-slate-300 flex flex-wrap items-center justify-between gap-2">
           <span>
             Showing <strong className="text-[#2F3E4E] dark:text-slate-100">{filteredTools.length}</strong> of{' '}
-            <strong className="text-[#2F3E4E] dark:text-slate-100">{TOOLS_CATALOG.length}</strong> tools
+            <strong className="text-[#2F3E4E] dark:text-slate-100">{PUBLIC_TOOLS_CATALOG.length}</strong> tools
           </span>
           <span className="hidden sm:inline">Ctrl+K / ⌘K to open · ESC to close</span>
         </div>

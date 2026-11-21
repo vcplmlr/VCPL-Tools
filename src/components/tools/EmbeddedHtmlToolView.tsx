@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ExternalLink, Maximize2, Minimize2, RotateCw } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
 import { attachDocumentFileDropBridge } from '../../utils/fileDropUtils';
+import { protectDocument } from '../../hooks/useRightClickProtection';
 import { getToolFullPath, getToolPath } from '../../utils/seoRouting';
 
 interface EmbeddedHtmlToolViewProps {
@@ -286,7 +287,12 @@ export const EmbeddedHtmlToolView: React.FC<EmbeddedHtmlToolViewProps> = ({
                 try {
                   const doc = frameEl.contentDocument;
                   if (doc) {
-                    iframeCleanupRef.current = attachDocumentFileDropBridge(doc);
+                    const cleanupDrop = attachDocumentFileDropBridge(doc);
+                    const cleanupLock = protectDocument(doc, frameEl.contentWindow);
+                    iframeCleanupRef.current = () => {
+                      cleanupDrop();
+                      cleanupLock();
+                    };
                   }
                 } catch {
                   // Ignore cross-origin iframe access restrictions

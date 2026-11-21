@@ -45,6 +45,7 @@ export type ToolKind =
   | 'bmw-claims-reconciler'
   | 'vcpl-rtgs-neft-form'
   | 'tds-26as-tally-reco'
+  | 'bajaj-reconciliation-desk'
   | 'fuel-report-generator'
   | 'covering-letter-generator'
   | 'letterhead-invoice-maker'
@@ -77,6 +78,7 @@ export interface ToolCatalogItem {
   statusLabel: string;
   featuredPrimary?: boolean;
   defaultOpenBulk?: boolean;
+  vaultOnly?: boolean;
   embedHtmlPath?: string;
   keywords?: string[];
 }

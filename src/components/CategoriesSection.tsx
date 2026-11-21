@@ -15,7 +15,7 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from 'lucide-react';
-import { TOOL_CATEGORIES, TOOLS_CATALOG } from '../data/toolsCatalog';
+import { PUBLIC_TOOLS_CATALOG, TOOL_CATEGORIES } from '../data/toolsCatalog';
 import { CategoryItem, ToolFilterType } from '../types/tools';
 
 interface CategoriesSectionProps {
@@ -41,7 +41,7 @@ export function CategoriesSection({
       id: 'cat-all',
       name: 'All Tools',
       filterKey: 'All',
-      countLabel: `${TOOLS_CATALOG.length} Total`,
+      countLabel: `${PUBLIC_TOOLS_CATALOG.length} Total`,
       iconName: 'layout-grid',
     },
   ];

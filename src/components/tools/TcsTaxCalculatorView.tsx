@@ -13,6 +13,7 @@ import {
   Table2,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
+import { copyTextToClipboard } from '../../hooks/useRightClickProtection';
 import {
   downloadBomCsv,
   downloadExcelWorkbook,
@@ -67,28 +68,7 @@ function escapeHtml(text: string): string {
 }
 
 async function copyTextSafe(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    // Fallback below
-  }
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    return ok;
-  } catch {
-    return false;
-  }
+  return copyTextToClipboard(text);
 }
 
 async function copyCellsForExcel(rows: string[][]): Promise<boolean> {
@@ -206,6 +186,7 @@ export const TcsTaxCalculatorView: React.FC<TcsTaxCalculatorViewProps> = ({ tool
   // Excel Copy Options & Feedback
   const [includeExcelHeaders, setIncludeExcelHeaders] = useState(true);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [summaryCopied, setSummaryCopied] = useState<boolean>(false);
 
   const flashCopied = (key: string) => {
     setCopiedKey(key);
@@ -880,6 +861,19 @@ export const TcsTaxCalculatorView: React.FC<TcsTaxCalculatorViewProps> = ({ tool
         {activeRows.length > 0 && (
           <ToolExportBar
             onClear={handleReset}
+            onCopy={() => {
+              const txt = activeRows
+                .map((r) => `${r.label}: ₹ ${formatInr(r.value)}`)
+                .join('\n');
+              void copyTextToClipboard(txt).then((ok) => {
+                if (ok) {
+                  setSummaryCopied(true);
+                  window.setTimeout(() => setSummaryCopied(false), 1800);
+                }
+              });
+            }}
+            copied={summaryCopied}
+            copyLabel="Copy Summary"
             onExcel={() => {
               downloadExcelWorkbook({
                 filename: `${tab === 'tcs' ? 'TCS' : 'GST'}_Calculation_Breakdown.xlsx`,

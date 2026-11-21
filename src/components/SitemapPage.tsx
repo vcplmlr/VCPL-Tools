@@ -15,8 +15,8 @@ import {
 } from 'lucide-react';
 import { LEGAL_PAGES, LegalPageSlug } from '../data/legalPagesData';
 import {
+  PUBLIC_TOOLS_CATALOG,
   TOOL_SECTION_HEADS,
-  TOOLS_CATALOG,
   getToolsForCategory,
 } from '../data/toolsCatalog';
 import { ToolCatalogItem, ToolFilterType } from '../types/tools';
@@ -45,7 +45,7 @@ function buildDynamicXmlSitemap(origin: string): string {
       changefreq: 'weekly',
       priority: '0.9',
     })),
-    ...TOOLS_CATALOG.map((tool) => ({
+    ...PUBLIC_TOOLS_CATALOG.map((tool) => ({
       loc: `${origin}${getToolPath(tool)}`,
       changefreq: 'monthly',
       priority: tool.featuredPrimary ? '0.85' : '0.8',
@@ -93,7 +93,7 @@ export function SitemapPage({
   );
 
   const totalUrls =
-    3 + TOOL_SECTION_HEADS.length + TOOLS_CATALOG.length + legalEntries.length;
+    3 + TOOL_SECTION_HEADS.length + PUBLIC_TOOLS_CATALOG.length + legalEntries.length;
 
   const handleDownloadXml = () => {
     const xml = buildDynamicXmlSitemap(origin);
@@ -156,12 +156,12 @@ export function SitemapPage({
               </div>
 
               <h1 className="font-display font-extrabold text-[clamp(1.75rem,3.3vw,2.5rem)] leading-tight text-[#2F3E4E] dark:text-slate-50 tracking-tight">
-                VCPL Tools Sitemap — All {TOOLS_CATALOG.length} Utilities &amp; Pages
+                VCPL Tools Sitemap — All {PUBLIC_TOOLS_CATALOG.length} Utilities &amp; Pages
               </h1>
 
               <p className="text-sm sm:text-[15px] leading-relaxed text-[#475569] dark:text-slate-300">
                 Explore every canonical page across VCPL Tools—including all {TOOL_SECTION_HEADS.length} tool suites,
-                all {TOOLS_CATALOG.length} browser-local utilities, legal &amp; security policies,
+                all {PUBLIC_TOOLS_CATALOG.length} browser-local utilities, legal &amp; security policies,
                 and search-engine XML sitemap feeds.
               </p>
             </div>
@@ -219,7 +219,7 @@ export function SitemapPage({
               href="#sitemap-tools"
               className="px-3 py-1.5 rounded-lg bg-[#FFFDF5] dark:bg-[#0B1120] hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] border border-[#2F3E4E]/35 dark:border-slate-700 font-bold text-[#2F3E4E] dark:text-slate-200 dark:hover:text-[#0F172A]"
             >
-              All Tools ({TOOLS_CATALOG.length})
+              All Tools ({PUBLIC_TOOLS_CATALOG.length})
             </a>
             <a
               href="#sitemap-legal"
@@ -284,7 +284,7 @@ export function SitemapPage({
               className="p-4 rounded-xl border-[1.5px] border-[#2F3E4E]/25 dark:border-slate-700 bg-[#FEF2C8]/55 dark:bg-[#0B1120] hover:bg-[#F9C80E]/35 dark:hover:bg-[#1A253B] hover:border-[#2F3E4E] dark:hover:border-[#F9C80E] transition flex flex-col justify-between gap-1"
             >
               <div className="font-display font-extrabold text-sm text-[#2F3E4E] dark:text-slate-100">
-                All Tools Directory ({TOOLS_CATALOG.length} Tools)
+                All Tools Directory ({PUBLIC_TOOLS_CATALOG.length} Tools)
               </div>
               <div className="text-xs font-mono text-[#475569] dark:text-slate-400">/tools</div>
             </a>
@@ -321,10 +321,10 @@ export function SitemapPage({
           slotId="vcpl-sitemap-leaderboard"
           variant="leaderboard"
           label="Sitemap Directory Leaderboard · 728 × 90"
-          contentContext={`Complete VCPL Tools Directory · ${TOOLS_CATALOG.length} Client-Side Utilities`}
+          contentContext={`Complete VCPL Tools Directory · ${PUBLIC_TOOLS_CATALOG.length} Client-Side Utilities`}
         />
 
-        {/* All Tools by Suite (including 16 VCPL Tools) */}
+        {/* All Tools by Suite */}
         <section id="sitemap-tools" className="space-y-6">
           <div className="flex items-center gap-2.5">
             <Wrench className="w-5 h-5 text-[#2F3E4E] dark:text-[#F9C80E]" aria-hidden="true" />

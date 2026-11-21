@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bajaj Reconciliation Desk</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light;
+--bg:#f4f1ea;--card:#fffdf8;--ink:#1d2a26;--mute:#6b7670;--line:#d9d3c5;--acc:#14594a;--accb:#e3efe9;--warn:#a4380f;--warnb:#f8e4da;--ok:#14594a;--amb:#8a6100;--ambb:#f6ecc9}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#151a18;--card:#1d2421;--ink:#e8ece9;--mute:#97a39d;--line:#34403b;--acc:#58c2a4;--accb:#1f3a32;--warn:#ff9b78;--warnb:#3d251c;--ok:#58c2a4;--amb:#e8c15a;--ambb:#3a3115}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#151a18;--card:#1d2421;--ink:#e8ece9;--mute:#97a39d;--line:#34403b;--acc:#58c2a4;--accb:#1f3a32;--warn:#ff9b78;--warnb:#3d251c;--ok:#58c2a4;--amb:#e8c15a;--ambb:#3a3115}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 'IBM Plex Sans',system-ui,sans-serif}
+.mono,td.r,.kv b{font-family:'IBM Plex Mono',ui-monospace,monospace}
+header{padding:18px 20px 8px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+h1{font-size:22px;margin:0;letter-spacing:-.3px}h1 span{color:var(--acc)}header p{margin:0;color:var(--mute)}
+main{padding:0 20px 40px;max-width:1500px;margin:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+label{display:block;font-size:12px;color:var(--mute);margin-bottom:3px}
+input,select,textarea,button{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;width:100%}
+button{cursor:pointer;width:auto;background:var(--acc);color:var(--card);border-color:var(--acc);font-weight:600}button.g{background:transparent;color:var(--acc)}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:26px;text-align:center;color:var(--mute);cursor:pointer}.drop.on{border-color:var(--acc);background:var(--accb)}
+.files{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.chip{background:var(--accb);color:var(--acc);border-radius:20px;padding:3px 10px;font-size:12px}.chip.bad{background:var(--warnb);color:var(--warn)}.chip i{cursor:pointer;margin-left:6px;font-style:normal}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-top:14px}
+.tab{padding:8px 14px;cursor:pointer;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;color:var(--mute)}.tab.on{background:var(--card);border-color:var(--line);color:var(--ink);font-weight:600;margin-bottom:-1px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin:12px 0}.bar>*{width:auto}.bar input[type=search]{min-width:220px}
+.wrap{overflow:auto;max-height:68vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{padding:5px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--accb);color:var(--acc);text-align:left;cursor:pointer;z-index:1}th.r,td.r{text-align:right}
+tfoot td{position:sticky;bottom:0;background:var(--accb);font-weight:600}
+.ok{color:var(--ok)}.wn{color:var(--warn);font-weight:600}.am{color:var(--amb);font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.kpi{border:1px solid var(--line);border-radius:8px;padding:9px;background:var(--bg)}.kpi small{color:var(--mute)}.kpi b{display:block;font-size:16px}
+.kv{width:100%}.hbar{height:7px;background:var(--acc);border-radius:3px;min-width:1px}
+details summary{cursor:pointer;font-weight:600}.note{color:var(--mute);font-size:12px}
+.zones{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}.zone small{display:block;color:var(--mute);margin:2px 0 8px}.zone .drop{padding:16px}
+</style></head><body>
+<header><h1>Bajaj <span>Reconciliation Desk</span></h1><p>Upload Bajaj claim reports, cheque reports, invoices, credit notes and bank statements. Everything runs in your browser; nothing is uploaded.</p></header>
+<main>
+<div class="zones">
+<div class="card zone" data-z="claim"><b>1 · Bajaj claim sheets</b><small>Claim payment reports and cheque / NEFT reports</small><div class="drop">Drop or click to add<br><small>.xlsx .xls .csv .pdf · many files</small></div><div class="files"></div></div>
+<div class="card zone" data-z="dms"><b>2 · Tally / DMS invoices &amp; credit notes</b><small>DMS service invoices, credit memos, Tally sales / day-book / credit-note registers</small><div class="drop">Drop or click to add<br><small>.xlsx .xls .csv .pdf · many files</small></div><div class="files"></div></div>
+<div class="card zone" data-z="bank"><b>3 · Bank statement (optional)</b><small>Needs a date, a UTR / reference and a credit / amount column</small><div class="drop">Drop or click to add<br><small>.xlsx .xls .csv .pdf</small></div><div class="files"></div></div></div>
+<input type="file" id="fi" multiple accept=".xlsx,.xls,.csv,.pdf" hidden>
+<p class="note">Files are auto-detected by their headers; a file dropped in the wrong slot is moved to the right one.</p>
+<details class="card" open><summary>Options</summary><div class="grid" style="margin-top:10px">
+<div><label>As-on date (ageing)</label><input type="date" id="asOn"></div>
+<div><label>Standard TDS rate %</label><input type="number" id="tds" value="2" step="0.1"></div>
+<div><label>Rounding tolerance (₹)</label><input type="number" id="tol" value="2"></div>
+<div><label>TDS rate tolerance (± %)</label><input type="number" id="tdst" value="0.2" step="0.1"></div>
+<div><label>Warranty keyword in Bill-To ledger</label><input id="kw" value="_EW_"></div>
+<div><label>Product code → segment</label><input id="pmap" value="1801=Insurance,1817=Warranty,1825=Insurance,1854=Insurance,1870=Insurance"></div>
+<div><label>Default segment (unknown product)</label><select id="dseg"><option>Insurance</option><option>Warranty</option></select></div>
+<div><label>Ageing buckets (days, comma)</label><input id="bk" value="30,60,90"></div>
+<div><label><input type="checkbox" id="dd" checked style="width:auto"> Remove duplicate Pay App Nos</label><label><input type="checkbox" id="co" checked style="width:auto"> Add cheque-report-only rows</label><label><input type="checkbox" id="bo" checked style="width:auto"> Bajaj invoices only</label></div>
+</div><div style="margin-top:10px"><button id="go">Reconcile</button> <button class="g" id="th">Light / dark</button></div></details>
+<div id="out"></div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),S={files:[],out:null,tab:'sum',sort:null};
+const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const N=x=>{const v=parseFloat(String(x).replace(/[,₹\s]/g,''));return isNaN(v)?0:v};
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function D(x){if(x instanceof Date)return isNaN(x)?null:x;if(x===''||x==null)return null;
+ if(typeof x==='number'&&x>30000&&x<60000)return new Date(Date.UTC(1899,11,30)+Math.floor(x)*864e5);
+ const s=String(x).replace(/'/g,'').trim();let m=s.match(/^(\d{1,2})[-\/ ]([A-Za-z]{3})[a-z]*[-\/ ](\d{2,4})/);
+ if(m){let y=+m[3];if(y<100)y+=2000;return new Date(Date.UTC(y,MON.findIndex(a=>a.toLowerCase()==m[2].toLowerCase()),+m[1]))}
+ if(/^\d{5}(\.\d+)?$/.test(s))return D(+s);m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);if(m)return new Date(Date.UTC(+m[3],+m[2]-1,+m[1]));
+ const d=new Date(s);return isNaN(d)?null:d}
+const fd=d=>d?String(d.getUTCDate()).padStart(2,'0')+'-'+MON[d.getUTCMonth()]+'-'+String(d.getUTCFullYear()).slice(2):'';
+const fn=(v,dp=0)=>v===''||v==null?'':(+v).toLocaleString('en-IN',{minimumFractionDigits:dp,maximumFractionDigits:dp||2});
+const H=r=>{const m={};r.forEach((c,i)=>{const k=String(c).trim().toLowerCase();if(k&&!(k in m))m[k]=i});return m};
+const pick=(m,...n)=>{for(const k of n)if(k in m)return m[k];return -1};
+// ---------- reading ----------
+async function readPdf(f){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+ const pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise,rows=[];
+ for(let p=1;p<=pdf.numPages;p++){const t=await(await pdf.getPage(p)).getTextContent(),L={};
+  t.items.forEach(i=>{const y=Math.round(i.transform[5]/3);(L[y]=L[y]||[]).push([i.transform[4],i.str])});
+  Object.keys(L).sort((a,b)=>b-a).forEach(y=>{const it=L[y].sort((a,b)=>a[0]-b[0]);let row=[],last=-99,cur='';
+   it.forEach(([x,s])=>{if(x-last>14&&cur){row.push(cur.trim());cur=''}cur+=(cur?' ':'')+s;last=x+s.length*4.5});row.push(cur.trim());rows.push(row.filter(c=>c!==''))})}
+ return[rows]}
+function classify(rows){for(let i=0;i<Math.min(rows.length,15);i++){const s=rows[i].map(c=>String(c).toLowerCase().trim()),j='|'+s.join('|')+'|',has=k=>s.includes(k);
+ if(has('pay app no')&&has('chq utr no'))return['claim',i];
+ if((has('approval no.')||has('approval no'))&&has('utr no'))return['chq',i];
+ if(has('invoice no.')&&has('bill to customer'))return['inv',i];
+ if(has('document number')&&has('created from'))return['cn',i];
+ if(s.some(c=>/^(vch|voucher)\.?\s*(no|number)|^invoice\s*(no|number)|^bill\s*no|^doc(ument)?\s*(no|number)/.test(c))&&s.some(c=>/debit|credit|gross|amount|value|total/.test(c))&&s.some(c=>/date/.test(c)))return['tally',i];
+ if(/utr|ref/.test(j)&&/credit|deposit|amount/.test(j)&&s.length>=3&&s.some(c=>/date/.test(c)))return['bank',i]}return[null,0]}
+function parse(type,rows,hi){const m=H(rows[hi].slice(0,type=='claim'?39:99)),o=[],g=(r,...n)=>{const i=pick(m,...n);return i<0?'':r[i]};
+ for(let r of rows.slice(hi+1)){if(r.every(c=>c===''))continue;
+  if(type=='claim'){if(String(r[5]).startsWith('OC-'))r=r.slice(5);if(String(r[0])=='BAGIC Claim Ref'||!String(r[0]).startsWith('OC-'))continue;if(String(g(r,'pay status')).toUpperCase()!='PAID')continue;
+   const bill=String(g(r,'bill no')).trim(),v=String(g(r,'ref text')).trim();
+   o.push({claim:String(r[0]).trim(),pa:String(g(r,'pay app no')).trim(),apd:D(g(r,'approval date')),appr:N(g(r,'approval amount')),utr:String(g(r,'chq utr no')).replace(/'/g,'').trim(),utrd:D(g(r,'chq utr date')),net:N(g(r,'payment amt')),rem:String(g(r,'remarks')),gst:N(g(r,'service tax gst')),tds:N(g(r,'tds amount gst')),rel:N(g(r,'gst paid amt')),bill:bill&&bill!='-'?bill:'',veh:v&&v!='-'?v:'',res:g(r,'r reserve desc'),bank:g(r,'payment bank'),bd:D(g(r,'bill date'))})}
+  else if(type=='chq'){const pa=String(g(r,'approval no.','approval no')).replace(/\.0$/,'').trim();if(!pa)continue;
+   o.push({claim:String(g(r,'claim no','bagic claim ref')).trim(),pa,utr:String(g(r,'utr no')).replace(/'/g,'').trim(),utrd:D(g(r,'cheque date')),amt:N(g(r,'cheque amount')),bill:String(g(r,'bill_no')).trim(),appr:N(g(r,'approved amount')),gst:N(g(r,'service tax')),tds:N(g(r,'tds'))})}
+  else if(type=='inv'){const no=String(g(r,'invoice no.')).trim();if(!no)continue;o.push({no,date:D(g(r,'invoice date')),cust:g(r,'customer name'),to:String(g(r,'bill to customer')),plate:g(r,'plate no.'),ex:N(g(r,'sum of amount')),incl:N(g(r,'average of amount with tax','amount with tax','total')),st:g(r,'status')})}
+  else if(type=='cn'){const no=String(g(r,'document number')).trim();if(no)o.push({no,date:D(g(r,'date')),amt:Math.abs(N(g(r,'amount'))),inv:String(g(r,'created from')).replace(/invoice\s*#/i,'').trim(),name:g(r,'name')})}
+  else if(type=='tally'){const fx=re=>{const k=Object.keys(m).find(k=>re.test(k));return k==null?-1:m[k]},ix={d:fx(/date/),n:fx(/^(vch|voucher)\.?\s*(no|number)|^invoice\s*(no|number)|^bill\s*no|^doc/),p:fx(/particular|party|ledger|customer|name|account/),t:fx(/voucher type|vch type|^type/),db:fx(/debit/),cr:fx(/credit/),a:fx(/gross|amount|value|total/)},v=k=>ix[k]<0?'':r[ix[k]];
+   const no=String(v('n')).trim(),pt=String(v('p'));if(!no||/total/i.test(pt))continue;const vt=String(v('t')),a=Math.max(Math.abs(N(v('db'))),Math.abs(N(v('cr'))),Math.abs(N(v('a'))));
+   o.push({no,date:D(v('d')),party:pt,vt,amt:a,txt:r.join(' ').toUpperCase(),cn:/credit/i.test(vt)||/VMSC/i.test(no),rc:/receipt/i.test(vt)})}
+  else if(type=='bank'){let ai=-1;m&&Object.keys(m).forEach(k=>{if(/credit|deposit/.test(k))ai=m[k]});if(ai<0)ai=pick(m,'amount');const txt=r.join(' ').toUpperCase(),a=N(r[ai]);if(a&&txt.length>8)o.push({txt,amt:a})}}
+ return o}
+const ZT={claim:'claim',chq:'claim',inv:'dms',cn:'dms',tally:'dms',bank:'bank'};
+async function ingest(list,zone){for(const f of list){const ext=f.name.split('.').pop().toLowerCase();let hit=0;
+ try{let tabs;if(ext=='pdf')tabs=await readPdf(f);else{const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});tabs=wb.SheetNames.map(n=>XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''}))}
+  for(const rows of tabs){const[t,hi]=classify(rows);if(!t)continue;S.files.push({name:f.name,type:t,d:parse(t,rows,hi),zone:ZT[t],asked:zone});hit++}
+  if(!hit)S.files.push({name:f.name,type:'?',d:[],zone,asked:zone,why:ext=='pdf'?'PDF text not recognised as a table':'headers not recognised'})}
+ catch(e){S.files.push({name:f.name,type:'?',d:[],zone,asked:zone,why:'could not read'})}}
+ files();run()}
+const LBL={claim:'Claim payments',chq:'Cheque report',inv:'DMS invoices',cn:'DMS credit notes',tally:'Tally register',bank:'Bank statement','?':'Not recognised'};
+function files(){document.querySelectorAll('.zone').forEach(z=>{z.querySelector('.files').innerHTML=S.files.map((f,i)=>f.zone==z.dataset.z?`<span class="chip ${f.type=='?'?'bad':''}">${esc(f.name)} · ${LBL[f.type]}${f.type=='?'?' ('+f.why+')':' · '+f.d.length+' rows'}${f.zone!=f.asked?' · moved here':''}<i data-i="${i}">✕</i></span>`:'').join('')})}
+const ALLC={'Conflicting duplicate pay-app':'High','Payment without UTR':'High','Approved − GST − TDS ≠ net credited':'High','Cheque report amount differs':'High','GST released, original payment row missing':'High','GST over-released':'High','GST pending beyond oldest ageing bucket':'High','Approved exceeds net invoice':'High','UTR not tallied with bank':'High','Tally ≠ DMS amount':'High','In DMS, not in Tally':'High','Bajaj paid, not in Tally':'High',
+'GST release dated before claim payment':'Medium','GST held is not 18/118 of approval':'Medium','TDS rate differs from standard':'Medium','No TDS deducted':'Medium','Paid before approval date':'Medium','DMS “Paid In Full” with no claim receipt or credit note':'Medium','Non-standard bill number':'Medium','No bill number on Bajaj report':'Medium','Invoice awaiting claim payment':'Medium','UTR not booked in Tally receipts':'Medium','In Tally, not in DMS':'Medium','In Tally & Bajaj claims, not in DMS':'Medium',
+'Credit note on Bajaj invoice':'Info','Possible re-bill (same plate & amount)':'Info','Duplicate pay-apps merged':'Info'};
+const TALLYC=/Tally|DMS/;
+// ---------- engine ----------
+function run(){const all=t=>S.files.filter(f=>f.type==t).flatMap(f=>f.d),claims=all('claim'),TL=all('tally');if(!claims.length&&!all('inv').length&&!TL.length){S.out=null;draw();return}
+ const tol=N($('#tol').value),tdsr=N($('#tds').value)/100,tdst=N($('#tdst').value)/100,kw=$('#kw').value.toUpperCase(),asOn=D($('#asOn').value)||new Date(),bk=$('#bk').value.split(',').map(N).filter(Boolean).sort((a,b)=>a-b),pm={};
+ $('#pmap').value.split(',').forEach(p=>{const[a,b]=p.split('=');if(b)pm[a.trim()]=/warr/i.test(b)?'Warranty':'Insurance'});
+ const base=p=>p.replace(/G$/,''),seen={},M=[],conf=[];
+ claims.forEach(c=>{if($('#dd').checked){if(seen[c.pa]){const q=seen[c.pa];if(q.net!=c.net||q.utr!=c.utr)conf.push(c);q.dup++;return}}const r={...c,base:base(c.pa),type:c.pa.endsWith('G')?'GST Release':'Claim Payment',prod:c.claim.split('-')[3]||'',src:'Claim report',dup:1};seen[c.pa]=r;M.push(r)});
+ const cq={};all('chq').sort((a,b)=>!!b.bill-!!a.bill).forEach(c=>{const k=base(c.pa)+'|'+c.utr;if(!cq[k])cq[k]={...c,k}});
+ const have=new Set(M.map(r=>r.base+'|'+r.utr));
+ if($('#co').checked)Object.values(cq).forEach(c=>{if(!have.has(c.k)){const rel=c.pa.endsWith('G');M.push({claim:c.claim,pa:c.pa,base:base(c.pa),type:rel?'GST Release':'Claim Payment',apd:null,bill:c.bill,veh:'',res:'',prod:c.claim.split('-')[3]||'',appr:c.appr,gst:c.gst,tds:c.tds,net:c.amt,rel:rel?c.amt:0,bank:'',utr:c.utr,utrd:c.utrd,rem:rel?'GST PAID':'GST HOLD',src:'Cheque report only',dup:1})}});
+ const IV={};all('inv').filter(i=>!$('#bo').checked||/bajaj/i.test(i.to)).forEach(i=>{i.seg=i.to.toUpperCase().includes(kw)?'Warranty':'Insurance';IV[i.no]=i});
+ const CN={};all('cn').forEach(c=>{if(IV[c.inv]){const o=CN[c.inv];if(o){o.amt+=c.amt;o.no+=', '+c.no}else CN[c.inv]={...c}}});
+ const BK=all('bank'),hasR=TL.some(t=>t.rc);
+ const seg=(bill,prod)=>IV[bill]?IV[bill].seg:(pm[prod]||$('#dseg').value);
+ M.forEach(r=>{r.seg=seg(r.bill,r.prod);r.key=r.bill||'NOBILL|'+r.claim;const c=cq[r.base+'|'+r.utr];r.chq=c?c.amt:null;
+  r.math=r.type=='Claim Payment'?r.appr-r.gst-r.tds-r.net:r.rel-r.net;r.mchk=Math.abs(r.math)>tol?'DIFF':'OK';
+  r.cm=c==null?'Not in cheque rpt':Math.abs(c.amt-r.net)<=tol?'Matched':'AMT DIFF';r.tdsp=r.type=='Claim Payment'&&r.appr-r.gst>0?r.tds/(r.appr-r.gst):null});
+ M.sort((a,b)=>(a.utrd-b.utrd)||a.claim.localeCompare(b.claim));
+ // bills
+ const B={};M.forEach(r=>{const b=B[r.key]||(B[r.key]={key:r.key,seg:r.seg,claim:r.claim,veh:r.veh,bd:r.bd,appr:0,gst:0,tds:0,net:0,rel:0,u1:'',d1:null,u2:'',d2:null});
+  if(r.type=='Claim Payment'){b.appr+=r.appr;b.gst+=r.gst;b.tds+=r.tds;b.net+=r.net;if(!b.u1){b.u1=r.utr;b.d1=r.utrd}}else{b.rel+=r.net;if(!b.u2){b.u2=r.utr;b.d2=r.utrd}}});
+ Object.keys(IV).forEach(k=>{if(!B[k])B[k]={key:k,seg:IV[k].seg,claim:'',veh:'',appr:0,gst:0,tds:0,net:0,rel:0,u1:'',d1:null,u2:'',d2:null}});
+ const bills=Object.values(B).map(b=>{const i=IV[b.key],c=CN[b.key];Object.assign(b,{inv:i?i.incl:null,idate:i?i.date:null,veh:i?i.plate:b.veh,ist:i?i.st:'Not in register',cn:c?c.no:'',cna:c?c.amt:0});
+  b.netinv=i?b.inv-b.cna:null;b.pend=b.gst-b.rel;b.cash=b.net+b.rel;b.settled=b.cash+b.tds;b.var=b.netinv==null?null:b.netinv-b.appr;b.tdsp=b.appr-b.gst>0?b.tds/(b.appr-b.gst):null;
+  b.status=b.appr+b.rel==0?(i?(b.netinv<=tol?'Credit-noted: nothing receivable':'Invoice raised – claim payment awaited'):'No data'):b.pend<-tol?'GST released – claim row missing':b.pend>tol?'GST pending with Bajaj':!i?'Settled – invoice not in register':Math.abs(b.var)<=tol?'Fully reconciled':'Settled – variance vs invoice';
+  b.flags=[b.tdsp!=null&&b.tdsp>0&&Math.abs(b.tdsp-tdsr)>tdst?'TDS rate off':'',b.cn?'Credit note raised':''].filter(Boolean).join('; ');return b}).sort((a,b)=>a.key.localeCompare(b.key));
+ // gst tracker
+ const G={};M.forEach(r=>{const g=G[r.base]||(G[r.base]={base:r.base,claim:r.claim,bill:r.bill,seg:r.seg,res:r.res,veh:r.veh,held:0,rel:0,cd:null,cu:'',rd:null,ru:''});
+  if(r.type=='Claim Payment'){g.held+=r.gst;if(!g.cu){g.cd=r.utrd;g.cu=r.utr}}else{g.rel+=r.net;if(!g.ru){g.rd=r.utrd;g.ru=r.utr}}});
+ const gst=Object.values(G).filter(g=>g.held>0||g.rel>0).map(g=>{g.pend=g.held-g.rel;g.status=g.held==0&&g.rel>0?'Release – hold row missing':g.pend<-tol?'Over-released':g.pend<=tol?'Released':g.rel>0?'Partially released':'Pending';
+  g.days=g.cd?Math.round(((g.rd||asOn)-g.cd)/864e5):null;g.age='';g.ao=0;if(g.pend>tol&&g.days!=null){const i=bk.findIndex(x=>g.days<=x);g.ao=i<0?bk.length:i;g.age=i<0?bk[bk.length-1]+'+ days':(i?bk[i-1]+1:0)+'–'+bk[i]+' days'}return g}).sort((a,b)=>(b.pend>tol)-(a.pend>tol)||(a.cd-b.cd));
+ // utr
+ const U={};M.forEach(r=>{const u=U[r.utr]||(U[r.utr]={utr:r.utr,date:r.utrd,lines:0,appr:0,gst:0,tds:0,net:0,ins:0,war:0,chq:0});u.lines++;u.appr+=r.appr;u.gst+=r.gst;u.tds+=r.tds;u.net+=r.net;u[r.seg=='Warranty'?'war':'ins']+=r.net});
+ Object.values(cq).forEach(c=>{if(U[c.utr])U[c.utr].chq+=c.amt});
+ const utr=Object.values(U).map(u=>{const UU=u.utr.toUpperCase(),bm=BK.filter(b=>b.txt.includes(UU));u.bank=bm.length?bm.reduce((t,b)=>t+b.amt,0):null;u.tl=hasR?(TL.some(t=>t.rc&&t.txt.includes(UU))?'Booked':'Not in Tally'):'';u.cd=u.chq?u.net-u.chq:null;u.bd=u.bank!=null?u.net-u.bank:null;
+  u.status=u.bank!=null?(Math.abs(u.bd)<=tol?'Tallied with bank':'NOT TALLIED'):!u.chq?'Awaiting bank statement':Math.abs(u.cd)<=tol?'Cheque rpt agrees – awaiting bank':'Cheque rpt DIFF';return u}).sort((a,b)=>b.date-a.date);
+ // tally / dms reco
+ const dmsI=Object.values(IV),dmsC=all('cn').filter(c=>IV[c.inv]),hasD=all('inv').length>0,hasT=TL.length>0,nk=x=>String(x).toUpperCase().replace(/[^A-Z0-9]/g,'');
+ const rg=a=>{const d=a.map(x=>x.date).filter(Boolean).sort((p,q)=>p-q);return d.length?[d[0],d[d.length-1]]:null},dr=rg(all('inv')),tr=rg(TL),inR=(d,r)=>!r||!d||(d>=r[0]&&d<=r[1]);
+ const dn=new Set([...dmsI,...dmsC].map(x=>nk(x.no))),T={};TL.filter(t=>!t.rc&&(/bajaj/i.test(t.party)||dn.has(nk(t.no)))).forEach(t=>{T[nk(t.no)]=t});
+ const used=new Set(),fT=k=>{const f=T[k]?k:Object.keys(T).find(x=>x.length>=8&&k.length>=8&&(x.includes(k)||k.includes(x)));if(f)used.add(f);return f?T[f]:null};
+ const rec=[],BI=Object.fromEntries(bills.map(b=>[b.key,b])),dd1=(a,b)=>a&&b?Math.round((a-b)/864e5):0;
+ const add=o=>{const t=o.t,b=o.b,d=o.date||(t&&t.date),r={doc:o.no,type:o.type,seg:o.seg||(b&&b.seg)||'',ddate:o.date,dparty:o.party,damt:o.amt,tdate:t?t.date:null,tparty:t?t.party:'',tamt:t?t.amt:null,appr:b?b.appr:null,settled:b?b.settled:null};
+  r.diff=t&&o.amt!=null?t.amt-o.amt:null;const base=b&&b.netinv!=null?b.netinv:(t?t.amt:null);r.bal=o.type=='Invoice'&&b&&base!=null?base-b.settled:null;
+  r.status=o.amt!=null?(t?(Math.abs(r.diff)<=tol?'Matched':'Amount differs'):!hasT?'Tally not uploaded':inR(d,tr)?'In DMS, not in Tally':'Outside Tally period'):!t?(d&&inR(d,tr)?'Bajaj paid, not in Tally':'Outside Tally period'):!hasD?'DMS not uploaded':inR(d,dr)?(b&&b.appr?'In Tally & Bajaj claims, not in DMS':'In Tally, not in DMS'):'Outside DMS period';
+  r.note=[t&&dd1(t.date,o.date)?'Date differs '+dd1(t.date,o.date)+'d':'',t&&!/bajaj/i.test(t.party)?'Tally party: '+t.party:'',b&&b.cn?'Credit note '+b.cn:''].filter(Boolean).join('; ');rec.push(r)};
+ dmsI.forEach(i=>add({no:i.no,type:'Invoice',date:i.date,party:i.to,amt:i.incl,seg:i.seg,t:fT(nk(i.no)),b:BI[i.no]}));
+ dmsC.forEach(c=>add({no:c.no,type:'Credit note',date:c.date,party:c.name,amt:c.amt,seg:IV[c.inv].seg,t:fT(nk(c.no))}));
+ if(hasT)bills.forEach(b=>{if(!IV[b.key]&&/^VMSI/.test(b.key)&&b.appr)add({no:b.key,type:'Invoice',date:b.bd,party:'',amt:null,seg:b.seg,t:fT(nk(b.key)),b})});
+ Object.keys(T).forEach(k=>{if(!used.has(k)){const t=T[k];add({no:t.no,type:t.cn?'Credit note':'Invoice',date:null,party:'',amt:null,t,b:BI[t.no]})}});
+ const SO=x=>/^(Amount|In DMS|Bajaj paid)/.test(x)?0:/^In Tally/.test(x)?1:/^Matched/.test(x)?3:2;rec.sort((a,b)=>SO(a.status)-SO(b.status)||String(a.doc).localeCompare(b.doc));
+ // audit
+ const ex=[],X=(cat,ref,detail,amt)=>ex.push({cat,sev:ALLC[cat],ref,detail,amt,status:cat});
+ conf.forEach(c=>X('Conflicting duplicate pay-app',c.pa,'Same Pay App No, different amount / UTR – '+c.utr,c.net));
+ M.filter(r=>!r.utr).forEach(r=>X('Payment without UTR',r.pa,r.claim,r.net));
+ M.filter(r=>r.mchk=='DIFF').forEach(r=>X('Approved − GST − TDS ≠ net credited',r.pa,r.claim,r.math));
+ M.filter(r=>r.cm=='AMT DIFF').forEach(r=>X('Cheque report amount differs',r.pa,'UTR '+r.utr+' cheque '+fn(r.chq)+' vs paid '+fn(r.net),r.chq-r.net));
+ gst.filter(g=>g.status.startsWith('Release –')).forEach(g=>X('GST released, original payment row missing',g.bill||g.base,'Pay app '+g.base+'G on '+fd(g.rd)+' UTR '+g.ru,g.rel));
+ gst.filter(g=>g.status=='Over-released').forEach(g=>X('GST over-released',g.base,g.claim,-g.pend));
+ gst.filter(g=>g.pend>tol&&g.days>bk[bk.length-1]).forEach(g=>X('GST pending beyond oldest ageing bucket',g.base,g.claim+' · '+g.days+' days',g.pend));
+ gst.filter(g=>g.rd&&g.cd&&g.rd<g.cd).forEach(g=>X('GST release dated before claim payment',g.base,g.claim,g.rel));
+ M.filter(r=>r.type=='Claim Payment'&&r.gst>0&&Math.abs(r.gst-Math.round(r.appr*18/118))>tol).forEach(r=>X('GST held is not 18/118 of approval',r.pa,r.claim+' · held '+fn(r.gst)+' on '+fn(r.appr),r.gst));
+ M.filter(r=>r.tdsp!=null&&r.tdsp>0&&Math.abs(r.tdsp-tdsr)>tdst).forEach(r=>X('TDS rate differs from standard',r.pa,(r.tdsp*100).toFixed(2)+'%',r.tds));
+ M.filter(r=>r.type=='Claim Payment'&&r.tds==0&&r.appr>0).forEach(r=>X('No TDS deducted',r.pa,r.claim+' · '+r.rem,r.appr-r.gst));
+ M.filter(r=>r.apd&&r.utrd&&r.utrd<r.apd).forEach(r=>X('Paid before approval date',r.pa,r.claim,r.net));
+ bills.filter(b=>b.var!=null&&b.var<-tol&&b.appr).forEach(b=>X('Approved exceeds net invoice',b.key,b.seg,-b.var));
+ bills.filter(b=>b.ist=='Paid In Full'&&!b.cash&&!b.cn).forEach(b=>X('DMS “Paid In Full” with no claim receipt or credit note',b.key,b.seg,b.inv));
+ [...new Set(M.map(r=>r.bill).filter(b=>b&&!/^VMSI\d{7,}/.test(b)))].forEach(b=>X('Non-standard bill number',b,'Cannot match to an invoice (typo?)',M.filter(r=>r.bill==b).reduce((t,r)=>t+r.net,0)));
+ bills.filter(b=>b.key.startsWith('NOBILL')).forEach(b=>X('No bill number on Bajaj report',b.claim,'Grouped as NOBILL',b.net));
+ bills.filter(b=>b.status.startsWith('Invoice raised')).forEach(b=>X('Invoice awaiting claim payment',b.key,b.seg+' · '+b.veh,b.netinv));
+ bills.filter(b=>b.cn).forEach(b=>X('Credit note on Bajaj invoice',b.cn,'Against '+b.key,b.cna));
+ const pk={};dmsI.forEach(i=>{const k=i.plate+'|'+i.incl;(pk[k]=pk[k]||[]).push(i.no)});Object.values(pk).filter(a=>a.length>1).forEach(a=>X('Possible re-bill (same plate & amount)',a.join(' ↔ '),'Check insurance / warranty re-billing',null));
+ utr.filter(u=>u.status=='NOT TALLIED').forEach(u=>X('UTR not tallied with bank',u.utr,'Bank '+fn(u.bank)+' vs report '+fn(u.net),u.bd));
+ utr.filter(u=>u.tl=='Not in Tally').forEach(u=>X('UTR not booked in Tally receipts',u.utr,fd(u.date),u.net));
+ rec.forEach(r=>{const c=r.status=='Amount differs'?'Tally ≠ DMS amount':r.status=='In DMS, not in Tally'?'In DMS, not in Tally':r.status=='Bajaj paid, not in Tally'?'Bajaj paid, not in Tally':r.status=='In Tally, not in DMS'?'In Tally, not in DMS':r.status.startsWith('In Tally &')?'In Tally & Bajaj claims, not in DMS':'';if(c)X(c,r.doc,r.type+(r.note?' · '+r.note:''),c=='Tally ≠ DMS amount'?r.diff:r.damt!=null?r.damt:r.tamt)});
+ const dups=M.filter(r=>r.dup>1).length;if(dups)X('Duplicate pay-apps merged',dups+' pay-apps','Appeared in more than one file',null);
+ const sv={High:0,Medium:1,Info:2};ex.sort((a,b)=>sv[a.sev]-sv[b.sev]);
+ S.out={M,bills,gst,utr,ex,rec,hasT,hasD,rng:{u:rg(M.map(r=>({date:r.utrd}))),d:dr,t:tr},opt:{tol,asOn,bk}};draw()}
+// ---------- views ----------
+const C={
+ master:[['Claim Ref','claim'],['Pay App','pa'],['Type','type'],['UTR Date','utrd','d'],['Bill No','bill'],['Vehicle','veh'],['Reserve','res'],['Segment','seg'],['Approved','appr','n'],['GST Held','gst','n'],['TDS','tds','n'],['Net Credited','net','n'],['GST Released','rel','n'],['UTR (Txn ID)','utr'],['Remarks','rem'],['Math','mchk'],['Cheque check','cm'],['Source','src']],
+ bill:[['Bill / Key','key'],['Inv Date','idate','d'],['Vehicle','veh'],['Claim Ref','claim'],['Inv Status','ist'],['Invoice (incl tax)','inv','n2'],['Credit Note','cn'],['CN Amt','cna','n2'],['Net Invoice','netinv','n2'],['Approved','appr','n'],['GST Held','gst','n'],['TDS','tds','n'],['Net Credited','net','n'],['GST Released','rel','n'],['GST Pending','pend','n'],['Cash Received','cash','n'],['Settled incl TDS','settled','n'],['Inv − Approved','var','n'],['Status','status'],['First UTR','u1'],['UTR Date','d1','d'],['GST UTR','u2'],['GST Date','d2','d'],['TDS %','tdsp','p'],['Flags','flags']],
+ gst:[['Claim Ref','claim'],['Bill No','bill'],['Segment','seg'],['Pay App','base'],['Reserve','res'],['Vehicle','veh'],['Paid On','cd','d'],['Claim UTR','cu'],['GST Held','held','n'],['Released On','rd','d'],['Release UTR','ru'],['GST Released','rel','n'],['GST Pending','pend','n'],['Status','status'],['Days','days','i'],['Ageing','age']],
+ utr:[['UTR (Txn ID)','utr'],['Date','date','d'],['Lines','lines','i'],['Gross Approved','appr','n'],['GST Held','gst','n'],['TDS','tds','n'],['Net Credited','net','n'],['Insurance','ins','n'],['Warranty','war','n'],['Cheque Rpt','chq','n'],['Cheque Diff','cd','n'],['Bank Stmt','bank','n'],['Bank Diff','bd','n'],['In Tally','tl'],['Status','status']],
+ exc:[['Severity','sev'],['Check','cat'],['Reference','ref'],['Detail','detail'],['Amount','amt','n2']],
+ rec:[['Doc No','doc'],['Type','type'],['Segment','seg'],['DMS Date','ddate','d'],['DMS Bill-To','dparty'],['DMS Amount','damt','n2'],['Tally Date','tdate','d'],['Tally Party','tparty'],['Tally Amount','tamt','n2'],['Tally − DMS','diff','n2'],['Bajaj Approved','appr','n'],['Bajaj Settled (incl TDS)','settled','n'],['Balance after Bajaj','bal','n2'],['Status','status'],['Note','note']]};
+const TABS=[['sum','Summary'],['aud','Audit'],['master','Bajaj Master'],['ins','Bajaj Insurance'],['war','Bajaj Warranty'],['rec','Tally / DMS Reco'],['gst','GST Tracker'],['utr','UTR / Bank'],['exc','Exceptions']];
+const view=k=>{const o=S.out;return{master:[C.master,o.M],ins:[C.bill,o.bills.filter(b=>b.seg=='Insurance')],war:[C.bill,o.bills.filter(b=>b.seg=='Warranty')],gst:[C.gst,o.gst],utr:[C.utr,o.utr],exc:[C.exc,o.ex],rec:[C.rec,o.rec]}[k]};
+const cls=s=>/DIFF|NOT TALLIED|Not in Tally|missing|ending|awaited|Over-|differs|not in (Tally|DMS)|^High$/.test(s||'')?'wn':/Partial|Credit|Awaiting|awaiting|Outside|uploaded|^Medium$/.test(s||'')?'am':/Matched|Tallied|Released|reconciled|OK|agrees|Booked/.test(s||'')?'ok':'';
+const fv=(v,t)=>t=='d'?fd(v):t=='n'?fn(v):t=='n2'?fn(v,2):t=='p'?(v==null?'':(v*100).toFixed(2)+'%'):t=='i'?(v??''):esc(v);
+function filtered(k){let[cols,rows]=view(k);const q=($('#q')?.value||'').toLowerCase(),sg=$('#sg')?.value||'',st=$('#st')?.value||'';
+ rows=rows.filter(r=>(!sg||r.seg==sg)&&(!st||r.status==st||r.cm==st||r.type==st)&&(!q||cols.some(c=>String(c[2]=='d'?fd(r[c[1]]):r[c[1]]??'').toLowerCase().includes(q))));
+ if(S.sort){const s=S.sort;rows=[...rows].sort((a,b)=>{const x=a[s.k],y=b[s.k];return(x>y?1:x<y?-1:0)*s.d})}return[cols,rows]}
+function draw(){const out=$('#out');if(!S.out){out.innerHTML='<div class="card note">Add Bajaj claim sheets in slot 1 and Tally / DMS invoices and credit notes in slot 2 to begin. A bank statement (slot 3) is optional.</div>';return}
+ out.innerHTML=`<div class="tabs">${TABS.map(t=>`<div class="tab ${S.tab==t[0]?'on':''}" data-t="${t[0]}">${t[1]}</div>`).join('')}</div><div id="body"></div>`;body()}
+function body(){const k=S.tab,el=$('#body');if(k=='sum'){el.innerHTML=summary();return}if(k=='aud'){el.innerHTML=audit();return}
+ const[cols,all]=view(k),stv=[...new Set(all.map(r=>r.status||r.cm||'').filter(Boolean))].sort();
+ el.innerHTML=`<div class="bar"><div><label>Search</label><input type="search" id="q" placeholder="claim, UTR, bill, vehicle…"></div>${k=='master'||k=='gst'||k=='utr'||k=='rec'?'<div><label>Segment</label><select id="sg"><option value="">All</option><option>Insurance</option><option>Warranty</option></select></div>':''}
+ ${stv.length?`<div><label>Status</label><select id="st"><option value="">All</option>${stv.map(s=>`<option>${esc(s)}</option>`).join('')}</select></div>`:''}
+ <button data-x="xlsx">Download Excel (all sheets)</button><button class="g" data-x="csv">Download this view as CSV</button></div><div class="wrap" id="tb"></div><p class="note" id="cnt"></p>`;if(S.pre&&$('#st')){$('#st').value=S.pre}S.pre=null;tbl()}
+function tbl(){const k=S.tab,[cols,rows]=filtered(k);let h='<table><thead><tr>'+cols.map(c=>`<th class="${/n|p|i/.test(c[2]||'')?'r':''}" data-k="${c[1]}">${c[0]}${S.sort&&S.sort.k==c[1]?(S.sort.d>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead><tbody>';
+ rows.slice(0,700).forEach(r=>{h+='<tr>'+cols.map(c=>`<td class="${/n|p|i/.test(c[2]||'')?'r':''} ${/status|^cm$|mchk|^tl$|^sev$/.test(c[1])?cls(r[c[1]]):''}">${fv(r[c[1]],c[2])}</td>`).join('')+'</tr>'});
+ h+='</tbody><tfoot><tr>'+cols.map((c,i)=>`<td class="${/n/.test(c[2]||'')?'r':''}">${/^n/.test(c[2]||'')?fn(rows.reduce((s,r)=>s+(+r[c[1]]||0),0),c[2]=='n2'?2:0):i==0?rows.length+' rows':''}</td>`).join('')+'</tr></tfoot></table>';
+ $('#tb').innerHTML=h;$('#cnt').textContent=rows.length>700?'Showing first 700 rows; exports include everything.':''}
+function sumSeg(){const o=S.out,f=s=>{const M=o.M.filter(r=>!s||r.seg==s),cl=M.filter(r=>r.type=='Claim Payment'),rl=M.filter(r=>r.type!='Claim Payment'),b=o.bills.filter(x=>!s||x.seg==s),sm=(a,k)=>a.reduce((t,r)=>t+r[k],0);
+  const pend=o.gst.filter(g=>(!s||g.seg==s)&&g.pend>o.opt.tol).reduce((t,g)=>t+g.pend,0);
+  return{'Bills / keys':b.length,'Approved (incl GST)':sm(cl,'appr'),'GST held':sm(cl,'gst'),'TDS deducted':sm(cl,'tds'),'Net credited':sm(cl,'net'),'GST released':sm(rl,'net'),'GST still pending':pend,'Total cash received':sm(cl,'net')+sm(rl,'net'),'Settled incl TDS':sm(cl,'net')+sm(rl,'net')+sm(cl,'tds'),'Invoice value':sm(b.filter(x=>x.inv!=null),'inv'),'Credit notes':sm(b,'cna')}};
+ return{Insurance:f('Insurance'),Warranty:f('Warranty'),Total:f('')}}
+function summary(){const o=S.out,s=sumSeg(),keys=Object.keys(s.Total);
+ let h=`<div class="card"><div class="kpis">${['GST still pending','Net credited','GST released','TDS deducted'].map(k=>`<div class="kpi"><small>${k} (total)</small><b>₹${fn(s.Total[k])}</b></div>`).join('')}</div></div>
+ <div class="card"><table><thead><tr><th>Metric</th><th class="r">Bajaj Insurance</th><th class="r">Bajaj Warranty</th><th class="r">Total</th></tr></thead><tbody>${keys.map(k=>`<tr><td>${k}</td>${['Insurance','Warranty','Total'].map(x=>`<td class="r">${fn(s[x][k])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+ const mo={};o.M.forEach(r=>{if(!r.utrd)return;const k=r.utrd.getUTCFullYear()+'-'+String(r.utrd.getUTCMonth()+1).padStart(2,'0'),m=mo[k]||(mo[k]={c:0,r:0,t:0,g:0});if(r.type=='Claim Payment'){m.c+=r.net;m.t+=r.tds;m.g+=r.gst}else m.r+=r.net});
+ const mx=Math.max(1,...Object.values(mo).map(m=>m.c+m.r));
+ h+=`<div class="card"><b>Month-wise bank credits</b><table><thead><tr><th>Month</th><th class="r">Net credited</th><th class="r">GST released</th><th class="r">TDS</th><th class="r">GST held</th><th style="width:30%"></th></tr></thead><tbody>${Object.keys(mo).sort().map(k=>{const m=mo[k];return`<tr><td>${k}</td><td class="r">${fn(m.c)}</td><td class="r">${fn(m.r)}</td><td class="r">${fn(m.t)}</td><td class="r">${fn(m.g)}</td><td><div class="hbar" style="width:${(m.c+m.r)/mx*100}%"></div></td></tr>`}).join('')}</tbody></table></div>`;
+ const ag={};o.gst.filter(g=>g.pend>o.opt.tol).forEach(g=>{const a=ag[g.age]||(ag[g.age]={n:0,i:0,w:0,o:g.ao});a.n++;a[g.seg=='Warranty'?'w':'i']+=g.pend});
+ h+=`<div class="card"><b>GST pending – ageing as on ${fd(o.opt.asOn)}</b><table><thead><tr><th>Bucket</th><th class="r">Pay-apps</th><th class="r">Insurance</th><th class="r">Warranty</th></tr></thead><tbody>${Object.keys(ag).sort((x,y)=>ag[x].o-ag[y].o).map(k=>`<tr><td>${esc(k||'n/a')}</td><td class="r">${ag[k].n}</td><td class="r">${fn(ag[k].i)}</td><td class="r">${fn(ag[k].w)}</td></tr>`).join('')||'<tr><td colspan=4>No GST pending</td></tr>'}</tbody></table></div>`;
+ const rs={};o.rec.forEach(r=>{const x=rs[r.status]||(rs[r.status]={n:0,a:0});x.n++;x.a+=r.damt!=null?r.damt:(r.tamt||0)});
+ if(o.rec.length)h+=`<div class="card"><b>Tally / DMS reconciliation</b><table><thead><tr><th>Status</th><th class="r">Documents</th><th class="r">Amount</th></tr></thead><tbody>${Object.keys(rs).sort().map(k=>`<tr><td class="${cls(k)}">${esc(k)}</td><td class="r">${rs[k].n}</td><td class="r">${fn(rs[k].a,2)}</td></tr>`).join('')}</tbody></table></div>`;
+ const chk=[['Rows where approved − GST − TDS ≠ net',o.M.filter(r=>r.mchk=='DIFF').length],['Cheque report amount differs',o.M.filter(r=>r.cm=='AMT DIFF').length],['Pay-apps with GST pending / partial',o.gst.filter(g=>g.pend>o.opt.tol).length],['GST releases without hold row',o.gst.filter(g=>g.status.startsWith('Release –')).length],['UTRs not tallied with bank',o.utr.filter(u=>u.status=='NOT TALLIED').length],['UTRs awaiting bank statement',o.utr.filter(u=>/wait/.test(u.status)).length],['Invoices awaiting claim payment',o.bills.filter(b=>b.status.startsWith('Invoice raised')).length],['Bills with no invoice in uploaded register',o.bills.filter(b=>b.ist=='Not in register').length]];
+ return h+`<div class="card"><b>Integrity checks</b><table><tbody>${chk.map(c=>`<tr><td>${c[0]}</td><td class="r ${c[1]?'am':'ok'}">${c[1]}</td></tr>`).join('')}</tbody></table></div>`}
+function auditG(){const g={};S.out.ex.forEach(e=>{const x=g[e.cat]||(g[e.cat]={sev:e.sev,n:0,a:0});x.n++;x.a+=Math.abs(+e.amt||0)});const so={High:0,Medium:1,Info:2},ks=Object.keys(ALLC).sort((a,b)=>so[ALLC[a]]-so[ALLC[b]]||(g[b]?.n||0)-(g[a]?.n||0));return{g,ks}}
+function audit(){const o=S.out,{g,ks}=auditG(),c=s=>ks.filter(k=>ALLC[k]==s).reduce((t,k)=>t+(g[k]?.n||0),0),R=a=>a?fd(a[0])+' → '+fd(a[1]):'not uploaded',nf=t=>S.files.filter(f=>f.type==t).length,skip=k=>!o.hasT&&/Tally/.test(k)||!o.hasD&&/DMS/.test(k)&&/Tally|DMS/.test(k);
+ return`<div class="card"><div class="kpis"><div class="kpi"><small>High severity findings</small><b class="wn">${c('High')}</b></div><div class="kpi"><small>Medium</small><b class="am">${c('Medium')}</b></div><div class="kpi"><small>Info</small><b>${c('Info')}</b></div><div class="kpi"><small>Checks run</small><b>${ks.filter(k=>!skip(k)).length} / ${ks.length}</b></div></div></div>
+ <div class="card"><table><thead><tr><th>Severity</th><th>Check</th><th class="r">Findings</th><th class="r">Amount</th><th></th></tr></thead><tbody>${ks.map(k=>{const x=g[k];return`<tr><td class="${cls(ALLC[k])}">${ALLC[k]}</td><td>${esc(k)}</td><td class="r">${x?x.n:0}</td><td class="r">${x?fn(x.a):''}</td><td>${x?`<button class="g" data-v="${esc(k)}">View</button>`:skip(k)?'<span class="note">not run – file missing</span>':'<span class="ok">✓ clean</span>'}</td></tr>`}).join('')}</tbody></table></div>
+ <div class="card"><b>Data coverage</b><table><tbody><tr><td>Bajaj UTR dates</td><td>${R(o.rng.u)}</td></tr><tr><td>DMS invoice dates</td><td>${R(o.rng.d)}</td></tr><tr><td>Tally voucher dates</td><td>${R(o.rng.t)}</td></tr><tr><td>Files read</td><td>${nf('claim')} claim · ${nf('chq')} cheque · ${nf('inv')} DMS invoice · ${nf('cn')} DMS credit-note · ${nf('tally')} Tally · ${nf('bank')} bank</td></tr><tr><td>Unique pay-apps in master</td><td>${o.M.length}</td></tr></tbody></table><p class="note">Bills outside the uploaded DMS / Tally date range show as “Outside … period”, not as errors. Tally files are read by their column headings (voucher no., date, particulars, debit / credit / amount, voucher type); check the Tally / DMS Reco tab against your own register before relying on it.</p></div>`}
+// ---------- export ----------
+async function save(name,data){const d=await claude.use('downloads');if(!d){alert('Saving files is not available in this view.');return}try{await d.save({filename:name,data})}catch(e){if(e.code!='declined')alert('Could not save: '+(e.message||e.code))}}
+function sheetOf(cols,rows){const a=[cols.map(c=>c[0]),...rows.map(r=>cols.map(c=>{const v=r[c[1]];return v==null?'':v instanceof Date?v.getTime()/864e5+25569:v}))],ws=XLSX.utils.aoa_to_sheet(a);
+ cols.forEach((c,j)=>{for(let i=1;i<a.length;i++){const x=ws[XLSX.utils.encode_cell({r:i,c:j})];if(x&&c[2]=='d')x.z='dd-mmm-yy';else if(x&&/n/.test(c[2]||''))x.z='#,##0.00'}});ws['!cols']=cols.map(c=>({wch:Math.max(c[0].length+2,14)}));ws['!autofilter']={ref:ws['!ref']};return ws}
+async function exportX(){const wb=XLSX.utils.book_new(),s=sumSeg(),sa=[['Metric','Bajaj Insurance','Bajaj Warranty','Total'],...Object.keys(s.Total).map(k=>[k,s.Insurance[k],s.Warranty[k],s.Total[k]])];
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sa),'Summary');
+ [['Bajaj_Master','master'],['Bajaj Insurance','ins'],['Bajaj Warranty','war'],['GST_Tracker','gst'],['UTR_Bank','utr'],['Tally_DMS_Reco','rec'],['Exceptions','exc']].forEach(([n,k])=>{const[c,r]=view(k);XLSX.utils.book_append_sheet(wb,sheetOf(c,r),n)});
+ {const A=auditG();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Severity','Check','Findings','Amount'],...A.ks.map(k=>[ALLC[k],k,A.g[k]?A.g[k].n:0,A.g[k]?A.g[k].a:0])]),'Audit')}
+ await save('Bajaj_Reconciliation.xlsx',XLSX.write(wb,{type:'array',bookType:'xlsx'}))}
+async function exportC(){const[cols,rows]=filtered(S.tab),q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+ await save('Bajaj_'+S.tab+'.csv','\ufeff'+[cols.map(c=>q(c[0])).join(','),...rows.map(r=>cols.map(c=>c[2]=='d'?q(fd(r[c[1]])):/n/.test(c[2]||'')?(r[c[1]]??''):q(r[c[1]])).join(','))].join('\n'))}
+// ---------- events ----------
+let Z='claim';document.querySelectorAll('.zone').forEach(z=>{const d=z.querySelector('.drop');d.onclick=()=>{Z=z.dataset.z;$('#fi').click()};d.ondragover=e=>{e.preventDefault();d.classList.add('on')};d.ondragleave=()=>d.classList.remove('on');d.ondrop=e=>{e.preventDefault();d.classList.remove('on');ingest([...e.dataTransfer.files],z.dataset.z)}});
+$('#fi').onchange=e=>{ingest([...e.target.files],Z);e.target.value=''};
+$('#go').onclick=run;$('#th').onclick=()=>{const r=document.documentElement,d=getComputedStyle(r).colorScheme=='dark';r.dataset.theme=d?'light':'dark'};
+document.querySelectorAll('.grid input,.grid select').forEach(e=>e.onchange=()=>S.out&&run());
+$('#asOn').value=new Date().toISOString().slice(0,10);
+document.addEventListener('click',e=>{const i=e.target.dataset.i;if(i!=null&&e.target.closest('.files')){S.files.splice(+i,1);files();run();return}const v=e.target.dataset.v;if(v!=null){S.tab='exc';S.pre=v;draw();return}const t=e.target.closest('.tab');if(t){S.tab=t.dataset.t;S.sort=null;draw();return}
+ const th=e.target.closest('th[data-k]');if(th){const k=th.dataset.k;S.sort=S.sort&&S.sort.k==k?{k,d:-S.sort.d}:{k,d:1};tbl();return}
+ const x=e.target.dataset.x;if(x=='xlsx')exportX();if(x=='csv')exportC()});
+document.addEventListener('input',e=>{if(e.target.id=='q')tbl()});document.addEventListener('change',e=>{if(e.target.id=='sg'||e.target.id=='st')tbl()});
+draw();
+</script></body></html>

@@ -30,7 +30,7 @@ import {
   HttpErrorCode,
 } from '../data/errorPagesData';
 import { LegalPageSlug } from '../data/legalPagesData';
-import { TOOLS_CATALOG } from '../data/toolsCatalog';
+import { PUBLIC_TOOLS_CATALOG } from '../data/toolsCatalog';
 import { ToolFilterType } from '../types/tools';
 
 export interface HttpErrorPageProps {
@@ -52,7 +52,7 @@ const POPULAR_SUITES: { label: string; filter: ToolFilterType; Icon: typeof Land
   { label: 'Tax & GST Utilities', filter: 'Tax & GST', Icon: Receipt },
   { label: 'GST Utilities & GSTR-1', filter: 'GST Utilities', Icon: FileSpreadsheet },
   { label: 'PDF Suite (33 Tools)', filter: 'PDF Suite', Icon: FileText },
-  { label: `All ${TOOLS_CATALOG.length} Tools Directory`, filter: 'All', Icon: LayoutGrid },
+  { label: `All ${PUBLIC_TOOLS_CATALOG.length} Tools Directory`, filter: 'All', Icon: LayoutGrid },
 ];
 
 const REQUIRED_PAGES: { label: string; slug: LegalPageSlug }[] = [
@@ -228,7 +228,7 @@ export function HttpErrorPage({
                   className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 rounded-xl bg-[#F9C80E] hover:bg-[#FFE1B3] text-[#2F3E4E] border-[1.5px] border-[#2F3E4E] shadow-[0_3px_0_#2F3E4E] dark:shadow-[0_3px_0_#020617] text-sm font-display font-extrabold transition-all hover:-translate-y-0.5 cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <Home className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>Browse All {TOOLS_CATALOG.length} Tools</span>
+                  <span>Browse All {PUBLIC_TOOLS_CATALOG.length} Tools</span>
                 </button>
 
                 <button

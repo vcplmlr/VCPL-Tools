@@ -13,6 +13,7 @@ import {
   UploadCloud,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
+import { copyTextToClipboard } from '../../hooks/useRightClickProtection';
 import {
   downloadBomCsv,
   downloadExcelWorkbook,
@@ -97,6 +98,16 @@ interface ExpenseEntry {
 const EXPENSE_STORAGE_KEY = 'vcpl_business_expense_ledger_v1';
 
 export const TaxBankingExtraView: React.FC<TaxBankingExtraViewProps> = ({ tool }) => {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const copySummary = (key: string, text: string) => {
+    void copyTextToClipboard(text).then((ok) => {
+      if (ok) {
+        setCopiedKey(key);
+        window.setTimeout(() => setCopiedKey(null), 1800);
+      }
+    });
+  };
+
   // -------------------------------------------------------------------------
   // 1. BANK STATEMENT ANALYZER STATE
   // -------------------------------------------------------------------------
@@ -654,6 +665,20 @@ export const TaxBankingExtraView: React.FC<TaxBankingExtraViewProps> = ({ tool }
               </div>
             </div>
             <ToolExportBar
+              onCopy={() =>
+                copySummary(
+                  'stmt',
+                  [
+                    `Bank Statement Summary (${stmtFileName || 'Uploaded Statement'})`,
+                    `Parsed Entries: ${analyzedTxns.length}`,
+                    `Total Credits: ₹${stmtSummary.totalCredit.toLocaleString('en-IN')}`,
+                    `Total Debits: ₹${stmtSummary.totalDebit.toLocaleString('en-IN')}`,
+                    `Net Cashflow: ₹${stmtSummary.netCashflow.toLocaleString('en-IN')}`,
+                  ].join('\n')
+                )
+              }
+              copied={copiedKey === 'stmt'}
+              copyLabel="Copy Summary"
               onClear={() => {
                 setRawHeaders([]);
                 setRawRows([]);
@@ -885,6 +910,22 @@ export const TaxBankingExtraView: React.FC<TaxBankingExtraViewProps> = ({ tool }
             </div>
 
             <ToolExportBar
+              onCopy={() =>
+                copySummary(
+                  'pos',
+                  [
+                    `GST Place of Supply Determination`,
+                    `Section: ${posResult.section}`,
+                    `Supplier State: ${posResult.supName}`,
+                    `Place of Supply: ${posResult.posName} (${posResult.posCode})`,
+                    `Tax Type: ${posResult.taxLabel}`,
+                    `Taxable Value: ₹${posResult.taxableValue.toLocaleString('en-IN')}`,
+                    `CGST: ₹${posResult.cgst.toLocaleString('en-IN')} | SGST: ₹${posResult.sgst.toLocaleString('en-IN')} | IGST: ₹${posResult.igst.toLocaleString('en-IN')}`,
+                  ].join('\n')
+                )
+              }
+              copied={copiedKey === 'pos'}
+              copyLabel="Copy Summary"
               onClear={() => {
                 setPosTaxableValue('');
                 setGstTaxRate(18);
@@ -1255,6 +1296,20 @@ export const TaxBankingExtraView: React.FC<TaxBankingExtraViewProps> = ({ tool }
         </div>
       {expenses.length > 0 && (
         <ToolExportBar
+          onCopy={() =>
+            copySummary(
+              'expense',
+              [
+                `Business Expense & GST ITC Summary (${expenses.length} bills)`,
+                `Taxable Total: ₹${expenseTotals.totalTaxable.toLocaleString('en-IN')}`,
+                `Total GST: ₹${expenseTotals.totalGst.toLocaleString('en-IN')}`,
+                `Grand Total: ₹${expenseTotals.grandTotal.toLocaleString('en-IN')}`,
+                `Claimable ITC: ₹${expenseTotals.claimableItc.toLocaleString('en-IN')} | Blocked ITC: ₹${expenseTotals.blockedItc.toLocaleString('en-IN')}`,
+              ].join('\n')
+            )
+          }
+          copied={copiedKey === 'expense'}
+          copyLabel="Copy Summary"
           onClear={() => setExpenses([])}
           onExcel={exportExpensesExcel}
           onCsv={() => {

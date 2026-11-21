@@ -7,6 +7,7 @@ import {
   Laptop,
   Layers,
   Loader2,
+  Lock,
   Mail,
   MapPin,
   ShieldCheck,
@@ -15,6 +16,7 @@ import { vcplBuildMeta } from 'virtual:vcpl-build-meta';
 import { HttpErrorCode } from '../data/errorPagesData';
 import { LegalPageSlug, SITE_CONTACT } from '../data/legalPagesData';
 import { ToolCatalogItem, ToolFilterType } from '../types/tools';
+import { emitGlobalProgress } from './TopLoadingBar';
 import { TulunaduFlagIcon } from './TulunaduFlagIcon';
 import { VcplBrandLogo } from './VcplBrandLogo';
 import { WhatsAppIcon } from './WhatsAppIcon';
@@ -23,6 +25,7 @@ interface FooterProps {
   activeTool?: ToolCatalogItem | null;
   onHomeClick: () => void;
   onOpenAllTools: (filter?: ToolFilterType) => void;
+  onOpenLockedVault?: () => void;
   onOpenLegalPage: (slug: LegalPageSlug) => void;
   onOpenPrivacyBanner: () => void;
   onOpenNotFound?: () => void;
@@ -54,7 +57,7 @@ const TOOL_DIRECTORY_LINKS: { label: string; filter: ToolFilterType }[] = [
   { label: 'Typing & Text', filter: 'Typing & Text' },
   { label: 'QR & Daily Utilities', filter: 'Utilities' },
   { label: 'VCPL Enterprise Tools', filter: 'VCPL' },
-  { label: 'Special Tools (Beta)', filter: 'Special Tools' },
+  { label: 'Special (Beta)', filter: 'Special Tools' },
   { label: 'Learn Tools & Shortcuts', filter: 'Learn Tools' },
 ];
 
@@ -108,6 +111,7 @@ export function Footer({
   activeTool = null,
   onHomeClick,
   onOpenAllTools,
+  onOpenLockedVault,
   onOpenLegalPage,
   onOpenPrivacyBanner,
   onOpenNotFound,
@@ -176,6 +180,7 @@ export function Footer({
 
     submittingRef.current = true;
     setIsSubmitting(true);
+    emitGlobalProgress(true, 40, 'newsletter');
     setEmailError('');
     setStatusMessage('');
 
@@ -227,21 +232,33 @@ export function Footer({
 
       setSavedEmail(cleaned);
       setEmailInput('');
-      setStatusMessage(
-        'Request sent to Google Sheets. Browser cross-origin rules prevent verifying server-side confirmation automatically.'
-      );
+      setStatusMessage('Release alerts activated for this address.');
     } catch (err) {
       const isTimeout = err instanceof DOMException && err.name === 'AbortError';
       setEmailError(
         isTimeout
-          ? 'Request timed out while reaching Google Sheets. Please try again.'
-          : 'Could not send your subscription request right now. Please check your network and try again.'
+          ? 'The request timed out. Please try again in a moment.'
+          : 'Could not complete your subscription right now. Please check your connection and try again.'
       );
     } finally {
       window.clearTimeout(timeoutId);
+      emitGlobalProgress(false, 100, 'newsletter');
       submittingRef.current = false;
       setIsSubmitting(false);
     }
+  };
+
+  const handleEditSubscription = () => {
+    const previousEmail = savedEmail;
+    try {
+      window.localStorage.removeItem(NEWSLETTER_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors
+    }
+    setSavedEmail('');
+    setEmailInput(previousEmail);
+    setEmailError('');
+    setStatusMessage('');
   };
 
   const handleUnsubscribe = () => {
@@ -251,8 +268,9 @@ export function Footer({
       // Ignore storage errors
     }
     setSavedEmail('');
+    setEmailInput('');
     setEmailError('');
-    setStatusMessage('');
+    setStatusMessage('Subscription preference cleared from this browser.');
   };
 
   return (
@@ -290,7 +308,7 @@ export function Footer({
                 with zero server file uploads.
               </p>
 
-              <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-3.5 gap-y-2 pt-0.5 text-xs">
+              <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 pt-0.5 text-xs">
                 <a
                   href="https://bharathtools.vercel.app/"
                   target="_blank"
@@ -315,26 +333,56 @@ export function Footer({
             </div>
 
             {/* Right: Updates & Release Alerts Form */}
-            <div className="w-full lg:w-[390px] shrink-0 space-y-2">
-              <h2 className="font-display font-bold text-sm text-[#2F3E4E] dark:text-slate-100">
-                Tool Updates &amp; Release Notes
-              </h2>
+            <div className="w-full lg:w-[410px] shrink-0 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-display font-bold text-sm text-[#2F3E4E] dark:text-slate-100">
+                  Tool Updates &amp; Release Notes
+                </h2>
+                {savedEmail && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#12805C] dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>Subscribed</span>
+                  </span>
+                )}
+              </div>
 
               {savedEmail ? (
-                <div className="flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-lg bg-[#CEE5DC]/65 dark:bg-emerald-950/60 border-[1.5px] border-[#2F3E4E] dark:border-emerald-500/40 text-xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <CheckCircle2 className="w-4 h-4 text-[#12805C] dark:text-emerald-400 shrink-0" aria-hidden="true" />
-                    <span className="truncate font-semibold text-[#2F3E4E] dark:text-slate-100">
-                      Request sent: {savedEmail}
-                    </span>
+                <div
+                  role="status"
+                  className="rounded-xl bg-[#CEE5DC]/45 dark:bg-emerald-950/45 border-[1.5px] border-[#2F3E4E] dark:border-emerald-500/45 px-3.5 py-3 shadow-[0_2px_0_rgba(47,62,78,0.12)] space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <span className="w-7 h-7 rounded-lg bg-[#12805C] text-[#FFFDF5] flex items-center justify-center shrink-0 mt-0.5">
+                        <Mail className="w-3.5 h-3.5" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-display font-bold text-xs text-[#2F3E4E] dark:text-slate-100">
+                          Release notifications active
+                        </p>
+                        <p className="font-mono text-xs font-medium text-[#12805C] dark:text-emerald-300 truncate mt-0.5">
+                          {savedEmail}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={handleEditSubscription}
+                        className="px-2.5 py-1 rounded-md border border-[#2F3E4E]/30 dark:border-slate-600 bg-[#FFFDF8] dark:bg-slate-800 hover:bg-[#FEF2C8] dark:hover:bg-slate-700 text-[11px] font-semibold text-[#2F3E4E] dark:text-slate-100 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        Update
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleUnsubscribe}
+                        className="text-[11px] font-semibold text-[#64748B] dark:text-slate-400 hover:text-rose-700 dark:hover:text-rose-400 underline underline-offset-2 cursor-pointer whitespace-nowrap"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleUnsubscribe}
-                    className="text-[11px] font-bold text-[#2F3E4E] dark:text-slate-200 underline hover:text-rose-700 dark:hover:text-rose-400 cursor-pointer shrink-0"
-                  >
-                    Change
-                  </button>
                 </div>
               ) : (
                 <form onSubmit={(e) => void handleSubscribe(e)} noValidate className="flex items-stretch">
@@ -363,7 +411,7 @@ export function Footer({
                       if (emailError) setEmailError('');
                       if (statusMessage) setStatusMessage('');
                     }}
-                    placeholder="Enter your email address"
+                    placeholder="you@company.com"
                     className="flex-1 min-w-0 h-10 px-3.5 rounded-l-lg border-[1.5px] border-r-0 border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs sm:text-sm text-[#2F3E4E] dark:text-slate-100 placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#F9C80E] disabled:opacity-60"
                   />
                   <button
@@ -373,7 +421,7 @@ export function Footer({
                     className="px-4 sm:px-5 h-10 rounded-r-lg border-[1.5px] border-[#2F3E4E] dark:border-[#F9C80E] bg-[#2F3E4E] dark:bg-[#F9C80E] hover:bg-[#1E293B] dark:hover:bg-[#FDE047] text-[#FFFDF5] dark:text-[#0F172A] font-display font-bold text-xs sm:text-sm transition-colors cursor-pointer shrink-0 whitespace-nowrap disabled:opacity-65 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5"
                   >
                     {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />}
-                    <span>{isSubmitting ? 'Sending...' : 'Subscribe'}</span>
+                    <span>{isSubmitting ? 'Subscribing...' : 'Subscribe'}</span>
                   </button>
                 </form>
               )}
@@ -384,16 +432,15 @@ export function Footer({
                 </p>
               )}
 
-              {statusMessage && !emailError && (
+              {statusMessage && !emailError && !savedEmail && (
                 <p className="text-[11px] font-medium text-[#12805C] dark:text-emerald-400" role="status">
                   {statusMessage}
                 </p>
               )}
 
               <p className="text-[11px] leading-relaxed text-[#64748B] dark:text-slate-400">
-                Stay updated on new SBI/HDFC slip templates, GST reconciler rules, and FY tax
-                releases. Submitted requests cannot be verified in-browser due to cross-origin
-                security.
+                Receive occasional release notes on new bank slip formats, GST reconciler rules, and
+                annual tax updates. No spam.
               </p>
             </div>
           </div>
@@ -403,7 +450,7 @@ export function Footer({
             {/* Column 1: Tool Suites */}
             <div className="lg:col-span-4 space-y-3">
               <h2 className="font-display font-bold text-sm text-[#2F3E4E] dark:text-slate-100">Tool Suites</h2>
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[13px]">
+              <ul className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[13px]">
                 {TOOL_DIRECTORY_LINKS.map((item) => (
                   <li key={item.label} className="min-w-0">
                     <button
@@ -415,6 +462,18 @@ export function Footer({
                     </button>
                   </li>
                 ))}
+                {onOpenLockedVault && (
+                  <li className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={onOpenLockedVault}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#9E2A2B] hover:bg-[#7D0B0B] text-[#FFFDF5] text-xs font-display font-bold border border-[#7D0B0B] transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      <span>Locked Vault</span>
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
 

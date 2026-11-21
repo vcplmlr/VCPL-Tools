@@ -96,7 +96,7 @@ export const TOOL_SECTION_HEADS: ToolSectionHead[] = [
   {
     key: 'Special Tools',
     index: '10',
-    title: 'Special Tools',
+    title: 'Special',
     subtitle: 'Featured specialized & cultural studios including Tulusiri Pro Tulu Lipi Studio (Beta Testing).',
   },
   {
@@ -2844,7 +2844,8 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile incentive Excel sheets with Tally ledger PDFs & deal-sheet screenshots or PDFs locally with Review, Ledger_Lines, Checks & SC_Summary tabs.',
     priorityStars: 4,
-    statusLabel: 'Passcode Locked · Beta',
+    statusLabel: 'Locked Vault · Offline',
+    vaultOnly: true,
     keywords: ['incentive', 'vin audit', 'tally ledger', 'sc summary'],
   },
   {
@@ -2859,7 +2860,8 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Analyze BMW dealer DBS ZIP or CSV monthly exports locally—Summary, P&L, Departmental P&L, NV Model Margins & 7-sheet .XLSX reports.',
     priorityStars: 4,
-    statusLabel: 'Passcode Locked · Beta',
+    statusLabel: 'Locked Vault · Offline',
+    vaultOnly: true,
     keywords: ['dbs', 'p&l', 'departmental profit', 'trial balance'],
   },
   {
@@ -2874,7 +2876,8 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Cross-check multi-quarter BMW Statements of Account against Tally ledger exports locally with 4-tier matching, open-item aging & 14-sheet XLSX export.',
     priorityStars: 4,
-    statusLabel: 'Passcode Locked · Beta',
+    statusLabel: 'Locked Vault · Offline',
+    vaultOnly: true,
     keywords: ['bmw soa', 'customer ledger', 'purchase only', 'aging'],
   },
   {
@@ -2889,7 +2892,8 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Transform IOCL XTRAPOWER / Easy Fuel Statement PDFs or Transaction Excel/CSV files into standardized monthly accounting reports with live SUMIF formulas.',
     priorityStars: 4,
-    statusLabel: 'Passcode Locked · Beta',
+    statusLabel: 'Locked Vault · Offline',
+    vaultOnly: true,
     keywords: ['iocl', 'xtrapower', 'easy fuel', 'fuel report', 'ccms'],
   },
   {
@@ -2920,8 +2924,8 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile BMW SAP vendor ledgers against multi-sheet Tally ledgers & warranty claims locally with opening-to-closing bridge, claim-code checks & ExcelJS workbooks.',
     priorityStars: 5,
-    statusLabel: 'Passcode Locked · Offline',
-    featuredPrimary: true,
+    statusLabel: 'Locked Vault · Offline',
+    vaultOnly: true,
     keywords: [
       'bmw vendor ledger',
       'sap ledger reconciliation',
@@ -2943,8 +2947,8 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile DMS BMW Service Invoices against Credit/Debit Memos & Warranty Claim trackers with auto-mapped columns, multi-claim splits, ageing & styled ExcelJS export.',
     priorityStars: 5,
-    statusLabel: 'Passcode Locked · Offline',
-    featuredPrimary: true,
+    statusLabel: 'Locked Vault · Offline',
+    vaultOnly: true,
     keywords: [
       'bmw claims reconciler',
       'warranty claims',
@@ -2966,8 +2970,8 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Generate print-ready A4 Same Bank (SBI intra-bank Payment Transfer Request Letter) & NEFT / RTGS remittance letters with built-in Varsha Cars letterhead, saved accounts, INR words, Excel batch upload & Word/PDF/Excel exports.',
     priorityStars: 5,
-    statusLabel: 'Passcode Locked · Offline',
-    featuredPrimary: true,
+    statusLabel: 'Locked Vault · Offline',
+    vaultOnly: true,
     keywords: [
       'vcpl bulk bank transfer form',
       'same bank transfer letter',
@@ -2993,8 +2997,8 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile multi-sheet Tally TDS/TCS asset ledgers against Form 26AS / ATS (.pdf, .txt, .xlsx, .csv) with union-find deductor mapping, G/B reversal netting, many-to-one matching, 18 period filters, SVG dashboard & ExcelJS formulas.',
     priorityStars: 5,
-    statusLabel: 'Free Offline · Stable',
-    featuredPrimary: true,
+    statusLabel: 'Locked Vault · Offline',
+    vaultOnly: true,
     keywords: [
       '26as to tally ledger reco',
       'form 26as tally reconciliation',
@@ -3004,13 +3008,37 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
       'manual reco excel formulas',
     ],
   },
+  {
+    id: 'bajaj-reconciliation-desk',
+    code: 'VC-15',
+    suite: 'VCPL Tools',
+    suiteAccent: '#2F3E4E',
+    category: 'VCPL',
+    alsoInCategories: ['Tax & GST'],
+    categoryName: 'Bajaj Claims, GST & DMS Audit',
+    kind: 'bajaj-reconciliation-desk',
+    title: 'Bajaj Reconciliation Desk',
+    description:
+      'Reconcile Bajaj Allianz claim payment reports, cheque/NEFT reports, DMS service invoices, credit notes, Tally registers & bank statements with GST pending ageing, UTR verification, 27 automated audit checks & Excel/CSV export.',
+    priorityStars: 5,
+    statusLabel: 'Locked Vault · Offline',
+    vaultOnly: true,
+    keywords: [
+      'bajaj reconciliation desk',
+      'bajaj allianz claims reconciliation',
+      'bajaj gst hold tracker',
+      'dms tally bajaj audit',
+      'insurance warranty utr bank reco',
+      'pay app reconciliation',
+    ],
+  },
   // =========================================================================
-  // 10. SPECIAL TOOLS
+  // 10. SPECIAL
   // =========================================================================
   {
     id: 'tulusiri-pro',
     code: 'SP-01',
-    suite: 'Special Tools',
+    suite: 'Special',
     suiteAccent: '#7D0B0B',
     category: 'Special Tools',
     alsoInCategories: ['Typing & Text'],
@@ -3030,7 +3058,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
       'learn tulu',
       'sari tulu',
       'tulunadu',
-      'special tools',
+      'special',
       'beta testing',
     ],
   },
@@ -3089,6 +3117,14 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
   },
 ];
 
+export const PUBLIC_TOOLS_CATALOG: ToolCatalogItem[] = TOOLS_CATALOG.filter(
+  (tool) => !tool.vaultOnly
+);
+
+export const VAULT_TOOLS_CATALOG: ToolCatalogItem[] = TOOLS_CATALOG.filter(
+  (tool) => Boolean(tool.vaultOnly)
+);
+
 export function toolMatchesCategory(
   tool: ToolCatalogItem,
   filter: ToolFilterType
@@ -3099,8 +3135,8 @@ export function toolMatchesCategory(
 }
 
 export function getToolsForCategory(filter: ToolFilterType): ToolCatalogItem[] {
-  if (filter === 'All') return TOOLS_CATALOG;
-  return TOOLS_CATALOG.filter((tool) => toolMatchesCategory(tool, filter));
+  if (filter === 'All') return PUBLIC_TOOLS_CATALOG;
+  return PUBLIC_TOOLS_CATALOG.filter((tool) => toolMatchesCategory(tool, filter));
 }
 
 export function getToolById(id: string): ToolCatalogItem | undefined {
@@ -3186,7 +3222,7 @@ export const TOOL_CATEGORIES: CategoryItem[] = [
   },
   {
     id: 'cat-special',
-    name: 'Special Tools',
+    name: 'Special',
     filterKey: 'Special Tools',
     countLabel: `${getToolsForCategory('Special Tools').length} Tool · Beta`,
     iconName: 'sparkles',

@@ -18,6 +18,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
+import { copyTextToClipboard, protectDocument } from '../../hooks/useRightClickProtection';
 import { formatINR } from '../../utils/numberToWords';
 import {
   downloadBomCsv,
@@ -261,8 +262,10 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
   const [inlineHeight, setInlineHeight] = useState<number>(840);
+  const [plannerCopied, setPlannerCopied] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const heightSyncCleanupRef = useRef<(() => void) | null>(null);
+  const iframeProtectCleanupRef = useRef<(() => void) | null>(null);
 
   const syncWorkbookFrameLayout = useCallback(
     (frameEl: HTMLIFrameElement | null) => {
@@ -339,6 +342,8 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
     return () => {
       heightSyncCleanupRef.current?.();
       heightSyncCleanupRef.current = null;
+      iframeProtectCleanupRef.current?.();
+      iframeProtectCleanupRef.current = null;
     };
   }, []);
 
@@ -686,7 +691,20 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
             title="Income Tax Calculator FY 2026-27 Workbook Engine"
             scrolling={!isFullscreen ? 'no' : undefined}
             style={!isFullscreen ? { height: `${inlineHeight}px` } : undefined}
-            onLoad={(e) => syncWorkbookFrameLayout(e.currentTarget)}
+            onLoad={(e) => {
+              const frameEl = e.currentTarget;
+              syncWorkbookFrameLayout(frameEl);
+              iframeProtectCleanupRef.current?.();
+              iframeProtectCleanupRef.current = null;
+              try {
+                const doc = frameEl.contentDocument;
+                if (doc) {
+                  iframeProtectCleanupRef.current = protectDocument(doc, frameEl.contentWindow);
+                }
+              } catch {
+                // Ignore cross-origin restrictions
+              }
+            }}
             className={`w-full border-0 bg-[#FFFDF5] block ${
               isFullscreen ? 'flex-1 rounded-xl border border-[#2F3E4E]/20' : 'overflow-hidden'
             }`}
@@ -1258,6 +1276,23 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
           <ToolExportBar
             title="Export FY 2026-27 Regime Comparison"
             clearLabel="Clear Planner (₹0)"
+            onCopy={() => {
+              const lines = [
+                `FY 2026-27 Income Tax Comparison`,
+                `Annual Gross Salary: ${formatINR(grossSalary)}`,
+                `Old Regime Deductions: ${formatINR(plannerStats.oldTotalDeductions)} | Taxable: ${formatINR(plannerStats.oldTaxable)} | Tax: ${formatINR(plannerStats.oldTax)}`,
+                `New Regime Deductions: ${formatINR(plannerStats.newTotalDeductions)} | Taxable: ${formatINR(plannerStats.newTaxable)} | Tax: ${formatINR(plannerStats.newTax)}`,
+                `Verdict: ${plannerStats.winner === 'equal' ? 'Equal Tax' : `${plannerStats.winner === 'new' ? 'New' : 'Old'} Regime Wins`} (Annual Savings: ${formatINR(plannerStats.savings)})`,
+              ];
+              void copyTextToClipboard(lines.join('\n')).then((ok) => {
+                if (ok) {
+                  setPlannerCopied(true);
+                  window.setTimeout(() => setPlannerCopied(false), 1800);
+                }
+              });
+            }}
+            copied={plannerCopied}
+            copyLabel="Copy Summary"
             onClear={() => {
               setGrossSalary(0);
               setRentPaid(0);
