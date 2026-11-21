@@ -2,7 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DATA_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'vcpl_data')
+  : path.resolve(process.cwd(), 'data');
 export const DB_FILE_PATH = path.join(DATA_DIR, 'vcpl_directory.db');
 
 let dbInstance: DatabaseSync | null = null;
@@ -153,6 +155,12 @@ export function ensureSchema(db: DatabaseSync): void {
       error_samples_json TEXT NOT NULL DEFAULT '[]',
       imported_by TEXT NOT NULL DEFAULT 'admin',
       imported_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
 
     CREATE VIRTUAL TABLE IF NOT EXISTS india_pincodes_fts USING fts5(

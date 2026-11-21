@@ -14,6 +14,7 @@ import {
   Download,
   FileSpreadsheet,
   Loader2,
+  RotateCcw,
   Sparkles,
   UploadCloud,
 } from 'lucide-react';
@@ -196,6 +197,22 @@ export const SpreadsheetStudioView: React.FC<SpreadsheetStudioViewProps> = ({ to
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  const resetStudioState = () => {
+    setWb(null);
+    setFileName('');
+    setFileSizeKb(0);
+    setActiveSheet('');
+    setStatus(null);
+    setSearchQuery('');
+    setMergeFiles([]);
+    setCompareWbB(null);
+    setCompareNameB('');
+    setSelectedCols([]);
+    setExtractedRows([]);
+    setRawTextInput('');
+    setCopied(false);
+  };
+
   // -------------------------------------------------------------------------
   // PDF TABLE EXTRACTOR & IMAGE OCR TO EXCEL
   // -------------------------------------------------------------------------
@@ -314,19 +331,30 @@ export const SpreadsheetStudioView: React.FC<SpreadsheetStudioViewProps> = ({ to
             <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] mt-1">{tool.title}</h1>
             <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
           </div>
-          {extractedRows.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                const outWb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(outWb, XLSX.utils.aoa_to_sheet(extractedRows), 'Extracted_Table');
-                XLSX.writeFile(outWb, `${fileName.replace(/\.[^.]+$/, '') || 'table'}_extracted.xlsx`);
-              }}
-              className="px-4 py-2.5 rounded-xl bg-[#2F3E4E] hover:bg-[#1E293B] text-[#FFFDF5] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0"
-            >
-              <Download className="w-3.5 h-3.5" /> Download .XLSX
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {(extractedRows.length > 0 || fileName || status) && (
+              <button
+                type="button"
+                onClick={resetStudioState}
+                className="px-3.5 py-2.5 rounded-xl bg-[#FFE1B3] hover:bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] text-[#2F3E4E] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Clear / Reset
+              </button>
+            )}
+            {extractedRows.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const outWb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(outWb, XLSX.utils.aoa_to_sheet(extractedRows), 'Extracted_Table');
+                  XLSX.writeFile(outWb, `${fileName.replace(/\.[^.]+$/, '') || 'table'}_extracted.xlsx`);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-[#2F3E4E] hover:bg-[#1E293B] text-[#FFFDF5] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" /> Download .XLSX
+              </button>
+            )}
+          </div>
         </div>
 
         <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#2F3E4E]/45 rounded-2xl bg-[#FEF2C8]/40 hover:bg-[#FEF2C8]/75 transition cursor-pointer text-center">
@@ -403,42 +431,77 @@ export const SpreadsheetStudioView: React.FC<SpreadsheetStudioViewProps> = ({ to
       }
     };
 
+    const textLineCount = rawTextInput.trim() ? rawTextInput.trim().split(/\r?\n/).length : 0;
+
     return (
       <div className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-6 sm:p-8 space-y-6">
-        <div className="pb-5 border-b border-[#2F3E4E]/15">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
-            <FileSpreadsheet className="w-3.5 h-3.5 text-[#2F3E4E]" />
-            {tool.categoryName} · {tool.code}
-          </span>
-          <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] mt-1">{tool.title}</h1>
-          <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#2F3E4E]/15">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#2F3E4E]" />
+              {tool.categoryName} · {tool.code}
+            </span>
+            <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] mt-1">{tool.title}</h1>
+            <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
+          </div>
+          <button
+            type="button"
+            onClick={resetStudioState}
+            className="px-3.5 py-2 rounded-xl bg-[#FFE1B3] hover:bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] text-[#2F3E4E] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Clear Editor
+          </button>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <label className="px-4 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] cursor-pointer inline-flex items-center gap-1.5">
-            <UploadCloud className="w-4 h-4" />
-            <span>Upload {isJson ? '.JSON' : '.CSV'} File</span>
-            <input
-              type="file"
-              accept={isJson ? '.json,application/json' : '.csv,.txt,text/csv'}
-              className="sr-only"
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  setRawTextInput(await f.text());
-                  setStatus({ type: 'info', text: `Loaded "${f.name}" into editor.` });
-                }
-              }}
-            />
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="px-4 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] cursor-pointer inline-flex items-center gap-1.5">
+              <UploadCloud className="w-4 h-4" />
+              <span>Upload {isJson ? '.JSON' : '.CSV'} File</span>
+              <input
+                type="file"
+                accept={isJson ? '.json,application/json' : '.csv,.txt,text/csv'}
+                className="sr-only"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    setRawTextInput(await f.text());
+                    setStatus({ type: 'info', text: `Loaded "${f.name}" into editor.` });
+                  }
+                }}
+              />
+            </label>
+            {isJson && (
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    setRawTextInput(JSON.stringify(JSON.parse(rawTextInput), null, 2));
+                    setStatus({ type: 'info', text: 'Formatted valid JSON structure.' });
+                  } catch (err) {
+                    setStatus({ type: 'error', text: err instanceof Error ? err.message : 'Invalid JSON syntax.' });
+                  }
+                }}
+                className="px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] cursor-pointer"
+              >
+                Format JSON
+              </button>
+            )}
+          </div>
 
-          <button
-            type="button"
-            onClick={convertTextToSheet}
-            className="px-5 py-2.5 rounded-xl bg-[#2F3E4E] hover:bg-[#1E293B] text-[#FFFDF5] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" /> Convert &amp; Download .XLSX
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-xs font-bold text-[#475569] px-2.5 py-1.5 rounded-lg bg-[#CEE5DC]/50 border border-[#2F3E4E]/20">
+              {textLineCount} lines · {rawTextInput.length} chars
+            </span>
+            <button
+              type="button"
+              disabled={!rawTextInput.trim()}
+              onClick={convertTextToSheet}
+              className="px-5 py-2.5 rounded-xl bg-[#2F3E4E] hover:bg-[#1E293B] text-[#FFFDF5] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-45"
+            >
+              <Download className="w-3.5 h-3.5" /> Convert &amp; Download .XLSX
+            </button>
+          </div>
         </div>
 
         <textarea
@@ -498,13 +561,24 @@ export const SpreadsheetStudioView: React.FC<SpreadsheetStudioViewProps> = ({ to
 
     return (
       <div className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-6 sm:p-8 space-y-6">
-        <div className="pb-5 border-b border-[#2F3E4E]/15">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
-            <FileSpreadsheet className="w-3.5 h-3.5 text-[#2F3E4E]" />
-            {tool.categoryName} · {tool.code}
-          </span>
-          <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] mt-1">{tool.title}</h1>
-          <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#2F3E4E]/15">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#2F3E4E]" />
+              {tool.categoryName} · {tool.code}
+            </span>
+            <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] mt-1">{tool.title}</h1>
+            <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
+          </div>
+          {mergeFiles.length > 0 && (
+            <button
+              type="button"
+              onClick={resetStudioState}
+              className="px-3.5 py-2 rounded-xl bg-[#FFE1B3] hover:bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] text-[#2F3E4E] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Clear / Reset
+            </button>
+          )}
         </div>
 
         <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-[#2F3E4E]/45 rounded-2xl bg-[#FEF2C8]/40 hover:bg-[#FEF2C8]/75 cursor-pointer text-center">
@@ -768,25 +842,36 @@ export const SpreadsheetStudioView: React.FC<SpreadsheetStudioViewProps> = ({ to
           <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
         </div>
 
-        {wb && tool.id !== 'excel-csv-viewer' && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void handleActionDownload()}
-            className="px-4 py-2.5 rounded-xl bg-[#2F3E4E] hover:bg-[#1E293B] text-[#FFFDF5] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50"
-          >
-            <Download className="w-3.5 h-3.5" />
-            {tool.id === 'split-excel-sheets'
-              ? 'Split All Sheets (ZIP)'
-              : tool.id === 'compress-excel'
-              ? 'Compress & Download .XLSX'
-              : tool.id === 'clean-spreadsheet'
-              ? 'Clean & Download .XLSX'
-              : tool.id === 'compare-spreadsheets'
-              ? 'Download Diff Report (.XLSX)'
-              : 'Download Output'}
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {(wb || compareWbB || status) && (
+            <button
+              type="button"
+              onClick={resetStudioState}
+              className="px-3.5 py-2.5 rounded-xl bg-[#FFE1B3] hover:bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] text-[#2F3E4E] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Clear / Reset
+            </button>
+          )}
+          {wb && tool.id !== 'excel-csv-viewer' && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void handleActionDownload()}
+              className="px-4 py-2.5 rounded-xl bg-[#2F3E4E] hover:bg-[#1E293B] text-[#FFFDF5] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {tool.id === 'split-excel-sheets'
+                ? 'Split All Sheets (ZIP)'
+                : tool.id === 'compress-excel'
+                ? 'Compress & Download .XLSX'
+                : tool.id === 'clean-spreadsheet'
+                ? 'Clean & Download .XLSX'
+                : tool.id === 'compare-spreadsheets'
+                ? 'Download Diff Report (.XLSX)'
+                : 'Download Output'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Upload Box(es) */}

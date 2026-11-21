@@ -19,7 +19,16 @@ import { ToolCatalogItem } from '../../types/tools';
 import { safeReadStorage, safeRemoveStorage, safeWriteStorage } from '../../utils/browserVault';
 import { filesToFileList } from '../../utils/fileDropUtils';
 import { exportElementToPdf, printTargetElement } from '../../utils/printReport';
+import {
+  RecoPeriodFilter,
+  createDefaultRecoPeriodFilter,
+  extractPeriodChoicesFromKeys,
+  isDateKeyInRecoPeriod,
+  resolveRecoPeriodBounds,
+  utcMsToKey,
+} from '../../utils/recoPeriodFilter';
 import { FileDropZone } from './FileDropZone';
+import { RecoPeriodFilterBar } from './RecoPeriodFilterBar';
 import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface BmwStatementReconcilerViewProps {
@@ -219,11 +228,38 @@ interface ResultTableSet {
   r: CellVal[][];
 }
 
+interface DupItem {
+  s: string;
+  d: string;
+  r: string;
+  a: number;
+  n: number;
+  dateMs: number | null;
+}
+
+interface ReconcileRawSnapshot {
+  B: BmwLine[];
+  T: TallyLine[];
+  ok: MatchPair[];
+  df: MatchPair[];
+  oB: BmwLine[];
+  oT: TallyLine[];
+  G: GroupMatch[];
+  endMs: number;
+  dups: DupItem[];
+  tolVal: number;
+  RS: CellVal[][];
+  BS: CellVal[][];
+  TR: CellVal[][];
+  idx: Map<string, TallyLine[]>;
+}
+
 interface ReconcileOutput {
   sum: CellVal[][];
   diff: number;
   un: number;
   sets: Record<string, ResultTableSet>;
+  raw: ReconcileRawSnapshot;
 }
 
 const sm = (a: Array<{ amt: number }>): number => r2(a.reduce((s, x) => s + x.amt, 0));
@@ -346,6 +382,9 @@ const BmwStatementWorkspace: React.FC<{
   });
 
   const [result, setResult] = useState<ReconcileOutput | null>(null);
+  const [periodFilter, setPeriodFilter] = useState<RecoPeriodFilter>(() =>
+    createDefaultRecoPeriodFilter()
+  );
   const [activeTab, setActiveTab] = useState<string>('Summary');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortState, setSortState] = useState<{ t: string; c: number | null; d: 1 | -1 }>({
@@ -463,6 +502,7 @@ const BmwStatementWorkspace: React.FC<{
     setBmwFiles([]);
     setTallySheets([]);
     setResult(null);
+    setPeriodFilter(createDefaultRecoPeriodFilter());
     setSearchQuery('');
     setActiveTab('Summary');
     setStatus({ text: 'All uploaded files cleared. Saved settings & column preferences remain in your browser.', tone: 'neutral' });
@@ -696,16 +736,15 @@ const BmwStatementWorkspace: React.FC<{
       return [b.doc, b.ref, b.typ, d2s(b.date), String(a), b.amt, bk(a)];
     });
 
-    const dc: Record<string, { s: string; d: string; r: string; a: number; n: number }> = {};
-    const dk = (s: string, d: string, r: string, a: number) => {
+    const dc: Record<string, DupItem> = {};
+    const dk = (s: string, d: string, r: string, a: number, dateMs: number | null) => {
       const k = [s, d, r, a].join('|');
-      (dc[k] = dc[k] || { s, d, r, a, n: 0 }).n++;
+      (dc[k] = dc[k] || { s, d, r, a, n: 0, dateMs }).n++;
     };
-    B.forEach((b) => dk('BMW', d2s(b.date), `${b.ref} (${b.typ})`, b.amt));
-    T.forEach((t) => dk('Tally', d2s(t.date), `${t.vno || t.ref} ${t.part}`, t.amt));
-    const DU: CellVal[][] = Object.values(dc)
-      .filter((o) => o.n > 1)
-      .map((o) => [o.s, o.d, o.r, o.a, String(o.n)]);
+    B.forEach((b) => dk('BMW', d2s(b.date), `${b.ref} (${b.typ})`, b.amt, b.date));
+    T.forEach((t) => dk('Tally', d2s(t.date), `${t.vno || t.ref} ${t.part}`, t.amt, t.date));
+    const dupList = Object.values(dc).filter((o) => o.n > 1);
+    const DU: CellVal[][] = dupList.map((o) => [o.s, o.d, o.r, o.a, String(o.n)]);
 
     const sB = sm(oB);
     const sT = sm(oT);
@@ -997,7 +1036,28 @@ const BmwStatementWorkspace: React.FC<{
       },
     };
 
-    setResult({ sum, diff, un, sets });
+    setResult({
+      sum,
+      diff,
+      un,
+      sets,
+      raw: {
+        B,
+        T,
+        ok,
+        df,
+        oB,
+        oT,
+        G,
+        endMs: end,
+        dups: dupList,
+        tolVal,
+        RS,
+        BS,
+        TR,
+        idx,
+      },
+    });
     setActiveTab('Summary');
     setSortState({ t: '', c: null, d: 1 });
     setStatus({
@@ -1006,16 +1066,199 @@ const BmwStatementWorkspace: React.FC<{
     });
   };
 
+  const availablePeriods = useMemo(() => {
+    if (!result) return undefined;
+    const keys = [
+      ...result.raw.B.map((b) => utcMsToKey(b.date)),
+      ...result.raw.T.map((t) => utcMsToKey(t.date)),
+    ];
+    return extractPeriodChoicesFromKeys(keys);
+  }, [result]);
+
+  const periodBounds = useMemo(() => resolveRecoPeriodBounds(periodFilter), [periodFilter]);
+
+  const scopedResult = useMemo(() => {
+    if (!result) return null;
+    if (!periodBounds.isFiltered) return result;
+
+    const { B, T, ok, df, oB, oT, G, endMs, dups, tolVal, RS, BS, TR, idx } = result.raw;
+    const inPeriodMs = (ms: number | null | undefined) =>
+      isDateKeyInRecoPeriod(utcMsToKey(ms), periodFilter);
+
+    const pB = B.filter((b) => inPeriodMs(b.date));
+    const pT = T.filter((t) => inPeriodMs(t.date));
+    const pOk = ok.filter((x) => inPeriodMs(x.b.date ?? x.t.date));
+    const pDf = df.filter((x) => inPeriodMs(x.b.date ?? x.t.date));
+    const pOB = oB.filter((b) => inPeriodMs(b.date));
+    const pOT = oT.filter((t) => inPeriodMs(t.date));
+    const pG = G.filter((g) => g.bs.some((b) => inPeriodMs(b.date)) || g.ts.some((t) => inPeriodMs(t.date)));
+    const pDups = dups.filter((d) => inPeriodMs(d.dateMs));
+
+    const mr = (x: MatchPair): CellVal[] => [
+      x.kind,
+      x.b.doc,
+      x.b.ref,
+      x.b.typ,
+      d2s(x.b.date),
+      x.b.amt,
+      d2s(x.t.date),
+      x.t.vno || x.t.ref || x.t.part,
+      x.t.amt,
+      r2(x.b.amt - x.t.amt),
+      x.b.date == null ? '' : String(Math.round((x.t.date - x.b.date) / 864e5)),
+    ];
+
+    const rg: Record<string, BmwLine[]> = {};
+    pB.forEach((b) => {
+      const k = [...toks(b.ref)][0] || b.doc;
+      (rg[k] = rg[k] || []).push(b);
+    });
+    const pRF: CellVal[][] = Object.keys(rg)
+      .map((k): CellVal[] => {
+        const bs = rg[k];
+        const ts = [...new Set(idx.get(k) || [])].filter((t) => inPeriodMs(t.date));
+        const nb = sm(bs);
+        const nt = sm(ts);
+        const d = r2(nb - nt);
+        return [
+          k,
+          String(bs.length),
+          nb,
+          String(ts.length),
+          nt,
+          d,
+          !ts.length ? 'Not in Tally' : Math.abs(d) <= tolVal ? 'OK' : 'Differs',
+        ];
+      })
+      .sort((a, b) => Math.abs(Number(b[5])) - Math.abs(Number(a[5])));
+
+    const bk = (a: number) => (a <= 30 ? '0-30' : a <= 60 ? '31-60' : a <= 90 ? '61-90' : '90+');
+    const pOP: CellVal[][] = pB
+      .filter((b) => b.clr === '' || b.clr === '0')
+      .map((b) => {
+        const a = b.date != null ? Math.round((endMs - b.date) / 864e5) : 0;
+        return [b.doc, b.ref, b.typ, d2s(b.date), String(a), b.amt, bk(a)];
+      });
+
+    const pTy: Record<string, { n: number; t: number; u: number; ut: number }> = {};
+    pB.forEach((b) => {
+      const o = (pTy[b.typ] = pTy[b.typ] || { n: 0, t: 0, u: 0, ut: 0 });
+      o.n++;
+      o.t += b.amt;
+      if (!b.m) {
+        o.u++;
+        o.ut += b.amt;
+      }
+    });
+
+    const pMo: Record<string, { b: number; t: number; u: number }> = {};
+    pB.forEach((b) => {
+      const o = (pMo[mk(b.date)] = pMo[mk(b.date)] || { b: 0, t: 0, u: 0 });
+      o.b += b.amt;
+      if (!b.m) o.u++;
+    });
+    pT.forEach((t) => {
+      const o = (pMo[mk(t.date)] = pMo[mk(t.date)] || { b: 0, t: 0, u: 0 });
+      o.t += t.amt;
+    });
+
+    const periodSumRows: CellVal[][] = [
+      [`Selected period (${periodBounds.label})`, periodBounds.rangeText],
+      ['Period BMW lines / Net movement', r2(sm(pB))],
+      ['Period BMW invoices & debits (+)', r2(sm(pB.filter((b) => b.amt > 0)))],
+      ['Period BMW payments, TDS & credits (−)', r2(sm(pB.filter((b) => b.amt < 0)))],
+      ['Period Tally entries / Net movement', r2(sm(pT))],
+      ['Period Matched pairs', `${pOk.length} matched · ${pDf.length} amount diff`],
+      ['Period Only in BMW', `${pOB.length} items · ₹ ${fmt(sm(pOB))}`],
+      ['Period Only in Tally', `${pOT.length} items · ₹ ${fmt(sm(pOT))}`],
+      ['Full statement summary (opening-closing bridge)', ''],
+      ...result.sum,
+    ];
+
+    const mh = result.sets['Matched'].h;
+    const scopedSets: Record<string, ResultTableSet> = {
+      'Reconciliation statement': { h: result.sets['Reconciliation statement'].h, r: RS },
+      'By statement': { h: result.sets['By statement'].h, r: BS },
+      'By Tally ledger': { h: result.sets['By Tally ledger'].h, r: TR },
+      Matched: { h: mh, r: pOk.map(mr) },
+      'Amount differences': { h: mh, r: pDf.map(mr) },
+      'Only in BMW': {
+        h: result.sets['Only in BMW'].h,
+        r: pOB.map((b) => [
+          b.doc,
+          b.ref,
+          b.asg,
+          b.typ,
+          d2s(b.date),
+          b.hdr,
+          b.amt,
+          b.clr,
+          CAUSE[b.typ] || 'Check manually',
+          b.file,
+        ]),
+      },
+      'Only in Tally': {
+        h: result.sets['Only in Tally'].h,
+        r: pOT.map((t) => [
+          t.sheet,
+          d2s(t.date),
+          t.part,
+          t.vtype,
+          t.vno,
+          t.narr,
+          t.amt,
+          'Not on BMW statement: check period, ledger or posting',
+        ]),
+      },
+      'Group matches': {
+        h: result.sets['Group matches'].h,
+        r: pG.map((g) => [
+          g.k,
+          String(g.bs.length),
+          g.nb,
+          String(g.ts.length),
+          g.nt,
+          r2(g.nb - g.nt),
+          [...new Set(g.bs.map((b) => b.typ))].join(', '),
+        ]),
+      },
+      'By reference': { h: result.sets['By reference'].h, r: pRF },
+      'Open items': { h: result.sets['Open items'].h, r: pOP },
+      Duplicates: {
+        h: result.sets['Duplicates'].h,
+        r: pDups.map((o) => [o.s, o.d, o.r, o.a, String(o.n)]),
+      },
+      'By type': {
+        h: result.sets['By type'].h,
+        r: Object.keys(pTy)
+          .sort()
+          .map((k) => [k, String(pTy[k].n), r2(pTy[k].t), String(pTy[k].u), r2(pTy[k].ut)]),
+      },
+      'By month': {
+        h: result.sets['By month'].h,
+        r: Object.keys(pMo)
+          .sort()
+          .map((k) => [k, r2(pMo[k].b), r2(pMo[k].t), r2(pMo[k].b - pMo[k].t), String(pMo[k].u)]),
+      },
+    };
+
+    return {
+      ...result,
+      sum: periodSumRows,
+      sets: scopedSets,
+    };
+  }, [result, periodFilter, periodBounds]);
+
   const tabNames = useMemo(
-    () => (result ? ['Summary', ...Object.keys(result.sets)] : []),
-    [result]
+    () => (scopedResult ? ['Summary', ...Object.keys(scopedResult.sets)] : []),
+    [scopedResult]
   );
 
   const activeTable = useMemo<{ h: string[]; r: CellVal[][] } | null>(() => {
-    if (!result) return null;
-    if (activeTab === 'Summary') return { h: ['Item', 'Amount / count'], r: result.sum };
-    return result.sets[activeTab] || null;
-  }, [result, activeTab]);
+    if (!scopedResult) return null;
+    if (activeTab === 'Summary') return { h: ['Item', 'Amount / count'], r: scopedResult.sum };
+    return scopedResult.sets[activeTab] || null;
+  }, [scopedResult, activeTab]);
 
   const filteredSortedRows = useMemo(() => {
     if (!activeTable) return [];
@@ -1041,17 +1284,20 @@ const BmwStatementWorkspace: React.FC<{
   }, [activeTable, searchQuery, sortState, activeTab]);
 
   const handleExportExcel = () => {
-    if (!result) return;
+    if (!scopedResult) return;
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(
       wb,
-      XLSX.utils.aoa_to_sheet([['Item', 'Amount / count'], ...result.sum]),
+      XLSX.utils.aoa_to_sheet([['Item', 'Amount / count'], ...scopedResult.sum]),
       'Summary'
     );
-    Object.entries(result.sets).forEach(([sheetTitle, tbl]) => {
+    Object.entries(scopedResult.sets).forEach(([sheetTitle, tbl]) => {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([tbl.h, ...tbl.r]), sheetTitle);
     });
-    XLSX.writeFile(wb, 'BMW_vs_Tally_Reconciliation.xlsx');
+    XLSX.writeFile(
+      wb,
+      `BMW_vs_Tally_Reconciliation${periodBounds.isFiltered ? `_${periodBounds.shortLabel}` : ''}.xlsx`
+    );
   };
 
   const handleExportCsv = () => {
@@ -1064,7 +1310,7 @@ const BmwStatementWorkspace: React.FC<{
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${activeTab.replace(/\W+/g, '_')}.csv`;
+    a.download = `${activeTab.replace(/\W+/g, '_')}${periodBounds.isFiltered ? `_${periodBounds.shortLabel}` : ''}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1465,16 +1711,37 @@ const BmwStatementWorkspace: React.FC<{
       </div>
 
       {/* Results View */}
-      {result && activeTable && (
+      {result && scopedResult && activeTable && (
         <div
           ref={resultsPanelRef}
           className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-5 sm:p-6 shadow-[0_4px_0_#2F3E4E] space-y-4 print:border-0 print:p-0 print:shadow-none print:bg-white"
         >
+          {/* Advanced Period & Date Filter */}
+          <RecoPeriodFilterBar
+            value={periodFilter}
+            onChange={setPeriodFilter}
+            available={availablePeriods}
+            matchedCount={
+              scopedResult.sets['Matched'].r.length +
+              scopedResult.sets['Amount differences'].r.length +
+              scopedResult.sets['Only in BMW'].r.length +
+              scopedResult.sets['Only in Tally'].r.length
+            }
+            totalCount={
+              result.raw.ok.length +
+              result.raw.df.length +
+              result.raw.oB.length +
+              result.raw.oT.length
+            }
+            scopeHint="Filters matched/unmatched/monthly/type tabs & exports while preserving full statement closing bridge"
+            compact
+          />
+
           {/* Result Sheet Tabs */}
           <div className="no-print flex flex-wrap items-center gap-1.5 pb-3 border-b border-[#2F3E4E]/15">
             {tabNames.map((name) => {
               const isOn = activeTab === name;
-              const count = name === 'Summary' ? null : result.sets[name]?.r.length ?? 0;
+              const count = name === 'Summary' ? null : scopedResult.sets[name]?.r.length ?? 0;
               return (
                 <button
                   key={name}

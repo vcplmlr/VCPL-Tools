@@ -49,6 +49,7 @@ function getToolIcon(id: string) {
     case 'bank-slip-generator':
     case 'bank-ifsc-finder':
     case 'gst-place-of-supply':
+    case 'vcpl-rtgs-neft-form':
       return Landmark;
     case 'bulk-excel-slips':
     case 'excel-csv-viewer':
@@ -101,6 +102,9 @@ function getToolIcon(id: string) {
       return Receipt;
     case 'dms-tally-reconciler':
     case 'bmw-statement-reconciler':
+    case 'bmw-vendor-ledger-reconciler':
+    case 'bmw-claims-reconciler':
+    case 'tds-26as-tally-reco':
     case 'pdf-compare':
     case 'text-compare-tool':
     case 'unit-converter':

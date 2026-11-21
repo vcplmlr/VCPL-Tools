@@ -81,6 +81,7 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
   const [pwNumbers, setPwNumbers] = useState(true);
   const [pwSymbols, setPwSymbols] = useState(true);
   const [generatedPw, setGeneratedPw] = useState('');
+  const [batchPasswords, setBatchPasswords] = useState<string[]>([]);
   const [checkPwInput, setCheckPwInput] = useState('');
 
   // Text & Dev state
@@ -168,7 +169,7 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
     return () => window.clearInterval(id);
   }, [cdRunning]);
 
-  const generateRandomPassword = () => {
+  const generatePasswordString = () => {
     const sets: string[] = [];
     if (pwUpper) sets.push('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
     if (pwLower) sets.push('abcdefghijklmnopqrstuvwxyz');
@@ -181,8 +182,22 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
     for (let i = 0; i < pwLength; i++) {
       out += pool[arr[i] % pool.length];
     }
+    return out;
+  };
+
+  const generateRandomPassword = () => {
+    const out = generatePasswordString();
     setGeneratedPw(out);
     setCheckPwInput(out);
+  };
+
+  const generateBatchPasswords = () => {
+    const list = Array.from({ length: 5 }, () => generatePasswordString());
+    setBatchPasswords(list);
+    if (list[0]) {
+      setGeneratedPw(list[0]);
+      setCheckPwInput(list[0]);
+    }
   };
 
   const evaluateStrength = (pw: string) => {
@@ -197,6 +212,27 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
     const label =
       score >= 85 ? 'Very Strong' : score >= 65 ? 'Strong' : score >= 40 ? 'Moderate' : 'Weak';
     return { score, label };
+  };
+
+  const handleResetUtility = () => {
+    setBarcodeText('');
+    setBarcodeError('');
+    setGeneratedPw('');
+    setBatchPasswords([]);
+    setCheckPwInput('');
+    setDevInput('');
+    setDevOutput('');
+    setDevError('');
+    setDiffLeft('');
+    setDiffRight('');
+    setUnitVal('');
+    setStorageVal('');
+    setSwRunning(false);
+    setSwMs(0);
+    setLaps([]);
+    setCdRunning(false);
+    setCdRemainingSec(cdMinutes * 60);
+    setCopied(false);
   };
 
   const renderToolContent = () => {
@@ -317,6 +353,13 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
                 </button>
                 <button
                   type="button"
+                  onClick={generateBatchPasswords}
+                  className="px-4 py-2.5 rounded-xl bg-white border-[1.5px] border-[#2F3E4E] text-xs font-bold text-[#2F3E4E] inline-flex items-center gap-1.5 cursor-pointer hover:bg-[#FEF2C8]"
+                >
+                  + 5 Batch
+                </button>
+                <button
+                  type="button"
                   disabled={!generatedPw}
                   onClick={() => copyText(generatedPw)}
                   className="px-4 py-2.5 rounded-xl bg-[#2F3E4E] text-[#FFFDF5] text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-45"
@@ -388,9 +431,43 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
             </div>
           </div>
 
+          {tool.id === 'password-generator' && batchPasswords.length > 0 && (
+            <div className="p-4 rounded-2xl bg-white border-[1.5px] border-[#2F3E4E] space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-bold text-[#2F3E4E]">
+                <span>Batch Generated Passwords (Click to Copy)</span>
+                <button
+                  type="button"
+                  onClick={() => setBatchPasswords([])}
+                  className="text-red-700 hover:underline cursor-pointer"
+                >
+                  Clear Batch
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {batchPasswords.map((pw, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setGeneratedPw(pw);
+                      setCheckPwInput(pw);
+                      void copyText(pw);
+                    }}
+                    className="px-3 py-2 rounded-xl border border-[#2F3E4E]/30 bg-[#FEF2C8]/45 hover:bg-[#F9C80E]/35 text-left font-mono text-xs font-bold text-[#2F3E4E] truncate cursor-pointer flex items-center justify-between gap-2"
+                    title="Click to copy"
+                  >
+                    <span className="truncate">{pw}</span>
+                    <Copy className="w-3.5 h-3.5 shrink-0 text-[#475569]" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <ToolExportBar
             onClear={() => {
               setGeneratedPw('');
+              setBatchPasswords([]);
               setCheckPwInput('');
             }}
             onCopy={() => void copyText(targetPw)}
@@ -607,9 +684,67 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
 
       const isFormatter = tool.id === 'json-formatter' || tool.id === 'xml-formatter';
 
+      const sortObjectKeysDeep = (val: unknown): unknown => {
+        if (Array.isArray(val)) return val.map(sortObjectKeysDeep);
+        if (val && typeof val === 'object') {
+          return Object.keys(val as Record<string, unknown>)
+            .sort((a, b) => a.localeCompare(b))
+            .reduce<Record<string, unknown>>((acc, k) => {
+              acc[k] = sortObjectKeysDeep((val as Record<string, unknown>)[k]);
+              return acc;
+            }, {});
+        }
+        return val;
+      };
+
+      const runSortJsonKeys = () => {
+        setDevError('');
+        try {
+          const parsed = JSON.parse(devInput);
+          setDevOutput(JSON.stringify(sortObjectKeysDeep(parsed), null, 2));
+        } catch (err: any) {
+          setDevError(err?.message || 'Invalid JSON input.');
+        }
+      };
+
+      let jsonStatsBadge: string | null = null;
+      if (tool.id === 'json-formatter' && (devOutput || devInput).trim()) {
+        try {
+          const candidate = (devOutput || devInput).trim();
+          const parsed = JSON.parse(candidate);
+          const rootCount = Array.isArray(parsed)
+            ? `${parsed.length} items`
+            : parsed && typeof parsed === 'object'
+            ? `${Object.keys(parsed).length} root keys`
+            : typeof parsed;
+          const bytes = new Blob([candidate]).size;
+          jsonStatsBadge = `Valid JSON · ${rootCount} · ${bytes} bytes`;
+        } catch {
+          jsonStatsBadge = null;
+        }
+      }
+
+      let parsedUrlParams: [string, string][] = [];
+      if (tool.id === 'url-encoder-decoder') {
+        const rawUrl = (devOutput || devInput).trim();
+        if (rawUrl) {
+          try {
+            if (/^https?:\/\//i.test(rawUrl)) {
+              const u = new URL(rawUrl);
+              parsedUrlParams = Array.from(u.searchParams.entries());
+            } else if (rawUrl.includes('=')) {
+              const queryPart = rawUrl.includes('?') ? rawUrl.split('?')[1] : rawUrl;
+              parsedUrlParams = Array.from(new URLSearchParams(queryPart).entries());
+            }
+          } catch {
+            parsedUrlParams = [];
+          }
+        }
+      }
+
       return (
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               type="button"
               onClick={() => runTransform('encode')}
@@ -624,6 +759,15 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
             >
               {isFormatter ? 'Minify / Compact' : 'Decode'}
             </button>
+            {tool.id === 'json-formatter' && (
+              <button
+                type="button"
+                onClick={runSortJsonKeys}
+                className="px-4 py-2 rounded-xl bg-[#CEE5DC] border-[1.5px] border-[#2F3E4E] text-[#2F3E4E] text-xs font-bold cursor-pointer"
+              >
+                Sort Keys A→Z
+              </button>
+            )}
             <button
               type="button"
               onClick={() => copyText(devOutput || devInput)}
@@ -643,6 +787,11 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
             >
               <RotateCcw className="w-3.5 h-3.5" /> Clear
             </button>
+            {jsonStatsBadge && (
+              <span className="ml-auto px-3 py-1.5 rounded-lg bg-[#CEE5DC]/75 border border-[#2F3E4E] text-[11px] font-mono font-bold text-[#2F3E4E]">
+                {jsonStatsBadge}
+              </span>
+            )}
           </div>
 
           {devError && (
@@ -673,6 +822,32 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
               />
             </div>
           </div>
+
+          {tool.id === 'url-encoder-decoder' && parsedUrlParams.length > 0 && (
+            <div className="rounded-xl border-[1.5px] border-[#2F3E4E] bg-white overflow-hidden">
+              <div className="bg-[#2F3E4E] text-[#FFFDF5] px-4 py-2 text-xs font-bold">
+                Parsed URL Query Parameters ({parsedUrlParams.length})
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#FEF2C8]/70 border-b border-[#2F3E4E]/15 text-[#2F3E4E]">
+                    <tr>
+                      <th className="py-2 px-4 font-bold">Key</th>
+                      <th className="py-2 px-4 font-bold">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#2F3E4E]/10 font-mono">
+                    {parsedUrlParams.map(([k, v], i) => (
+                      <tr key={i}>
+                        <td className="py-2 px-4 font-bold text-[#2F3E4E]">{k}</td>
+                        <td className="py-2 px-4 text-[#475569] break-all">{v || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <ToolExportBar
             onClear={() => {
@@ -795,6 +970,36 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
             <p className="font-mono tabular-nums font-extrabold text-3xl text-[#2F3E4E] mt-1">
               {Number(converted.toFixed(4))} {toUnit}
             </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {unitOptions.map((u) => {
+              let val = 0;
+              if (unitCategory === 'length') {
+                const f = LENGTH_UNITS[fromUnit] || LENGTH_UNITS.km;
+                const t = LENGTH_UNITS[u.k] || LENGTH_UNITS.m;
+                val = (n * f.toMeter) / t.toMeter;
+              } else if (unitCategory === 'weight') {
+                const f = WEIGHT_UNITS[fromUnit] || WEIGHT_UNITS.kg;
+                const t = WEIGHT_UNITS[u.k] || WEIGHT_UNITS.kg;
+                val = (n * f.toKg) / t.toKg;
+              } else {
+                let c = n;
+                if (fromUnit === 'F') c = ((n - 32) * 5) / 9;
+                else if (fromUnit === 'K') c = n - 273.15;
+                if (u.k === 'F') val = (c * 9) / 5 + 32;
+                else if (u.k === 'K') val = c + 273.15;
+                else val = c;
+              }
+              return (
+                <div key={u.k} className="p-3.5 rounded-xl bg-white border-[1.5px] border-[#2F3E4E]">
+                  <p className="text-[11px] font-bold text-[#64748B] truncate">{u.label}</p>
+                  <p className="font-mono tabular-nums font-extrabold text-sm text-[#2F3E4E] mt-1">
+                    {Number(val.toFixed(4))} {u.k}
+                  </p>
+                </div>
+              );
+            })}
           </div>
 
           <ToolExportBar
@@ -987,7 +1192,7 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
           <p className="font-mono tabular-nums font-extrabold text-5xl sm:text-6xl text-[#2F3E4E]">
             {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
           </p>
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {[1, 5, 10, 15, 25, 60].map((m) => (
               <button
                 key={m}
@@ -1004,6 +1209,22 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
                 {m} Min
               </button>
             ))}
+            <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-[#2F3E4E] text-xs font-bold text-[#2F3E4E]">
+              <span>Custom Min:</span>
+              <input
+                type="number"
+                min={1}
+                max={180}
+                value={cdMinutes}
+                onChange={(e) => {
+                  const val = Math.max(1, Math.min(180, Number(e.target.value) || 1));
+                  setCdRunning(false);
+                  setCdMinutes(val);
+                  setCdRemainingSec(val * 60);
+                }}
+                className="w-14 px-1.5 py-0.5 rounded border border-[#2F3E4E]/30 bg-[#FFFDF5] font-mono text-center"
+              />
+            </label>
           </div>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <button
@@ -1032,21 +1253,32 @@ export const UtilityEngineView: React.FC<UtilityEngineViewProps> = ({ tool }) =>
 
   return (
     <div className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-6 sm:p-8 space-y-6">
-      <div className="pb-5 border-b border-[#2F3E4E]/15">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
-          {tool.id.includes('password') ? (
-            <KeyRound className="w-3.5 h-3.5 text-[#2F3E4E]" />
-          ) : tool.id.includes('json') || tool.id.includes('xml') || tool.id.includes('url') || tool.id.includes('base64') ? (
-            <Code className="w-3.5 h-3.5 text-[#2F3E4E]" />
-          ) : (
-            <Wrench className="w-3.5 h-3.5 text-[#2F3E4E]" />
-          )}
-          {tool.categoryName} · {tool.code}
-        </span>
-        <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] mt-1">
-          {tool.title}
-        </h1>
-        <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#2F3E4E]/15">
+        <div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+            {tool.id.includes('password') ? (
+              <KeyRound className="w-3.5 h-3.5 text-[#2F3E4E]" />
+            ) : tool.id.includes('json') || tool.id.includes('xml') || tool.id.includes('url') || tool.id.includes('base64') ? (
+              <Code className="w-3.5 h-3.5 text-[#2F3E4E]" />
+            ) : (
+              <Wrench className="w-3.5 h-3.5 text-[#2F3E4E]" />
+            )}
+            {tool.categoryName} · {tool.code}
+          </span>
+          <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] mt-1">
+            {tool.title}
+          </h1>
+          <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
+        </div>
+        {tool.id !== 'qr-code-generator' && (
+          <button
+            type="button"
+            onClick={handleResetUtility}
+            className="px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] inline-flex items-center gap-1.5 cursor-pointer shrink-0 no-print"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Clear / Reset
+          </button>
+        )}
       </div>
 
       {renderToolContent()}

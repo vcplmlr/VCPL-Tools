@@ -54,7 +54,7 @@ interface ImportReportSummary {
   importedAt: string;
 }
 
-const ADMIN_TOKEN_STORAGE_KEY = 'vcpl_admin_session_token';
+// Admin bearer token stays strictly in React memory (never persisted in sessionStorage/localStorage)
 
 async function fetchJsonSafe<T>(
   url: string,
@@ -185,13 +185,8 @@ export function DirectoryAdminPanel({
   onImportCompleted,
 }: DirectoryAdminPanelProps) {
   const [passcode, setPasscode] = useState('');
-  const [token, setToken] = useState<string | null>(() => {
-    try {
-      return window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
-    } catch {
-      return null;
-    }
-  });
+  const [token, setToken] = useState<string | null>(null);
+  const [setupRequired, setSetupRequired] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -217,13 +212,16 @@ export function DirectoryAdminPanel({
   const [importReport, setImportReport] = useState<ImportReportSummary | null>(null);
   const [syncingOfficial, setSyncingOfficial] = useState(false);
 
+  useEffect(() => {
+    void fetchJsonSafe<{ configured?: boolean }>('/api/admin/status', {}, 8000).then((res) => {
+      if (res.ok && res.data && res.data.configured === false) {
+        setSetupRequired(true);
+      }
+    });
+  }, []);
+
   const clearAdminSession = useCallback(() => {
     setToken(null);
-    try {
-      window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
-    } catch {
-      // Ignore storage error
-    }
   }, []);
 
   const loadOverview = useCallback(
@@ -274,8 +272,9 @@ export function DirectoryAdminPanel({
       body: JSON.stringify({ passcode: passcode.trim() }),
     };
 
-    let res = await fetchJsonSafe<{ token?: string }>(
-      '/api/admin/auth',
+    const endpoint = setupRequired ? '/api/admin/claim' : '/api/admin/auth';
+    let res = await fetchJsonSafe<{ token?: string; code?: string }>(
+      endpoint,
       requestInit,
       12000
     );
@@ -283,21 +282,21 @@ export function DirectoryAdminPanel({
     // Retry once transparently if proxy/dev server was mid-restart
     if (!res.ok && (res.status === 0 || res.status >= 500)) {
       await new Promise((r) => window.setTimeout(r, 600));
-      res = await fetchJsonSafe<{ token?: string }>('/api/admin/auth', requestInit, 12000);
+      res = await fetchJsonSafe<{ token?: string; code?: string }>(endpoint, requestInit, 12000);
     }
 
     setAuthLoading(false);
+
+    if (res.data?.code === 'ADMIN_SETUP_REQUIRED') {
+      setSetupRequired(true);
+    }
 
     if (!res.ok || !res.data?.token) {
       setAuthError(res.errorText || 'Authentication failed.');
       return;
     }
 
-    try {
-      window.sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, res.data.token);
-    } catch {
-      // Ignore storage restriction
-    }
+    setSetupRequired(false);
     setToken(res.data.token);
     setPasscode('');
   };
@@ -614,8 +613,10 @@ export function DirectoryAdminPanel({
             type="password"
             value={passcode}
             onChange={(e) => setPasscode(e.target.value)}
-            placeholder="Enter admin passcode..."
-            autoComplete="current-password"
+            placeholder={
+              setupRequired ? 'Create initial admin passcode (6+ chars)...' : 'Enter admin passcode...'
+            }
+            autoComplete={setupRequired ? 'new-password' : 'current-password'}
             className="flex-1 min-h-[40px] px-3 py-2 rounded-lg border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-slate-800 text-xs sm:text-sm text-[#2F3E4E] dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#2F3E4E]"
           />
           <button
@@ -623,7 +624,11 @@ export function DirectoryAdminPanel({
             disabled={authLoading || !passcode.trim()}
             className="px-4 py-2 min-h-[40px] rounded-lg bg-[#2F3E4E] hover:bg-[#1E293B] disabled:opacity-50 text-[#F9C80E] text-xs font-bold border border-[#2F3E4E] whitespace-nowrap cursor-pointer"
           >
-            {authLoading ? 'Verifying...' : 'Unlock Admin Import'}
+            {authLoading
+              ? 'Verifying...'
+              : setupRequired
+                ? 'Set & Unlock Admin'
+                : 'Unlock Admin Import'}
           </button>
         </form>
 
@@ -887,7 +892,7 @@ export function DirectoryAdminPanel({
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#2F3E4E]/30 bg-white dark:bg-slate-800 hover:bg-[#FEF2C8] text-[11px] font-bold text-[#2F3E4E] dark:text-slate-200 cursor-pointer"
           >
             <Download className="w-3 h-3" />
-            <span>Sample CSV</span>
+            <span>CSV Template</span>
           </button>
           <button
             type="button"
@@ -895,7 +900,7 @@ export function DirectoryAdminPanel({
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#2F3E4E]/30 bg-white dark:bg-slate-800 hover:bg-[#FEF2C8] text-[11px] font-bold text-[#2F3E4E] dark:text-slate-200 cursor-pointer"
           >
             <Download className="w-3 h-3" />
-            <span>Sample JSON</span>
+            <span>JSON Template</span>
           </button>
         </div>
       </div>

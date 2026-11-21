@@ -1,0 +1,308 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>BMW Claims Reconciler</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: control strip on top (files, options), then tabbed working area with period bar, filters, totals footer and export buttons. Palette stays close to the v2 tool the team already uses. */
+:root{--bg:#f3f5f8;--sf:#fff;--ink:#14212e;--mu:#5d6b79;--ln:#d9e0e7;--ac:#1c5fa8;--ai:#fff;--hd:#14293f;--g:#17713a;--gb:#dff3e6;--w:#8a5a00;--wb:#fdf0cc;--b:#a3192b;--bb:#fbdfe2;--ib:#dde9f6;--nb:#e8ecf0;--pb:#ece4f5;--p:#5b3a8a;--ft:#eef2f6;color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1720;--sf:#17212c;--ink:#e6edf3;--mu:#93a1af;--ln:#2a3745;--ac:#5aa2e8;--ai:#071624;--hd:#0b121a;--g:#62d08a;--gb:#17382a;--w:#f0c060;--wb:#3b2f10;--b:#ff8d9b;--bb:#43202a;--ib:#1a2f45;--nb:#222e3a;--pb:#2f2442;--p:#c3a4ee;--ft:#1d2a37;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#0f1720;--sf:#17212c;--ink:#e6edf3;--mu:#93a1af;--ln:#2a3745;--ac:#5aa2e8;--ai:#071624;--hd:#0b121a;--g:#62d08a;--gb:#17382a;--w:#f0c060;--wb:#3b2f10;--b:#ff8d9b;--bb:#43202a;--ib:#1a2f45;--nb:#222e3a;--pb:#2f2442;--p:#c3a4ee;--ft:#1d2a37;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--hd);z-index:10}
+header{background:var(--hd);color:#fff;padding:12px 16px;margin:0 calc(-1*max(16px,env(safe-area-inset-left,0px))) 0 calc(-1*max(16px,env(safe-area-inset-right,0px)));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+header h1{font-size:18px;margin:0;flex:1;min-width:240px}header small{opacity:.75;font-weight:400}
+header input{background:#fff;color:#14212e}
+main{padding-block:14px;max-width:1750px;margin:auto}
+.card{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:14px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 10px}
+.grid{display:grid;gap:12px}.g4{grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr))}
+.drop{border:2px dashed var(--ln);border-radius:10px;padding:12px;text-align:center;cursor:pointer;background:var(--bg)}
+.drop:hover,.drop.on{border-color:var(--ac);background:var(--ib)}.drop b{display:block}.drop span{color:var(--mu);font-size:12px}
+.drop.ok{border-style:solid;border-color:var(--g)}
+.map{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 8px;margin-top:8px;font-size:12px;text-align:left;align-items:center;max-height:260px;overflow:auto}
+select,input[type=text],input[type=number],input[type=date]{background:var(--sf);color:var(--ink);border:1px solid var(--ln);border-radius:6px;padding:5px 7px;font:inherit;max-width:100%}
+button{background:var(--ac);color:var(--ai);border:0;border-radius:7px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+button.s{background:var(--nb);color:var(--ink)}button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.opts{display:flex;gap:10px 16px;flex-wrap:wrap;align-items:center}.opts label{display:flex;gap:6px;align-items:center}
+nav{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+nav button{background:var(--sf);color:var(--ink);border:1px solid var(--ln)}nav button.on{background:var(--ac);color:var(--ai);border-color:var(--ac)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px;margin-bottom:14px}
+.k{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:10px 12px;min-width:0}
+.k[data-go]{cursor:pointer}.k[data-go]:hover{border-color:var(--ac)}
+.k small{color:var(--mu)}.k div{font-size:20px;font-weight:700;overflow-wrap:anywhere}
+.tw{overflow:auto;max-height:70vh;border:1px solid var(--ln);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:var(--hd);color:#fff;text-align:left;padding:6px 8px;white-space:nowrap;cursor:pointer;z-index:2}
+td{padding:5px 8px;border-top:1px solid var(--ln);white-space:nowrap}
+tr:hover td{background:var(--ib)}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+td.r{white-space:normal;min-width:300px;max-width:460px;color:var(--mu)}
+tfoot td{position:sticky;bottom:0;background:var(--ft);font-weight:700;border-top:2px solid var(--ln);z-index:1}
+.pill{padding:2px 8px;border-radius:20px;font-size:11.5px;font-weight:600;display:inline-block}
+.P-g{background:var(--gb);color:var(--g)}.P-w{background:var(--wb);color:var(--w)}.P-b{background:var(--bb);color:var(--b)}.P-i{background:var(--ib);color:var(--ac)}.P-n{background:var(--nb);color:var(--mu)}.P-p{background:var(--pb);color:var(--p)}
+.bar{height:8px;border-radius:4px;background:var(--ac);min-width:2px}
+.brow{display:grid;grid-template-columns:minmax(0,230px) minmax(40px,1fr) 44px;gap:8px;align-items:center;margin:4px 0;cursor:pointer;border-radius:6px;padding:2px 4px}
+.brow:hover{background:var(--ib)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chips button{background:var(--sf);color:var(--ink);border:1px solid var(--ln);padding:5px 11px}.chips button.on{background:var(--ac);color:var(--ai);border-color:var(--ac)}
+#toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--hd);color:#fff;padding:9px 16px;border-radius:8px;display:none;z-index:20;box-shadow:0 4px 14px #0005;max-width:90vw}
+.msg{color:var(--mu);font-size:12px}input.m{width:170px}
+.warnbox{border-color:var(--w)}.okbox{border-color:var(--g)}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<header><h1>BMW Claims Reconciler <small>DMS invoices ↔ credit / debit notes ↔ warranty claims</small></h1>
+<label><small>Report date</small> <input type="date" id="rd"></label></header>
+<main><div id="toast" role="status"></div>
+<div class="card"><h2>1 · Drop your Excel files <span class="msg">(headers are detected automatically; change any mapping under each file)</span></h2>
+<div class="grid g4" id="drops"></div></div>
+<div class="card"><h2>2 · Options</h2><div class="opts">
+<label>Match tolerance ₹ <input type="number" id="tol" value="5" style="width:70px"></label>
+<label>Pending alert after (days) <input type="number" id="pend" value="45" style="width:70px"></label>
+<label>Bill-To contains <input type="text" id="bf" value="BMW India" style="width:150px" title="Comma separated. Rows whose Bill To Customer contains none of these (and are not Bajaj EW) are skipped."></label>
+<label><input type="checkbox" id="ew"> Include Bajaj “BMW EW” invoices</label>
+<label><input type="checkbox" id="pos" checked> Treat positive credit-memo amounts as debit notes</label>
+<label><input type="checkbox" id="reb" checked> Detect possible re-bills / duplicates</label>
+<label><input type="checkbox" id="ro" checked> Fallback match claim ↔ invoice by RO / Order No.</label>
+<label title="When the tracker repeats the same BMW credit note and amount on several claim lines of one invoice, count that credit once."><input type="checkbox" id="dd" checked> Count repeated credit (same CN + amount) once</label>
+<button id="go" disabled>Generate report</button> <span class="msg" id="st">Upload at least the Service Invoices file.</span></div></div>
+<div id="out" hidden><div class="tools" id="pf"></div><nav id="tabs"></nav><div id="view"></div></div></main>
+<script>
+const $=s=>document.querySelector(s),N=s=>String(s??'').toLowerCase().replace(/[^a-z0-9]/g,'');
+/*CORE*/
+const F={inv:[['date','Invoice Date',['invoicedate','date'],1],['no','Invoice No.',['invoiceno','invoicenumber','documentnumber','documentno','invno'],1],['odate','Order Date',['orderdate']],['order','Order / RO No.',['orderno','rono']],['cust','Customer Name',['customername','customer']],['bill','Bill To Customer',['billtocustomer','billto'],1],['vin','VIN',['vin','vinno17']],['mat','Material Description',['materialdescription','model']],['plate','Plate No.',['plateno','regnno']],['tax','Taxable Amount',['sumofamount','taxableamount']],['amt','Amount with Tax',['averageofamountwithtax','amountwithtax','invoiceamount','totalamount'],1],['status','DMS Pay Status',['status']],['adv','ME Adviser',['meadviser','adviser']]],
+cm:[['date','Date',['date','creditmemodate']],['no','Document No.',['documentnumber','documentno','creditmemono','creditmemonumber']],['name','Name',['name']],['amt','Amount',['amount'],1],['status','Status',['status']],['from','Created From',['createdfrom'],1]],
+dn:[['date','Date',['date','debitnotedate']],['no','Document No.',['documentnumber','documentno','debitnoteno','debitnotenumber']],['name','Name',['name']],['amt','Amount',['amount'],1],['status','Status',['status']],['from','Created From',['createdfrom'],1]],
+trk:[['ro','RO No',['rono','ronumber']],['rdate','RO Date',['rodate']],['claim','Claim No',['claimno','claimcode']],['repair','Repair Date',['repairdate']],['cdate','Claim Date',['claimdate']],['days','No of Days',['noofdays']],['cstat','Claim Status',['claimstatus']],['inv','Invoice No',['invno','invoiceno'],1],['invamt','Total Inv Amount',['totalinvamount']],['tpl','Total Parts & Labour Inv Amt',['totalpartslabourinvamt']],['camt','Total Claim Amount',['totalclaimamount']],['aamt','Total Approved Amount',['totalapprovedamount']],['dclaim','Diff in Claim Amount',['diffinclaimamount']],['pclaimed','Parts Claimed',['partsclaimed']],['fru','Labour (FRU)',['labourfru']],['lclaimed','Labour Claimed',['labourclaimed']],['dlab','Diff in Labour',['diffinlabour']],['cn','BMW Credit Note No',['creditnoteno','bmwcreditnoteno','creditnote','cnno']],['cndate','Credit Date',['creditdate']],['cred','Total Credited',['totalcredited']],['pcred','Parts Credited (a)',['partscredited']],['pcred2','Parts Credited (b)',['partscredited#2']],['igst','Total IGST',['totaligst']],['igstp','IGST Parts',['igstparts']],['tpcred','Total Parts Credited',['totalpartscredited']],['sublet','Sublet Amount',['subletamount']],['lcred','Labour Credited',['labourcredited']],['igstl','IGST Labour',['igstlabour']],['tlcred','Total Labour Credited',['totallabourcredited']],['dparts','Diff in Parts',['diffinparts']],['dlab2','Diff in Labour (2)',['diffinlabour#2']],['work','Type of Work',['typeofwork']],['pcost','Parts Cost Price',['partscostprice']],['lwot','Labour without Tax',['labourwithouttax']],['fru1','1 FRU Amount',['1fruamount']],['lwot2','Labour without Tax (2)',['labourwithouttax#2']],['hand','Handling Charges',['handlingcharges']],['diff','Diff Amount',['diffamount']],['cust','Customer (tracker)',['customername']],['vin','VIN (tracker)',['vinno17','vin']],['plate','Regn No (tracker)',['regnno']]]};
+const DT=['rdate','repair','cdate','cndate'],TX=['ro','claim','inv','cstat','cn','work','cust','vin','plate'];
+const CREDK=['cred','pcred','pcred2','igst','igstp','tpcred','sublet','lcred','igstl','tlcred'],MAXK=['invamt','tpl','days'];
+const fmtD=d=>d?String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear():'';
+const toD=v=>{if(v==null||v==='')return null;let d;if(v instanceof Date)d=v;else if(typeof v==='number'){if(v<20000||v>80000)return null;const u=new Date(Math.round((v-25569)*864e5));return new Date(u.getUTCFullYear(),u.getUTCMonth(),u.getUTCDate())}else{const s=String(v).trim();let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return new Date(+m[1],m[2]-1,+m[3]);m=s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})/);if(m){if(+m[2]>12)return null;return new Date(+m[3]<100?2000+ +m[3]:+m[3],m[2]-1,+m[1])}d=new Date(s)}if(!d||isNaN(d))return null;const e=new Date(d.getTime()+432e5);return new Date(e.getFullYear(),e.getMonth(),e.getDate())};
+const num=v=>{if(typeof v==='number')return isFinite(v)?v:0;let s=String(v??'').replace(/[,₹\s]/g,'');const neg=/^\(.*\)$/.test(s);s=s.replace(/[^0-9.\-]/g,'');const x=parseFloat(s);return isNaN(x)?0:(neg?-Math.abs(x):x)};
+const inr=v=>v||v===0?(+v).toLocaleString('en-IN',{maximumFractionDigits:2}):'';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const invNo=s=>{const t=String(s||'').toUpperCase().trim(),m=t.match(/[A-Z]{2,6}[-\/]?\d{5,}(?:[-\/]\d+)*/);return m?m[0]:t.replace(/^.*?(invoice|inv)\s*#?\s*/i,'').trim()};
+const uq=a=>{const c={};return a.map(x=>{const k=N(x);if(!k)return'';c[k]=(c[k]||0)+1;return c[k]>1?k+'#'+c[k]:k})};
+const monOf=d=>d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'):'';
+const dayDiff=(a,b)=>a&&b?Math.round((a-b)/864e5):'';
+const bandOf=n=>n>3?'4+ claims':n+' claims';
+function agg(cl,dd){const o={};F.trk.forEach(f=>{const k=f[0];if(k==='inv')return;const src=CREDK.includes(k)&&dd?cl.filter(c=>!c.skip):cl,v=src.map(c=>c[k]);
+ o['t_'+k]=DT.includes(k)?(v.filter(Boolean).sort((a,b)=>a-b)[0]||null):TX.includes(k)?[...new Set(v.filter(Boolean))].join(', '):cl.length?(MAXK.includes(k)?Math.max(...v):v.reduce((a,b)=>a+b,0)):''});return o}
+function compute(D,o){
+ const tol=o.tol,pend=o.pend,rd=o.rd,AUD=[],A=(chk,sev,n,d)=>AUD.push({chk,sev,n,d:d||''}),W=(c,n,d)=>A(c,n?'Warning':'Passed',n,d);
+ const filters=String(o.bill==null?'bmw india':o.bill).toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
+ const inv=[],seen={},dupI=[];let nb=0,ne=0;
+ D.inv.forEach(r=>{const no=String(r.no??'').trim();if(!no)return;const bill=String(r.bill??'');if(!/bmw/i.test(bill)){nb++;return}
+  const isEW=/bajaj|_ew|bmw.?ew/i.test(bill);if(isEW&&!o.ew){ne++;return}
+  if(!isEW&&filters.length&&!filters.some(f=>bill.toLowerCase().includes(f))){nb++;return}
+  if(seen[no]){dupI.push({no,txt:no+(Math.abs(num(r.amt)-seen[no].amt)>tol?' (amount differs)':''),date:seen[no].date});return}
+  const acc=isEW?'BMW EW':bill.split(' ')[0].replace(/^BMW_/,'').replace(/_TN$/,'');
+  const x={no,date:toD(r.date),order:String(r.order??'').replace(/^- None -$/,'').trim(),cust:String(r.cust??'').replace(/^- None -$/,''),bill,acc,vin:String(r.vin||'').trim().toUpperCase(),mat:String(r.mat??'').replace(/^- None -$/,''),plate:r.plate||'',tax:num(r.tax),amt:num(r.amt),pay:r.status||'',adv:r.adv||'',cm:[],dn:[],cl:[]};inv.push(x);seen[no]=x});
+ const by={},byN={},byRO={};inv.forEach(i=>{by[i.no]=i;byN[N(i.no)]=i;if(i.order)(byRO[N(i.order)]=byRO[N(i.order)]||[]).push(i)});
+ const orphan=[],cms=[],cmSeen={},noRef=[];let cmDup=0;
+ const addDoc=(r,dn)=>{const x={no:String(r.no).trim(),date:toD(r.date),name:r.name,amt:Math.abs(num(r.amt)),status:r.status,from:invNo(r.from),dn};const k=x.no+'|'+dn;if(cmSeen[k]){cmDup++;return}cmSeen[k]=1;cms.push(x);if(!x.from)noRef.push(x.no);const i=x.from?byN[N(x.from)]:null;if(i){x.from=i.no;i[dn?'dn':'cm'].push(x)}else orphan.push(x)};
+ D.cm.forEach(r=>{if(r.no)addDoc(r,num(r.amt)>0&&!!o.pos)});D.dn.forEach(r=>{if(r.no)addDoc(r,true)});
+ const tr=D.trk.filter(r=>r.claim||r.inv),cseen={},ucl=[];let cDup=0,roHit=0;
+ tr.forEach(r=>{const key=[r.claim,r.inv,r.cn,r.camt,r.cred,r.aamt].map(x=>String(x??'').trim()).join('|');if(cseen[key]){cDup++;return}cseen[key]=1;
+  const c={sheet:r._s};F.trk.forEach(f=>{const k=f[0],v=r[k];c[k]=DT.includes(k)?toD(v):TX.includes(k)?(v==null?'':String(v).replace(/\.0$/,'').trim()):num(v)});c.cstat=c.cstat.toUpperCase();
+  let t=byN[N(c.inv)]||byN[N(invNo(c.inv))];if(!t&&o.ro&&c.ro&&byRO[N(c.ro)]&&byRO[N(c.ro)].length===1){t=byRO[N(c.ro)][0];roHit++;c.viaRO=1}
+  c.t=t;ucl.push(c);if(t)t.cl.push(c)});
+ inv.forEach(i=>{const s=new Set();i.cl.forEach(c=>{c.skip=false;const k=c.cn&&c.cred?c.cn+'|'+c.cred:'';c.dupCred=false;if(k){if(s.has(k)){c.dupCred=true;if(o.dedupe)c.skip=true}else s.add(k)}c.cu=c.skip?0:c.cred});i.crT=i.cl.reduce((a,c)=>a+c.cu,0)});
+ const vinMap={};if(o.reb)inv.forEach(i=>{if(i.vin)(vinMap[i.vin]=vinMap[i.vin]||[]).push(i)});
+ const reg=inv.map((i,ix)=>{const cm=i.cm.reduce((a,x)=>a+x.amt,0),dn=i.dn.reduce((a,x)=>a+x.amt,0),cr=i.crT,ca=i.cl.reduce((a,x)=>a+x.camt,0),ap=i.cl.reduce((a,x)=>a+x.aamt,0);
+  const cns=[...new Set(i.cl.filter(c=>c.cn).map(c=>c.cn))],cnd=i.cl.filter(c=>c.cndate).map(c=>c.cndate).sort((a,b)=>a-b)[0],cdt=i.cl.filter(c=>c.cdate).map(c=>c.cdate).sort((a,b)=>a-b)[0],age=i.date?Math.floor((rd-i.date)/864e5):0,fl=[];
+  const bs=i.dn.length?'Debit Note Passed':(i.cm.length||cns.length)?'Credit Note Passed':'Invoiced';
+  const diff=cns.length?cr-i.amt:0;let rs;const stats=i.cl.map(c=>c.cstat).join(',');
+  if(cns.length){rs=Math.abs(diff)<=tol?'Matched – BMW credit received':diff<0?'Short credit from BMW':'Excess credit from BMW'}
+  else if(i.cl.length){rs=/APPROV/.test(stats)?'Claim approved – credit pending':/REJECT|DECLIN/.test(stats)?'Claim rejected':'Claim raised – awaiting decision'}
+  else if(i.cm.length){rs=Math.abs(cm-i.amt)<=tol?'Reversed by DMS credit memo':'Partial DMS credit memo'}
+  else rs=/warranty|bri|goodwill|rm_support|bsi/i.test(i.acc)?'Invoiced – no claim / credit found':'Invoiced – open';
+  if(i.cm.length&&cns.length)fl.push('Both DMS credit memo and BMW credit exist – verify double credit');
+  if(!cns.length&&i.cl.length&&age>pend)fl.push('Credit pending '+age+' days');
+  if(!cns.length&&!i.cl.length&&!i.cm.length&&age>pend&&/warranty|bri|goodwill|bsi/i.test(i.acc))fl.push('No claim filed for '+age+' days');
+  if(i.cl.some(c=>c.aamt&&c.camt-c.aamt>tol))fl.push('Claim short-approved by ₹'+inr(ca-ap));
+  if(diff&&Math.abs(diff)>tol)fl.push('Credit vs invoice diff ₹'+inr(diff));
+  if(vinMap[i.vin]){const q=vinMap[i.vin].filter(z=>z!==i&&z.date&&i.date&&Math.abs(z.date-i.date)<=15*864e5&&Math.abs(z.amt-i.amt)<=Math.max(tol,i.amt*.03));
+   if(q.length&&i.cm.length)fl.push('Possible re-bill: '+q.map(z=>z.no).join(', '));else if(q.length&&!i.cm.length&&!q.some(z=>z.cm.length))fl.push('Possible duplicate of '+q.map(z=>z.no).join(', '))}
+  if(i.cl.length>1)fl.push(i.cl.length+' claims on this invoice');
+  const rep=i.cl.filter(c=>c.dupCred).length;if(rep)fl.push('Same BMW CN & credit repeated on '+(rep+1)+' claim lines'+(o.dedupe?' – counted once':' – check double count'));
+  if(i.cl.some(c=>c.viaRO))fl.push('Claim matched by RO no. only');
+  const dcr=dayDiff(cnd,i.date);if(dcr!==''&&dcr<0)fl.push('BMW credit dated before invoice');
+  const rem=[];i.cm.forEach(x=>rem.push('DMS CM '+x.no+' dt '+fmtD(x.date)+' ₹'+inr(x.amt)));i.dn.forEach(x=>rem.push('Debit note '+x.no+' dt '+fmtD(x.date)+' ₹'+inr(x.amt)));
+  i.cl.forEach(c=>rem.push('Claim '+c.claim+' '+c.cstat+(c.cn?' → BMW CN '+c.cn+' dt '+fmtD(c.cndate)+' ₹'+inr(c.cred)+(c.skip?' (repeat, not counted)':''):' (no credit yet)')));
+  return{...agg(i.cl,o.dedupe),ix,bs,rs,ncl:i.cl.length,band:i.cl.length>1?bandOf(i.cl.length):'',nnt:i.cm.length+i.dn.length,date:i.date,no:i.no,order:i.order,cust:i.cust,acc:i.acc,vin:i.vin,plate:i.plate,mat:i.mat,adv:i.adv,pay:i.pay,tax:i.tax,amt:i.amt,cmno:i.cm.map(x=>x.no).join(', '),cmd:i.cm[0]?.date,cma:cm,dnno:i.dn.map(x=>x.no).join(', '),dnd:i.dn[0]?.date,dna:dn,code:i.cl.map(c=>c.claim).filter(Boolean).join(', '),cst:[...new Set(i.cl.map(c=>c.cstat))].join(', '),ca,ap,cnno:cns.join(', '),cnd,cr,diff,net:i.amt-cm-cr+dn,age,bk:age<=30?'0–30':age<=60?'31–60':age<=90?'61–90':'90+',dcl:dayDiff(cdt,i.date),dcr,mon:monOf(i.date),rem:rem.join(' | '),flags:fl.join('; '),man:''}});
+ const cld=ucl.map(c=>{const t=c.t,o2={fd:t?t.date:(c.cdate||c.repair),dmsno:t?t.no:'',dmsdate:t?t.date:null,dmsamt:t?t.amt:'',acc:t?t.acc:'',cust:t?t.cust:c.cust,vin:t?t.vin:c.vin,plate:t?t.plate:c.plate};F.trk.forEach(f=>o2['t_'+f[0]]=c[f[0]]);
+  const split=t&&t.cl.length>1;
+  o2.d1=t&&c.invamt?c.invamt-t.amt:'';o2.d2=t?(split?t.crT:c.cu)-t.amt:'';o2.split=split?bandOf(t.cl.length):'';
+  const tail=split?' (split: invoice total)':'';
+  o2.res=!t?'Invoice not in DMS BMW billing':(o2.d1!==''&&Math.abs(o2.d1)>tol)?'Invoice amount mismatch':!c.cn?(/APPROV/.test(c.cstat)?'Claim approved – credit pending':'Claim '+(c.cstat||'open').toLowerCase()+' – no credit'):(split&&t.crT===0)?'Excess credit from BMW'+tail:Math.abs(o2.d2)<=tol?'Matched – BMW credit received'+tail:o2.d2<0?'Short credit from BMW'+tail:'Excess credit from BMW'+tail;
+  o2.rem=(c.cn?'BMW CN '+c.cn+' dt '+fmtD(c.cndate)+' ₹'+inr(c.cred)+(c.skip?' (repeat, not counted)':'')+(c.camt!==c.aamt?' | claimed ₹'+inr(c.camt)+' vs approved ₹'+inr(c.aamt):''):'No BMW credit note yet'+(c.camt?' | claimed ₹'+inr(c.camt):''))+(c.viaRO?' | matched by RO no.':'');return o2});
+ const ex=[];reg.forEach(r=>{const add=(sev,t,d,a)=>ex.push({sev,t,no:r.no,date:r.date,cust:r.cust,acc:r.acc,amt:r.amt,net:r.net,code:r.code,d,a});
+  if(r.rs==='Short credit from BMW')add('High','Short BMW credit','Credit ₹'+inr(r.cr)+' vs invoice ₹'+inr(r.amt),'Raise short-payment query with BMW');
+  if(r.rs==='Excess credit from BMW')add('Medium','Excess BMW credit','Credit exceeds invoice by ₹'+inr(r.diff),'Verify and adjust');
+  if(r.rs==='Claim approved – credit pending'&&r.age>pend)add('High','Approved – credit pending',r.age+' days since invoice','Follow up with BMW for credit note');
+  if(r.rs==='Claim raised – awaiting decision'&&r.age>pend)add('Medium','Claim awaiting decision',r.age+' days','Chase claim approval');
+  if(r.rs==='Claim rejected')add('High','Claim rejected','Net receivable ₹'+inr(r.net),'Review rejection / re-submit or write-off');
+  if(r.rs==='Invoiced – no claim / credit found'&&r.age>pend)add('Medium','No claim filed',r.age+' days old','File claim / confirm billing');
+  if(/Possible/.test(r.flags))add('Medium','Re-bill / duplicate',r.flags.match(/Possible[^;]*/)[0],'Check duplicate billing');
+  if(/Both DMS/.test(r.flags))add('High','Double credit risk','DMS CM and BMW credit both present','Verify and reverse one');
+  if(/short-approved/.test(r.flags))add('Low','Claim vs approved diff',r.flags.match(/Claim short[^;]*/)[0],'Check deduction reason');
+  if(r.ncl>1)add('Low','Multiple claims on one invoice',r.ncl+' claim lines: '+r.code,'Verify split claims add up to the invoice');
+  if(/repeated on/.test(r.flags))add('Medium','Repeated BMW credit on claim lines',r.flags.match(/Same BMW[^;]*/)[0],'Verify credited amounts');
+  if(/matched by RO/.test(r.flags))add('Low','Claim matched by RO only','Tracker invoice no. did not match','Confirm invoice number in tracker');
+  if(/dated before/.test(r.flags))add('Medium','BMW credit before invoice date','CN '+fmtD(r.cnd)+' vs invoice '+fmtD(r.date),'Check dates / invoice number');
+  if(r.nnt>1)add('Low','Multiple credit/debit notes',(r.cmno+' '+r.dnno).trim(),'Verify notes net to the invoice')});
+ cld.filter(x=>x.res.startsWith('Invoice not in')).forEach(x=>ex.push({sev:'Medium',t:'Claim not in DMS BMW billing',no:x.t_inv,date:x.fd,cust:x.cust,acc:'',amt:x.t_invamt,net:'',code:x.t_claim,d:'Tracker invoice '+x.t_inv+' not found in BMW invoices',a:'Check invoice number / Bill-To'}));
+ cld.filter(x=>x.res.startsWith('Invoice amount mismatch')).forEach(x=>ex.push({sev:'Medium',t:'Tracker vs DMS invoice amount',no:x.dmsno,date:x.fd,cust:x.cust,acc:x.acc,amt:x.dmsamt,net:'',code:x.t_claim,d:'Tracker ₹'+inr(x.t_invamt)+' vs DMS ₹'+inr(x.dmsamt),a:'Confirm which amount is right'}));
+ dupI.forEach(n=>ex.push({sev:'Low',t:'Duplicate invoice row ignored',no:n.no,date:n.date,cust:'',acc:'',amt:'',net:'',code:'',d:n.txt,a:'Check source export'}));
+ const sc={};ucl.forEach(c=>{if(c.claim&&c.t)(sc[c.claim]=sc[c.claim]||new Set()).add(c.t.no)});
+ Object.entries(sc).filter(([k,s])=>s.size>1).forEach(([k,s])=>{const f=by[[...s][0]];ex.push({sev:'Medium',t:'One claim spans several invoices',no:[...s].join(', '),date:f?f.date:null,cust:f?f.cust:'',acc:'',amt:'',net:'',code:k,d:'Claim '+k+' linked to '+s.size+' invoices',a:'Confirm claim split / wrong invoice no.'})});
+ orphan.forEach(x=>ex.push({sev:'Low',t:'Credit memo – invoice not in register',no:x.from,date:x.date,cust:x.name,acc:'',amt:x.amt,net:'',code:'',d:x.no+' ₹'+inr(x.amt),a:'Check invoice belongs to BMW'}));
+ const cn={};reg.forEach(r=>r.cnno.split(', ').filter(Boolean).forEach(n=>{const c=cn[n]=cn[n]||{no:n,date:r.cnd,n:0,bill:0,cr:0,ca:0,ap:0};c.n++;c.bill+=r.amt;const q=by[r.no].cl.filter(x=>x.cn===n);c.cr+=q.reduce((a,x)=>a+x.cu,0);c.ca+=q.reduce((a,x)=>a+x.camt,0);c.ap+=q.reduce((a,x)=>a+x.aamt,0)}));
+ const cnl=Object.values(cn).map(c=>({...c,diff:c.cr-c.bill,res:Math.abs(c.cr-c.bill)<=tol*c.n?'Matched':c.cr<c.bill?'Short':'Excess'}));
+ A('Invoice rows read',D.inv.length?'Passed':'Error',D.inv.length,o.invFile||'');A('BMW invoices kept',inv.length?'Passed':'Error',inv.length,nb+' non-BMW rows skipped'+(ne?'; '+ne+' Bajaj EW rows skipped (tick the option to include)':''));
+ W('Duplicate invoice rows ignored',dupI.length,dupI.slice(0,10).map(x=>x.txt).join(', '));W('Invoices with missing/unreadable date',inv.filter(i=>!i.date).length,'Age shows 0 and they drop out of period filters');W('Invoices without VIN',inv.filter(i=>!i.vin).length,'Re-bill detection needs VIN');
+ W('Zero or negative invoice amount',inv.filter(i=>i.amt<=0).length,inv.filter(i=>i.amt<=0).slice(0,10).map(i=>i.no).join(', '));
+ const ld=inv.map(i=>i.date).filter(Boolean).sort((a,b)=>b-a)[0];W('Report date earlier than latest invoice',ld&&ld>rd?1:0,'Ages would be negative – fix the report date');
+ if(D.hasCm||D.hasDn){W('Credit/debit note duplicates ignored',cmDup,cms.length+' notes loaded');W('Notes whose invoice is not in the BMW register',orphan.length,orphan.slice(0,10).map(x=>x.no).join(', '));W('Notes with no invoice reference in Created From',noRef.length,noRef.slice(0,10).join(', '))}
+ if(D.hasTrk){A('Tracker claim rows read',tr.length?'Passed':'Error',tr.length,(D.trk.length-tr.length)+' blank rows skipped');W('Duplicate claim rows ignored',cDup);W('Claims not matched to a BMW invoice',ucl.filter(c=>!c.t).length,'Check invoice no. / date range of the DMS export');W('Claims matched only via RO / Order no.',roHit,'Verify these manually');W('Claims with no invoice no.',ucl.filter(c=>!c.inv).length);W('BMW CN present but credited amount is 0',ucl.filter(c=>c.cn&&!c.cred).length);W('Credited amount but no BMW CN no.',ucl.filter(c=>!c.cn&&c.cred).length);W('Approved amount higher than claimed',ucl.filter(c=>c.aamt>c.camt+tol).length);W('Claims spanning several invoices',Object.values(sc).filter(s=>s.size>1).length);W('Repeated credit lines '+(o.dedupe?'(counted once)':'(counted every time)'),ucl.filter(c=>c.dupCred).length,'Same BMW CN and amount on several claim lines of one invoice');
+  A('Invoices with 2+ claims','Info',reg.filter(r=>r.ncl>1).length,'2 claims: '+reg.filter(r=>r.ncl===2).length+' · 3 claims: '+reg.filter(r=>r.ncl===3).length+' · 4+ claims: '+reg.filter(r=>r.ncl>3).length+' – each has its own Excel sheet')}
+ (D.unmapped||[]).forEach(u=>A('Column not mapped: '+u,'Error',1,'Pick it in the mapping dropdowns and regenerate'));
+ const mo={},ac={};
+ reg.forEach(r=>{const m=mo[r.mon]=mo[r.mon]||{mon:r.mon,n:0,amt:0,cm:0,cr:0,net:0,m2:0};m.n++;m.amt+=r.amt;m.cm+=r.cma;m.cr+=r.cr;m.net+=r.net;if(r.ncl>1)m.m2++;
+  const a=ac[r.acc]=ac[r.acc]||{acc:r.acc,n:0,amt:0,cm:0,dn:0,cr:0,net:0,ok:0,pend:0,rej:0,short:0};a.n++;a.amt+=r.amt;a.cm+=r.cma;a.dn+=r.dna;a.cr+=r.cr;a.net+=r.net;
+  if(/^Matched|^Reversed/.test(r.rs))a.ok++;else if(/pending|awaiting/.test(r.rs))a.pend++;else if(/rejected/.test(r.rs))a.rej++;else if(/Short/.test(r.rs))a.short++});
+ const cmsX=cms.map(c=>{const i=by[c.from],d=i?i.amt-c.amt:'';return{...c,type:c.dn?'Debit Note':'Credit Note',inReg:i?'Yes':'No',iamt:i?.amt,idate:i?.date,idiff:d,days:i?dayDiff(c.date,i.date):'',res:!i?'Invoice not in BMW register':c.dn?'Debit note raised on invoice':Math.abs(d)<=tol?'Full reversal':d>0?'Partial credit':'Credit exceeds invoice'}});
+ return{by,aud:AUD,reg,ex,cnl,cms:cmsX,cld,mo:Object.values(mo).sort((a,b)=>a.mon.localeCompare(b.mon)),ac:Object.values(ac).sort((a,b)=>b.net-a.net),rd}}
+/*ENDCORE*/
+const S={inv:null,cm:null,dn:null,trk:null},M={inv:{},cm:{},dn:{},trk:{}},MAN={};
+const T={inv:['Service Invoices (DMS)','Required · Invoice No., Bill To, Amount'],cm:['Service Credit Memos (DMS)','Optional · Created From “Invoice #…”'],dn:['Debit Notes (DMS)','Optional · same layout as credit memos'],trk:['Warranty Claim / Credit tracker','Optional · all month sheets are read']};
+let R=null,tab='Dashboard',fl={},sortK='',sortD=1,lim=400;
+const P={mode:'all',m:'',f:'',t:'',full:false};
+const OPT=['tol','pend','bf'],OPC=['ew','pos','reb','ro','dd'];
+const sget=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},sset=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+{const l=new Date();$('#rd').value=l.getFullYear()+'-'+String(l.getMonth()+1).padStart(2,'0')+'-'+String(l.getDate()).padStart(2,'0');
+ const so=sget('bmw3_opts');if(so){OPT.forEach(k=>{if(so[k]!=null)$('#'+k).value=so[k]});OPC.forEach(k=>{if(so[k]!=null)$('#'+k).checked=!!so[k]})}
+ Object.assign(MAN,sget('bmw3_man')||{});
+ [...OPT,...OPC].forEach(k=>$('#'+k).addEventListener('change',()=>{const v={};OPT.forEach(x=>v[x]=$('#'+x).value);OPC.forEach(x=>v[x]=$('#'+x).checked);sset('bmw3_opts',v)}))}
+function toast(m,ms){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',ms||3500)}
+async function readFiles(t,files){try{toast('Reading '+files.length+' file(s)…',9000);const sh=[];
+ for(const file of files){const wb=XLSX.read(await file.arrayBuffer(),{cellDates:true});
+  wb.SheetNames.forEach(n=>{const a=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null});let best=-1,bs=0;
+   for(let i=0;i<Math.min(a.length,10);i++){const set=new Set((a[i]||[]).map(N));const sc=F[t].filter(f=>f[2].some(s=>set.has(s))).length;if(sc>bs){bs=sc;best=i}}
+   if(best>=0&&bs>=2)sh.push({n:(files.length>1?file.name.replace(/\.\w+$/,'')+' › ':'')+n,h:uq(a[best]),hl:a[best].map(x=>String(x??'').replace(/\s+/g,' ').trim()),rows:a.slice(best+1).filter(r=>r&&r.some(x=>x!==null&&x!==''))})})}
+ if(!sh.length)throw new Error('no sheet with recognisable '+T[t][0]+' headers');
+ S[t]={file:files.length>1?files.length+' files':files[0].name,sh};const lab={};sh.forEach(s=>s.h.forEach((k,i)=>{if(k&&!lab[k])lab[k]=s.hl[i]+(k.includes('#')?' ['+k.split('#')[1]+']':'')}));S[t].lab=lab;
+ M[t]={};F[t].forEach(f=>{const c=f[2].find(s=>lab[s]);if(c)M[t][f[0]]=c});drawDrops();chk();toast('Loaded '+S[t].file)}catch(e){toast('Could not read file: '+e.message);console.error(e)}}
+function drawDrops(){$('#drops').innerHTML=Object.keys(T).map(t=>{const s=S[t];return`<div><div class="drop ${s?'ok':''}" data-t="${t}" tabindex="0" role="button"><b>${T[t][0]}</b><span>${s?'✔ '+esc(s.file)+' · '+s.sh.length+' sheet(s) · '+s.sh.reduce((a,x)=>a+x.rows.length,0)+' rows':T[t][1]+'<br>Drop file here or click'}</span><input type="file" accept=".xlsx,.xls,.csv" multiple hidden></div>${s?'<button class="s" data-x="'+t+'" style="margin-top:6px">✕ Remove file</button>':''}${s?'<div class="map">'+F[t].map(f=>`<span>${f[1]}${f[3]?' *':''}</span><select data-t="${t}" data-k="${f[0]}"><option value="">– none –</option>${Object.entries(s.lab).map(([k,l])=>`<option value="${esc(k)}" ${M[t][f[0]]===k?'selected':''}>${esc(l)}</option>`).join('')}</select>`).join('')+'</div>':''}</div>`}).join('');
+ document.querySelectorAll('.drop').forEach(d=>{const i=d.querySelector('input'),t=d.dataset.t;d.onclick=()=>i.click();d.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();i.click()}};i.onclick=e=>e.stopPropagation();i.onchange=()=>{const f=[...i.files];i.value='';f.length&&readFiles(t,f)};d.ondragover=e=>{e.preventDefault();d.classList.add('on')};d.ondragleave=()=>d.classList.remove('on');d.ondrop=e=>{e.preventDefault();d.classList.remove('on');e.dataTransfer.files.length&&readFiles(t,[...e.dataTransfer.files])}});
+ document.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{S[b.dataset.x]=null;M[b.dataset.x]={};drawDrops();chk()});
+ document.querySelectorAll('.map select').forEach(s=>s.onchange=()=>{M[s.dataset.t][s.dataset.k]=s.value;chk()})}
+function chk(){const ok=S.inv&&M.inv.no&&M.inv.bill&&M.inv.amt&&M.inv.date;$('#go').disabled=!ok;$('#st').textContent=ok?'Ready – click Generate report.':'Upload the Service Invoices file and map the required (*) columns.'}
+function rows(t){if(!S[t])return[];const o=[];S[t].sh.forEach(s=>{const ix={};s.h.forEach((k,i)=>{if(k&&!(k in ix))ix[k]=i});s.rows.forEach(r=>{const x={_s:s.n};F[t].forEach(f=>{const c=M[t][f[0]];x[f[0]]=c&&c in ix?r[ix[c]]:null});o.push(x)})});return o}
+function run(){const rd=$('#rd').value?new Date($('#rd').value+'T00:00'):new Date();
+ const D={inv:rows('inv'),cm:rows('cm'),dn:rows('dn'),trk:rows('trk'),hasCm:!!S.cm,hasDn:!!S.dn,hasTrk:!!S.trk,unmapped:[]};
+ [['cm','no'],['cm','from'],['cm','amt'],['dn','no'],['dn','from'],['dn','amt'],['trk','claim'],['trk','inv'],['trk','cn'],['trk','cred'],['trk','camt'],['inv','date']].forEach(([t,k])=>{if(S[t]&&!M[t][k])D.unmapped.push(T[t][0]+' → '+k)});
+ R=compute(D,{tol:num($('#tol').value),pend:num($('#pend').value),rd,ew:$('#ew').checked,pos:$('#pos').checked,reb:$('#reb').checked,ro:$('#ro').checked,dedupe:$('#dd').checked,bill:$('#bf').value,invFile:S.inv.file});
+ R.reg.forEach(r=>r.man=MAN[r.no]||'');fl={};sortK='';lim=400;P.mode='all';$('#out').hidden=false;show('Dashboard')}
+const tabs=['Dashboard','Register','WTY Claims vs DMS','Multi-Claim','DMS vs Credit/Debit Notes','Exceptions','BMW CN Recon','By Account','Monthly','Audit'];
+function pc(s){return/Matched|Reversed|Credit Note Passed|Full reversal|^Passed/.test(s)?'g':/Short|rejected|High|Debit|Double|no claim|not in|mismatch|exceeds|^Error/i.test(s)?'b':/pending|awaiting|Excess|Partial|Medium|no credit|^Warning/.test(s)?'w':/Invoiced/.test(s)?'n':'i'}
+const pill=s=>s?`<span class="pill P-${pc(s)}">${esc(s)}</span>`:'';
+const inP=d=>{if(P.mode==='all')return true;if(!d)return false;if(P.mode==='m')return monOf(d)===P.m;const a=P.f?new Date(P.f+'T00:00'):null,b=P.t?new Date(P.t+'T23:59:59'):null;return(!a||d>=a)&&(!b||d<=b)};
+const FR=()=>R.reg.filter(r=>inP(r.date)),FE=()=>R.ex.filter(e=>inP(e.date)),FC=()=>R.cld.filter(c=>inP(c.fd)),FM=()=>R.cms.filter(c=>inP(c.date)),FN=()=>R.cnl.filter(c=>inP(c.date));
+function pbar(){return'<span class="msg"><b>Period</b></span><select id="pm" aria-label="Period"><option value="all">All dates</option><option value="m" '+(P.mode==='m'?'selected':'')+'>Specific month</option><option value="r" '+(P.mode==='r'?'selected':'')+'>Date range</option></select>'+(P.mode==='m'?'<select id="pmm" aria-label="Month">'+R.mo.filter(m=>m.mon).map(m=>`<option ${P.m===m.mon?'selected':''}>${m.mon}</option>`).join('')+'</select>':'')+(P.mode==='r'?`<input type="date" id="pf1" value="${P.f}"><input type="date" id="pf2" value="${P.t}">`:'')+'<span class="msg">applies to every tab and the Excel export (by invoice date; claims by DMS invoice date)</span>'}
+function show(t){tab=t;$('#pf').innerHTML=pbar();$('#pm').onchange=e=>{P.mode=e.target.value;if(P.mode==='m'&&!P.m){const ms=R.mo.filter(m=>m.mon);P.m=ms.length?ms[ms.length-1].mon:''}show(tab)};
+ [['#pmm','m'],['#pf1','f'],['#pf2','t']].forEach(([id,k])=>{const e=$(id);if(e)e.onchange=()=>{P[k]=e.value;show(tab)}});
+ $('#tabs').innerHTML=tabs.map(x=>`<button class="${x===t?'on':''}" data-t="${x}">${x}</button>`).join('')+'<span style="flex:1"></span><button class="s" id="xl">⬇ Excel (this period)</button><button class="s" id="xa">⬇ Excel (all dates)</button><button class="s" id="xm">⬇ Multi-claim sheets</button><button class="s" id="xe">⬇ Exceptions + Audit</button>';
+ document.querySelectorAll('#tabs [data-t]').forEach(b=>b.onclick=()=>{lim=400;sortK='';fl={};show(b.dataset.t)});
+ $('#xl').onclick=()=>exportX('period');$('#xa').onclick=()=>exportX('all');$('#xm').onclick=()=>exportX('multi');$('#xe').onclick=()=>exportX('exc');
+ const v=$('#view');({Dashboard:dash,Register:()=>tbl(v,FR(),vis(regCols),1),'WTY Claims vs DMS':()=>tbl(v,FC(),vis(clCols),1),'Multi-Claim':()=>mcView(v),'DMS vs Credit/Debit Notes':()=>tbl(v,FM(),cmCols,1),Exceptions:()=>tbl(v,FE(),exCols,1),'BMW CN Recon':()=>tbl(v,FN(),cnCols),'By Account':()=>tbl(v,accRows(),acCols),Monthly:()=>tbl(v,R.mo,moCols),Audit:()=>tbl(v,R.aud,auCols,1)})[t](v)}
+const cnt=(a,k)=>a.reduce((m,x)=>(m[x[k]]=(m[x[k]]||0)+1,m),{}),sm=(a,k)=>a.reduce((s,x)=>s+(+x[k]||0),0);
+function accRows(){const m={};FR().forEach(r=>{const a=m[r.acc]=m[r.acc]||{acc:r.acc,n:0,amt:0,cm:0,dn:0,cr:0,net:0,ok:0,pend:0,rej:0,short:0};a.n++;a.amt+=r.amt;a.cm+=r.cma;a.dn+=r.dna;a.cr+=r.cr;a.net+=r.net;
+ if(/^Matched|^Reversed/.test(r.rs))a.ok++;else if(/pending|awaiting/.test(r.rs))a.pend++;else if(/rejected/.test(r.rs))a.rej++;else if(/Short/.test(r.rs))a.short++});return Object.values(m).sort((a,b)=>b.net-a.net)}
+function dash(v){const r=FR(),c=FC(),mk=(l,x,go,f)=>`<div class="k" ${go?`data-go="${esc(go)}" data-f="${esc(JSON.stringify(f||{}))}" tabindex="0"`:''}><small>${l}</small><div>${x}</div></div>`;
+ const bars=(o,tt,go,key,extra)=>{const ks=Object.keys(o);if(!ks.length)return'';const m=Math.max(...Object.values(o));return`<div class="card"><h2>${tt} <span class="msg">click a row to open it</span></h2>${Object.entries(o).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<div class="brow" data-go="${esc(go)}" data-f="${esc(JSON.stringify({[key]:k,...(extra||{})}))}">${pill(k)}<div><div class="bar" style="width:${n/m*100}%"></div></div><b style="text-align:right">${n}</b></div>`).join('')}</div>`};
+ const rg=a=>{const x=a.filter(Boolean).sort((p,q)=>p-q);return x.length?fmtD(x[0])+' to '+fmtD(x[x.length-1]):'–'},um=R.cld.filter(x=>x.res.startsWith('Invoice not in')).length;
+ const cov=R.cld.length?`<div class="card ${um?'warnbox':'okbox'}"><b>Data coverage</b> · DMS invoices: ${rg(R.reg.map(x=>x.date))} · Claim tracker (claim dates): ${rg(R.cld.map(x=>x.t_cdate))} · ${R.cld.length-um} of ${R.cld.length} claims matched to a DMS BMW invoice${um?`<br><span class="msg">⚠ ${um} claims have no matching invoice. If the claim period is outside the DMS invoice period, export DMS invoices for the claim months too and re-upload.</span>`:''}</div>`:'';
+ const n2=r.filter(x=>x.ncl===2).length,n3=r.filter(x=>x.ncl===3).length,n4=r.filter(x=>x.ncl>3).length;
+ v.innerHTML=cov+`<div class="kpis">${mk('BMW invoices',r.length)}${mk('Invoice value (with tax)','₹'+inr(sm(r,'amt')))}${mk('DMS credit memos','₹'+inr(sm(r,'cma')))}${mk('Debit notes','₹'+inr(sm(r,'dna')))}${mk('Claim amount','₹'+inr(sm(r,'t_camt')))}${mk('Approved amount','₹'+inr(sm(r,'t_aamt')))}${mk('BMW credits received','₹'+inr(sm(r,'cr')))}${mk('Net receivable','₹'+inr(sm(r,'net')))}${mk('Exceptions',FE().length,'Exceptions')}${mk('Invoices with 2 claims',n2,'Multi-Claim',{band:'2 claims'})}${mk('Invoices with 3 claims',n3,'Multi-Claim',{band:'3 claims'})}${mk('Invoices with 4+ claims',n4,'Multi-Claim',{band:'4+ claims'})}${mk('Audit warnings',R.aud.filter(a=>a.sev==='Warning'||a.sev==='Error').length,'Audit')}</div>
+ <div class="grid g4">${bars(cnt(r,'bs'),'Billing status','Register','bs')}${bars(cnt(r,'rs'),'Reconciliation status','Register','rs')}${bars(cnt(c,'res'),'Warranty claims vs DMS','WTY Claims vs DMS','res')}${bars(cnt(r.filter(x=>x.net>1),'bk'),'Receivable ageing (invoices with balance)','Register','bk',{bal:1})}${bars(cnt(r,'acc'),'BMW account','Register','acc')}</div>`;
+ v.querySelectorAll('[data-go]').forEach(e=>{const go=()=>{lim=400;sortK='';fl=JSON.parse(e.dataset.f||'{}');show(e.dataset.go)};e.onclick=go;e.onkeydown=ev=>{if(ev.key==='Enter')go()}})}
+const D=d=>fmtD(d);
+/* column spec: [key,label,type,valueFn,compact]  type: 'n' number, 'r' wrapped text, 'e' editable remark, function = renderer */
+const trkCols=F.trk.filter(f=>!['inv','cust','vin','plate','ro'].includes(f[0])).map(f=>['t_'+f[0],f[1],DT.includes(f[0])?D:TX.includes(f[0])?undefined:'n',null,['claim','cstat','cdate','camt','aamt','cn','cndate','cred'].includes(f[0])]);
+const clCols=[['res','Result',pill,null,1],['split','Split',undefined,null,1],['dmsno','DMS Invoice No.',undefined,null,1],['dmsdate','DMS Inv Date',D,null,1],['acc','BMW Acct',undefined,null,1],['cust','Customer',undefined,null,1],['vin','VIN'],['plate','Plate'],['dmsamt','DMS Inv Amt','n',null,1],['t_ro','RO No'],['t_inv','Tracker Inv No'],...trkCols,['d1','Tracker Inv − DMS Inv','n',null,1],['d2','Credited − DMS Inv','n',null,1],['rem','Remarks','r',null,1]];
+const regCols=[['bs','Billing Status',pill,null,1],['rs','Reconciliation',pill,null,1],['ncl','# Claims','n',null,1],['date','Inv Date',D,null,1],['no','Invoice No.',undefined,null,1],['order','Order / RO'],['cust','Customer',undefined,null,1],['acc','BMW Acct',undefined,null,1],['vin','VIN',undefined,null,1],['plate','Plate'],['amt','Invoice Amt','n',null,1],['cmno','DMS CM No.'],['cmd','CM Date',D],['cmamt','CM Amt','n',r=>r.cma||'',1],['dnno','Debit Note'],['dnd','DN Date',D],['dnamt','DN Amt','n',r=>r.dna||'',1],['code','Claim No(s)',undefined,null,1],['cnno','BMW CN No(s)',undefined,null,1],...trkCols,['diff','Credit−Inv','n',null,1],['net','Net Receivable','n',null,1],['dcl','Days Inv→Claim'],['dcr','Days Inv→Credit'],['age','Age',undefined,null,1],['bk','Bucket',undefined,null,1],['rem','Auto Remarks','r'],['flags','Flags','r',null,1],['man','Manual Remarks','e',null,1]];
+const vis=c=>P.full?c:c.filter(x=>x[4]);
+const exCols=[['sev','Severity',pill],['t','Exception'],['no','Invoice No.'],['date','Inv Date',D],['cust','Customer'],['acc','Acct'],['amt','Invoice Amt','n'],['net','Net Recv.','n'],['code','Claim'],['d','Detail','r'],['a','Suggested Action','r']];
+const cnCols=[['no','BMW CN No.'],['date','CN Date',D],['n','Invoices','n'],['bill','Billed','n'],['cr','Credited','n'],['diff','Difference','n'],['res','Result',pill],['ca','Claim Amt','n'],['ap','Approved','n']];
+const cmCols=[['type','Type',pill],['date','Note Date',D],['no','Note No.'],['name','Name'],['amt','Note Amount','n'],['status','Status'],['from','Created From Invoice'],['inReg','In BMW Register?'],['idate','Invoice Date',D],['iamt','Invoice Amount','n'],['idiff','Invoice − Note','n'],['days','Days Inv→Note'],['res','Result',pill]];
+const moCols=[['mon','Month'],['n','Invoices','n'],['amt','Invoice Value','n'],['cm','DMS CM','n'],['cr','BMW Credits','n'],['net','Net Receivable','n'],['m2','With 2+ claims','n']];
+const acCols=[['acc','BMW Account'],['n','Invoices','n'],['amt','Invoice Value','n'],['cm','DMS CM','n'],['dn','Debit Notes','n'],['cr','BMW Credits','n'],['net','Net Receivable','n'],['ok','Matched / reversed','n'],['pend','Pending','n'],['rej','Rejected','n'],['short','Short credit','n']];
+const mcCols=[['band','Claims on Invoice'],['grp','Invoice No.'],['date','Inv Date',D],['cust','Customer'],['acc','BMW Acct'],['vin','VIN'],['amt','Invoice Amt','n'],['claim','Claim No'],['cstat','Claim Status'],['camt','Claim Amt','n'],['aamt','Approved Amt','n'],['cn','BMW CN No'],['cndate','CN Date',D],['cred','Credited','n'],['cu','Credit Counted','n'],['net','Net Receivable (per invoice)','n'],['rec','Invoice Recon',pill]];
+const miCols=[['band','Claims'],['no','Invoice No.'],['date','Inv Date',D],['cust','Customer'],['acc','BMW Acct'],['vin','VIN'],['amt','Invoice Amt','n'],['ncl','# Claims','n'],['code','Claim Nos','r'],['cst','Statuses'],['ca','Claim Amt','n'],['ap','Approved Amt','n'],['cnno','BMW CN Nos'],['cr','Credits Counted','n'],['diff','Credit−Inv','n'],['net','Net Receivable','n'],['rs','Reconciliation',pill],['flags','Flags','r']];
+const auCols=[['chk','Audit Check'],['sev','Result',pill],['n','Count','n'],['d','Detail','r']];
+function mcRows(rr){const list=rr.filter(r=>r.ncl>1).sort((a,b)=>a.ncl-b.ncl||(a.date||0)-(b.date||0)||String(a.no).localeCompare(String(b.no)));const o=[];
+ list.forEach((r,gi)=>R.by[r.no].cl.forEach((c,j)=>o.push({gi,band:bandOf(r.ncl),grp:r.no,date:r.date,cust:r.cust,acc:r.acc,vin:r.vin,amt:j?'':r.amt,claim:c.claim,cstat:c.cstat,camt:c.camt,aamt:c.aamt,cn:c.cn,cndate:c.cndate,cred:c.cred,cu:c.cu,net:j?'':r.net,rec:j?'':r.rs})));return o}
+const FMC=()=>mcRows(FR());
+function mcView(v){const all=FMC(),b=['2 claims','3 claims','4+ claims'],cur=fl.band||'';
+ const n=x=>new Set(all.filter(r=>!x||r.band===x).map(r=>r.grp)).size;
+ v.innerHTML=`<div class="chips" id="mcc"><button data-b="" class="${cur?'':'on'}">All (${n('')})</button>${b.map(x=>`<button data-b="${x}" class="${cur===x?'on':''}">${x} (${n(x)})</button>`).join('')}</div><div id="mct"></div>`;
+ tbl($('#mct'),all,mcCols,1);
+ v.querySelectorAll('#mcc button').forEach(x=>x.onclick=()=>{fl={band:x.dataset.b};lim=400;mcView(v)})}
+const SQ=new WeakMap();function sq(r){let s=SQ.get(r);if(s===undefined){s=Object.values(r).map(x=>x instanceof Date?fmtD(x):(x&&typeof x==='object')?'':x).join(' ').toLowerCase();SQ.set(r,s)}return s}
+const FKEYS=['bs','rs','res','type','acc','sev','bk','band'],FLAB={bs:'billing status',rs:'recon status',res:'result',sev:'severity',band:'claim count',acc:'accounts',bk:'age bucket',type:'type'};
+function filtered(data,cols){const q=(fl.q||'').toLowerCase();let d=data.filter(r=>(!q||sq(r).includes(q))&&Object.entries(fl).every(([k,x])=>k==='q'||!x||(k==='bal'?r.net>1:r[k]===x)));
+ if(sortK){const sc=cols.find(c=>c[0]===sortK),g=r=>{const v=sc&&sc[3]?sc[3](r):r[sortK];return v instanceof Date?+v:v},em=v=>v===''||v==null;d=[...d].sort((a,b)=>{const p=g(a),q2=g(b);return em(p)&&em(q2)?0:em(p)?1:em(q2)?-1:(p>q2?1:p<q2?-1:0)*sortD})}return d}
+function tbl(v,data,cols,filt){const d=filtered(data,cols);
+ const sel=k=>filt&&data[0]&&k in data[0]&&!(k==='band'&&tab==='Multi-Claim')?`<select data-f="${k}" aria-label="${FLAB[k]||k}"><option value="">All ${FLAB[k]||k}</option>${[...new Set(data.map(x=>x[k]))].filter(x=>x!==''&&x!=null).sort().map(x=>`<option ${fl[k]===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:'';
+ const tot=cols.map((c,i)=>c[2]==='n'?`<td class="n">${inr(d.reduce((s,r)=>s+(+(c[3]?c[3](r):r[c[0]])||0),0))}</td>`:`<td>${i===0?'Total ('+d.length+')':''}</td>`).join('');
+ const bal=fl.bal?'<span class="pill P-w">only invoices with balance</span>':'';
+ v.innerHTML=`<div class="tools">${filt?`<input type="text" id="q" placeholder="Search invoice, VIN, customer, claim…" value="${esc(fl.q||'')}" style="width:260px">`:''}${FKEYS.map(sel).join('')}${bal}${(tab==='Register'||tab==='WTY Claims vs DMS')?`<button class="s" id="fc">${P.full?'Compact columns':'All columns'}</button>`:''}<span class="msg">${d.length} rows${d.length>lim?' (showing '+lim+')':''}</span><button class="s" id="csv">CSV of filtered</button><button class="s" id="xf">Excel of filtered</button>${Object.keys(fl).length?'<button class="s" id="clr">Clear filters</button>':''}</div><div class="tw"><table><thead><tr>${cols.map(c=>`<th data-k="${c[0]}">${c[1]}${sortK===c[0]?(sortD>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead><tbody>${d.slice(0,lim).map(r=>'<tr>'+cols.map(c=>{const val=c[3]?c[3](r):r[c[0]];const f=typeof c[2]==='function'?c[2]:null;const cl=c[2]==='n'?'n':c[2]==='r'?'r':'';if(c[2]==='e')return`<td><input type="text" class="m" data-ix="${r.ix}" value="${esc(r.man)}" placeholder="remark…" aria-label="Manual remark"></td>`;return`<td class="${cl}">${f?f(val):c[2]==='n'?inr(val):val instanceof Date?fmtD(val):esc(val)}</td>`}).join('')+'</tr>').join('')}</tbody>${d.length?`<tfoot><tr>${tot}</tr></tfoot>`:''}</table></div>${d.length>lim?'<p><button id="more">Show more</button></p>':''}`;
+ const re=()=>tbl(v,data,cols,filt);
+ v.querySelectorAll('th').forEach(h=>h.onclick=()=>{sortD=sortK===h.dataset.k?-sortD:1;sortK=h.dataset.k;re()});
+ v.querySelectorAll('[data-f]').forEach(s=>s.onchange=()=>{fl[s.dataset.f]=s.value;lim=400;re()});
+ const q2=v.querySelector('#q');if(q2)q2.oninput=()=>{fl.q=q2.value;const p=q2.selectionStart;re();const n=v.querySelector('#q');n.focus();n.setSelectionRange(p,p)};
+ v.querySelectorAll('input.m').forEach(i=>i.onchange=()=>{const r=R.reg[i.dataset.ix];r.man=i.value;if(i.value)MAN[r.no]=i.value;else delete MAN[r.no];sset('bmw3_man',MAN)});
+ const mb=v.querySelector('#more');if(mb)mb.onclick=()=>{lim+=600;re()};
+ const fc=v.querySelector('#fc');if(fc)fc.onclick=()=>{P.full=!P.full;show(tab)};
+ const cr=v.querySelector('#clr');if(cr)cr.onclick=()=>{fl={};lim=400;if(tab==='Multi-Claim')mcView($('#view'));else re()};
+ v.querySelector('#csv').onclick=()=>{const ws=XLSX.utils.json_to_sheet(toRows(d,cols));saveFile('bmw_'+tab.replace(/\W+/g,'_')+'.csv','﻿'+XLSX.utils.sheet_to_csv(ws))};
+ v.querySelector('#xf').onclick=()=>buildAndSave([{n:tab.slice(0,31).replace(/[\\\/?*\[\]:]/g,'-'),d,c:cols}],'BMW_'+tab.replace(/\W+/g,'_')+'_filtered_'+fmtD(R.rd)+'.xlsx')}
+function toRows(d,cols){return d.map(r=>{const o={};cols.forEach(c=>{const v=c[3]?c[3](r):r[c[0]];o[c[1]]=v instanceof Date?fmtD(v):v});return o})}
+const ud=v=>v instanceof Date?new Date(Date.UTC(v.getFullYear(),v.getMonth(),v.getDate())):v,ARGB={g:'FFDFF3E6',w:'FFFDF0CC',b:'FFFBDFE2',i:'FFDDE9F6',n:'FFE8ECF0',p:'FFECE4F5'};
+function sheets(){const r=FR(),mc=mcRows(r),nt=FM(),cf={};nt.forEach(x=>{if(x.inReg==='Yes')cf[x.from]=(cf[x.from]||0)+1});
+ const bands=['2 claims','3 claims','4+ claims'],mi=r.filter(x=>x.ncl>1).sort((a,b)=>a.ncl-b.ncl||(a.date||0)-(b.date||0));
+ const sum=[['Report date',fmtD(R.rd)],['Period filter',P.mode==='all'?'All dates':P.mode==='m'?P.m:(P.f||'…')+' to '+(P.t||'…')],['BMW invoices',r.length],['Invoice value',sm(r,'amt')],['DMS credit memos',sm(r,'cma')],['Debit notes',sm(r,'dna')],['BMW credits received',sm(r,'cr')],['Net receivable',sm(r,'net')],['Exceptions',FE().length],['Invoices with 2 claims',r.filter(x=>x.ncl===2).length],['Invoices with 3 claims',r.filter(x=>x.ncl===3).length],['Invoices with 4+ claims',r.filter(x=>x.ncl>3).length],...Object.entries(cnt(r,'bs')).map(([k,v])=>['Billing: '+k,v]),...Object.entries(cnt(r,'rs')).map(([k,v])=>['Recon: '+k,v])].map(([k,v])=>({k,v}));
+ const multi=[{n:'Multi-Claim Invoices',d:mi,c:miCols,tab:'FFE8A33D'},{n:'Multi-Claim (all lines)',d:mc,c:mcCols,grp:x=>x.gi,tab:'FFE8A33D'},...bands.map(b=>({n:'Invoices - '+b.replace('claims','Claims'),d:mc.filter(x=>x.band===b),c:mcCols,grp:x=>x.gi,tab:'FFE8A33D'}))];
+ return[{n:'Summary',d:sum,c:[['k','Metric'],['v','Value']]},{n:'BMW Register',d:r,c:regCols,freeze:5},{n:'WTY Claims vs DMS',d:FC(),c:clCols,freeze:4},...multi,{n:'Multi Credit-Debit Notes',d:nt.filter(x=>cf[x.from]>1).sort((a,b)=>String(a.from).localeCompare(String(b.from))),c:cmCols},{n:'DMS vs Credit-Debit Notes',d:nt,c:cmCols},{n:'Exceptions',d:FE(),c:exCols},{n:'BMW CN Recon',d:FN(),c:cnCols},{n:'By Account',d:accRows(),c:acCols},{n:'Monthly',d:R.mo,c:moCols},{n:'Audit',d:R.aud,c:auCols}]}
+async function exportX(mode){try{const sv={...P};if(mode!=='period')P.mode='all';let Ls;try{Ls=sheets()}finally{Object.assign(P,sv)}
+ if(mode==='exc')Ls=Ls.filter(s=>/^(Exceptions|Audit)$/.test(s.n));
+ if(mode==='multi')Ls=Ls.filter(s=>/^(Multi-Claim|Invoices - )/.test(s.n));
+ const nm={period:'',all:'_AllDates',exc:'_Exceptions_Audit',multi:'_MultiClaim'}[mode];
+ await buildAndSave(Ls,'BMW_Warranty_Reconciliation'+nm+'_'+fmtD(R.rd)+'.xlsx')}catch(e){toast('Export failed: '+e.message);console.error(e)}}
+async function buildAndSave(Ls,name){try{toast('Building Excel…',20000);
+ if(window.ExcelJS){const wb=new ExcelJS.Workbook();wb.creator='BMW Claims Reconciler';
+  Ls.forEach(s=>{const ws=wb.addWorksheet(s.n.slice(0,31),{views:[{state:'frozen',ySplit:1,xSplit:s.freeze||0}]});if(s.tab)ws.properties.tabColor={argb:s.tab};
+   ws.columns=s.c.map(c=>({header:c[1],key:c[0],width:c[2]==='r'?60:c[2]==='n'?15:c[2]===D?13:Math.max(13,Math.min(32,c[1].length+4))}));
+   s.d.forEach(r=>{const o={};s.c.forEach(c=>{const v=c[3]?c[3](r):r[c[0]];o[c[0]]=ud(v)??''});const row=ws.addRow(o);if(s.grp&&s.grp(r)%2){row.eachCell({includeEmpty:true},x=>{x.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF1F4F8'}}})}});
+   s.c.forEach((c,i)=>{const col=ws.getColumn(i+1);if(c[2]==='n')col.numFmt='#,##0.00';else if(c[2]===D)col.numFmt='dd-mm-yyyy';else if(c[2]==='r')col.alignment={wrapText:true,vertical:'top'};
+    if(c[2]===pill)s.d.forEach((r,j)=>{const x=ws.getRow(j+2).getCell(i+1);if(x.value)x.fill={type:'pattern',pattern:'solid',fgColor:{argb:ARGB[pc(String(x.value))]}}})});
+   const h=ws.getRow(1);h.height=22;h.eachCell(x=>{x.font={bold:true,color:{argb:'FFFFFFFF'}};x.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF14293F'}};x.alignment={vertical:'middle',wrapText:true}});
+   if(s.d.length){ws.autoFilter={from:{row:1,column:1},to:{row:1,column:s.c.length}};
+    if(s.c.some(c=>c[2]==='n')){const n=s.d.length,tr=ws.getRow(n+2);tr.getCell(1).value='Total ('+n+')';
+     s.c.forEach((c,i)=>{if(c[2]!=='n')return;const L=ws.getColumn(i+1).letter,res=s.d.reduce((a,r)=>a+(+(c[3]?c[3](r):r[c[0]])||0),0);tr.getCell(i+1).value={formula:`SUBTOTAL(109,${L}2:${L}${n+1})`,result:res}});
+     tr.eachCell({includeEmpty:true},x=>{x.font={bold:true};x.border={top:{style:'medium'}}})}}
+   else ws.getRow(2).getCell(1).value='No rows in this selection';});
+  await saveFile(name,await wb.xlsx.writeBuffer())}
+ else{const wb=XLSX.utils.book_new();Ls.forEach(s=>{const ws=XLSX.utils.json_to_sheet(toRows(s.d,s.c));ws['!cols']=s.c.map(x=>({wch:x[2]==='r'?60:Math.max(12,x[1].length+3)}));if(ws['!ref'])ws['!autofilter']={ref:ws['!ref']};XLSX.utils.book_append_sheet(wb,ws,s.n.slice(0,31))});await saveFile(name,XLSX.write(wb,{type:'array',bookType:'xlsx'}))}
+ }catch(e){toast('Export failed: '+e.message);console.error(e)}}
+async function saveFile(name,data){let dl=null;try{dl=typeof claude!=='undefined'&&await claude.use('downloads')}catch(e){}
+ if(dl){try{await dl.save({filename:name,data});toast('Saved '+name)}catch(e){if(e&&e.code==='declined')toast('Download cancelled');else toast('Download failed: '+(e&&(e.message||e.code)||e))}return}
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:/\.xlsx$/.test(name)?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'text/csv;charset=utf-8'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast('Downloaded '+name)}
+$('#go').onclick=()=>{try{run()}catch(e){$('#st').textContent='Error: '+e.message;toast('Error: '+e.message);console.error(e)}};drawDrops();
+</script>
+
+</body></html>

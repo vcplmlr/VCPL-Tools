@@ -173,29 +173,6 @@ export const TaxBankingExtraView: React.FC<TaxBankingExtraViewProps> = ({ tool }
     }
   };
 
-  const loadSampleStatement = () => {
-    const headers = ['Txn Date', 'Narration', 'Withdrawal (Dr)', 'Deposit (Cr)', 'Balance'];
-    const sample: Record<string, unknown>[] = [
-      { 'Txn Date': '2026-10-01', Narration: 'OPENING BALANCE CREDIT / NEFT RECEIPT INV-401', 'Withdrawal (Dr)': '', 'Deposit (Cr)': 185000, Balance: 185000 },
-      { 'Txn Date': '2026-10-03', Narration: 'UPI/428910/vendor@okicici/Office Supplies', 'Withdrawal (Dr)': 4850, 'Deposit (Cr)': '', Balance: 180150 },
-      { 'Txn Date': '2026-10-05', Narration: 'RTGS-HDFCR520261005-ACME MOTORS PVT LTD', 'Withdrawal (Dr)': '', 'Deposit (Cr)': 340000, Balance: 520150 },
-      { 'Txn Date': '2026-10-08', Narration: 'NEFT-OUT-RENT PAYMENT KANKANADY PROPERTY', 'Withdrawal (Dr)': 65000, 'Deposit (Cr)': '', Balance: 455150 },
-      { 'Txn Date': '2026-10-12', Narration: 'GSTN CHALLAN PMT / TAX PORTAL', 'Withdrawal (Dr)': 48200, 'Deposit (Cr)': '', Balance: 406950 },
-      { 'Txn Date': '2026-10-15', Narration: 'ATM CASH WITHDRAWAL MANGALORE BRANCH', 'Withdrawal (Dr)': 15000, 'Deposit (Cr)': '', Balance: 391950 },
-      { 'Txn Date': '2026-10-18', Narration: 'SMS ALERT & NEFT CHARGES + GST', 'Withdrawal (Dr)': 295, 'Deposit (Cr)': '', Balance: 391655 },
-      { 'Txn Date': '2026-10-24', Narration: 'UPI/QR SETTLEMENT CUSTOMER RECEIPTS', 'Withdrawal (Dr)': '', 'Deposit (Cr)': 92400, Balance: 484055 },
-    ];
-    setRawHeaders(headers);
-    setRawRows(sample);
-    setStmtFileName('sample_sbi_statement.csv');
-    setColDate('Txn Date');
-    setColDesc('Narration');
-    setColDebit('Withdrawal (Dr)');
-    setColCredit('Deposit (Cr)');
-    setColBalance('Balance');
-    setStmtError('');
-  };
-
   const analyzedTxns = useMemo<ParsedBankTxn[]>(() => {
     return rawRows
       .map((row, idx) => {
@@ -487,13 +464,6 @@ export const TaxBankingExtraView: React.FC<TaxBankingExtraViewProps> = ({ tool }
             <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={loadSampleStatement}
-              className="px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] cursor-pointer"
-            >
-              Load Sample Statement
-            </button>
             {analyzedTxns.length > 0 && (
               <>
                 <button

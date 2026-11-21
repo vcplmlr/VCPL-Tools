@@ -1,20 +1,74 @@
 import { useEffect, useRef, useState } from 'react';
 
+export const GLOBAL_PROGRESS_EVENT = 'vcpl:loading-progress';
+
+export interface GlobalProgressDetail {
+  active: boolean;
+  progress?: number; // 0..100
+}
+
+export function emitGlobalProgress(active: boolean, progress?: number): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent<GlobalProgressDetail>(GLOBAL_PROGRESS_EVENT, {
+      detail: { active, progress },
+    })
+  );
+}
+
 interface TopLoadingBarProps {
   /** Increment whenever navigation, tool switch, or filter change occurs. */
   triggerKey: number;
 }
 
 export function TopLoadingBar({ triggerKey }: TopLoadingBarProps) {
-  const [scaleX, setScaleX] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
+  const [externalActive, setExternalActive] = useState(false);
   const timersRef = useRef<number[]>([]);
 
+  const clearTimers = () => {
+    timersRef.current.forEach((id) => window.clearTimeout(id));
+    timersRef.current = [];
+  };
+
   useEffect(() => {
-    const clearTimers = () => {
-      timersRef.current.forEach((id) => window.clearTimeout(id));
-      timersRef.current = [];
+    const handleExternalProgress = (event: Event) => {
+      const custom = event as CustomEvent<GlobalProgressDetail>;
+      const detail = custom.detail;
+      if (!detail) return;
+
+      clearTimers();
+
+      if (detail.active) {
+        setExternalActive(true);
+        setVisible(true);
+        const pct =
+          typeof detail.progress === 'number' && Number.isFinite(detail.progress)
+            ? Math.min(100, Math.max(4, detail.progress))
+            : 25;
+        setProgress(pct);
+      } else {
+        setProgress(100);
+        setExternalActive(false);
+        timersRef.current.push(
+          window.setTimeout(() => {
+            setVisible(false);
+            setProgress(0);
+          }, 260)
+        );
+      }
     };
+
+    window.addEventListener(GLOBAL_PROGRESS_EVENT, handleExternalProgress);
+    return () => {
+      window.removeEventListener(GLOBAL_PROGRESS_EVENT, handleExternalProgress);
+      clearTimers();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (externalActive) return;
 
     clearTimers();
 
@@ -24,43 +78,45 @@ export function TopLoadingBar({ triggerKey }: TopLoadingBarProps) {
 
     if (prefersReducedMotion) {
       setVisible(true);
-      setScaleX(1);
+      setProgress(100);
       timersRef.current.push(
         window.setTimeout(() => {
           setVisible(false);
-          setScaleX(0);
-        }, 220)
+          setProgress(0);
+        }, 180)
       );
       return clearTimers;
     }
 
     setVisible(true);
-    setScaleX(0.08);
+    setProgress(14);
 
-    const t1 = window.setTimeout(() => setScaleX(0.45), 40);
-    const t2 = window.setTimeout(() => setScaleX(0.82), 160);
-    const t3 = window.setTimeout(() => setScaleX(1), 320);
-    const t4 = window.setTimeout(() => setVisible(false), 540);
-    const t5 = window.setTimeout(() => setScaleX(0), 760);
+    const t1 = window.setTimeout(() => setProgress(52), 50);
+    const t2 = window.setTimeout(() => setProgress(86), 160);
+    const t3 = window.setTimeout(() => setProgress(100), 290);
+    const t4 = window.setTimeout(() => setVisible(false), 480);
+    const t5 = window.setTimeout(() => setProgress(0), 680);
 
     timersRef.current = [t1, t2, t3, t4, t5];
 
     return clearTimers;
-  }, [triggerKey]);
+  }, [triggerKey, externalActive]);
 
   return (
     <div
-      aria-hidden="true"
-      className={`fixed top-0 left-0 right-0 h-[6px] z-[80] pointer-events-none no-print transition-opacity duration-200 bg-[#2F3E4E]/10 ${
+      role="progressbar"
+      aria-hidden={!visible}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress)}
+      className={`fixed top-0 left-0 right-0 h-[3px] z-[80] pointer-events-none no-print transition-opacity duration-200 bg-[#2F3E4E]/15 dark:bg-slate-800 ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
     >
       <div
-        className="h-full w-full origin-left bg-gradient-to-r from-[#2F3E4E] via-[#F9C80E] to-[#12805C] transition-transform duration-200 ease-out relative shadow-[0_2px_10px_rgba(249,200,14,0.6)]"
-        style={{ transform: `scaleX(${scaleX})` }}
-      >
-        <span className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-r from-transparent to-[#FFFDF5]" />
-      </div>
+        className="h-full bg-[#1E3A5F] dark:bg-[#F9C80E] transition-[width] duration-200 ease-out"
+        style={{ width: `${progress}%` }}
+      />
     </div>
   );
 }

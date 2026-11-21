@@ -26,6 +26,7 @@ import {
   amountInWords,
   buildCoveringLetterHtml,
   computeLedgerAuditFlags,
+  CoveringLetterFormat,
   CoveringLetterFormState,
   CoveringPaymentRow,
   createPaymentId,
@@ -72,6 +73,7 @@ interface LogEntry {
 const BRANDING_STORAGE_KEY = 'vcpl_covering_letter_branding_v1';
 
 interface SavedBranding {
+  letterFormat?: CoveringLetterFormat;
   headerTopMm?: number;
   footerBottomMm?: number;
   letterheadDataUrl?: string;
@@ -94,11 +96,16 @@ function readSavedBranding(): SavedBranding {
 function getInitialFormState(): CoveringLetterFormState {
   const saved = readSavedBranding();
   return {
+    letterFormat: saved.letterFormat === 'modern_box' ? 'modern_box' : 'classic',
     fdate: todayDotDate(),
     phone: '6366227903',
+    cphone: '',
     cname: '',
     caddr: '',
     car: '',
+    colour: '',
+    vin: '',
+    engineNo: '',
     cpan: '',
     cgst: '',
     showIds: false,
@@ -195,6 +202,7 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
   useEffect(() => {
     try {
       const payload: SavedBranding = {
+        letterFormat: form.letterFormat,
         headerTopMm: form.headerTopMm,
         footerBottomMm: form.footerBottomMm,
         letterheadDataUrl: form.letterheadDataUrl,
@@ -208,6 +216,7 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
       // Ignore storage quota errors for large letterhead images
     }
   }, [
+    form.letterFormat,
     form.headerTopMm,
     form.footerBottomMm,
     form.letterheadDataUrl,
@@ -287,6 +296,7 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
     refsUrlPool.current = [];
     setForm((prev) => ({
       ...getInitialFormState(),
+      letterFormat: prev.letterFormat,
       headerTopMm: prev.headerTopMm,
       footerBottomMm: prev.footerBottomMm,
       letterheadDataUrl: prev.letterheadDataUrl,
@@ -351,103 +361,6 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
     } finally {
       setBrandingBusy(false);
     }
-  };
-
-  const handleLoadSample = () => {
-    const samplePays: CoveringPaymentRow[] = [
-      {
-        id: createPaymentId(),
-        date: '05.05.2026',
-        mode: 'RTGS',
-        rno: 'BR/2026/05/104',
-        amt: 500000,
-        nar: 'BEING BOOKING AMOUNT RECEIVED BY RTGS',
-        who: '',
-        payer: '',
-        loan: false,
-        bank: '05-05-2026',
-        li: null,
-      },
-      {
-        id: createPaymentId(),
-        date: '12.05.2026',
-        mode: 'LOAN',
-        rno: 'JV/2026/05/088',
-        amt: 4500000,
-        nar: 'BEING LOAN DISBURSED BY BMW FINANCIAL SERVICES INDIA PVT LTD',
-        who: 'BMW Financial Services India Pvt Ltd',
-        payer: '',
-        loan: true,
-        bank: '',
-        li: {
-          acc: 'BMWFS901122',
-          gross: 4525000,
-          fees: 25000,
-          dated: '12-05-2026',
-          net: 4500000,
-        },
-      },
-      {
-        id: createPaymentId(),
-        date: '14.05.2026',
-        mode: 'NEFT',
-        rno: 'BR/2026/05/142',
-        amt: 1200000,
-        nar: 'BEING BALANCE PAYMENT RECEIVED BY NEFT',
-        who: '',
-        payer: '',
-        loan: false,
-        bank: '14-05-2026',
-        li: null,
-      },
-    ];
-
-    setForm((prev) => ({
-      ...prev,
-      fdate: todayDotDate(),
-      cname: 'Rohan Rajesh Kulkarni',
-      caddr: '402, Skylark Residences\nIndiranagar 2nd Stage\nBengaluru, 560038',
-      car: 'BMW iX1 eDrive20L M Sport - (Carbon Black)',
-      cpan: 'ABCPK1234D',
-      cgst: '',
-      regType: 'perm',
-      regNo: 'KA03MV4590',
-      taxChk: true,
-      email: 'rohan.kulkarni@example.com',
-      onroad: '62,00,000',
-      ack: false,
-    }));
-    setPays(samplePays);
-    setAmtDrafts({});
-    setLedger({
-      res: samplePays,
-      name: 'Rohan Rajesh Kulkarni',
-      addr: '402, Skylark Residences\nIndiranagar 2nd Stage\nBengaluru, 560038',
-      rel: '',
-      addrFlat: '402, Skylark Residences, Indiranagar 2nd Stage, Bengaluru, 560038',
-      car: 'BMW iX1 eDrive20L M Sport - (Carbon Black)',
-      hp: 'BMW Financial Services India Pvt Ltd',
-      vin: 'WBA71EF0905A12345',
-      engine: 'B48A20M19001',
-      sale: 6200000,
-      charged: 6200000,
-      debited: 6200000,
-      openingNum: 0,
-      openingSide: '',
-      closingNum: 0,
-      closingSide: '',
-      closing: '0.00 Cr',
-    });
-    setOnroadAuto(false);
-    setLogs([
-      {
-        id: createPaymentId(),
-        fileName: 'Sample_Tally_Ledger.pdf',
-        method: 'sample',
-        summary: '3 receipts (1 loan), customer, car, total charged from sample ledger',
-        matched: true,
-      },
-    ]);
   };
 
   const processFiles = async (fileList: File[]) => {
@@ -517,8 +430,15 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
               nextForm.caddr = L.addr;
             }
             if (L.car) {
-              nextForm.car = L.car;
+              nextForm.car = L.carModel || L.car;
+              if (L.colour) nextForm.colour = L.colour;
               found.push('car');
+            }
+            if (L.vin && !nextForm.vin) {
+              nextForm.vin = L.vin;
+            }
+            if (L.engine && !nextForm.engineNo) {
+              nextForm.engineNo = L.engine;
             }
             if (L.charged && !nextForm.onroad) {
               nextForm.onroad = inr(L.charged);
@@ -539,6 +459,16 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
           if (E.email && !nextForm.email) {
             nextForm.email = E.email;
             found.push('email');
+          }
+          if (E.cphone && !nextForm.cphone) {
+            nextForm.cphone = E.cphone;
+            found.push('contact no');
+          }
+          if (E.vin && !nextForm.vin) {
+            nextForm.vin = E.vin;
+          }
+          if (E.engine && !nextForm.engineNo) {
+            nextForm.engineNo = E.engine;
           }
           if (E.reg && !nextForm.regNo) {
             nextForm.regNo = E.reg;
@@ -892,7 +822,8 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
       const imgData = canvas.toDataURL('image/jpeg', 0.96);
       pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
 
-      const fileName = `Covering_${(form.cname.trim() || 'Customer').replace(/[^\w]+/g, '_')}.pdf`;
+      const formatTag = form.letterFormat === 'modern_box' ? 'NewFormat' : 'OldFormat';
+      const fileName = `Covering_${(form.cname.trim() || 'Customer').replace(/[^\w]+/g, '_')}_${formatTag}.pdf`;
       pdf.save(fileName);
       setExportNotice(`Saved ${fileName} (Single-page A4)`);
     } catch (err) {
@@ -1172,14 +1103,6 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={handleLoadSample}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#CEE5DC] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] cursor-pointer transition whitespace-nowrap"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Load Sample</span>
-          </button>
-          <button
-            type="button"
             onClick={handleResetAll}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#FFE1B3] text-xs font-bold text-[#2F3E4E] cursor-pointer transition whitespace-nowrap"
           >
@@ -1210,6 +1133,66 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block">
         {/* Left Control Column (Scrollable Working Area on Desktop) */}
         <div className="xl:col-span-5 xl:max-h-[calc(100dvh-5.5rem)] xl:overflow-y-auto xl:pr-1.5 space-y-4 no-print">
+          {/* 0. Format Selector */}
+          <section className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_0_#2F3E4E] space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-display font-extrabold text-base text-[#2F3E4E]">
+                Covering Letter Format
+              </h2>
+              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-[#FEF2C8] border border-[#2F3E4E]/30 text-[#2F3E4E]">
+                {form.letterFormat === 'modern_box' ? 'New Format Active' : 'Old Format Active'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => updateField('letterFormat', 'classic')}
+                className={`p-3 rounded-xl border-[1.5px] text-left cursor-pointer transition ${
+                  form.letterFormat === 'classic'
+                    ? 'border-[#2F3E4E] bg-[#F9C80E] shadow-[0_2px_0_#2F3E4E] text-[#2F3E4E]'
+                    : 'border-[#2F3E4E]/35 bg-white hover:bg-[#FEF2C8]/70 text-[#2F3E4E]'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="font-display font-extrabold text-xs sm:text-sm">
+                    Old Format (Classic)
+                  </span>
+                  {form.letterFormat === 'classic' && (
+                    <CheckCircle2 className="w-4 h-4 text-[#2F3E4E] shrink-0" />
+                  )}
+                </div>
+                <p className="text-[11px] text-[#334155] mt-1 leading-snug">
+                  Standard single-column table, paragraph summary &amp; numbered enclosures
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => updateField('letterFormat', 'modern_box')}
+                className={`p-3 rounded-xl border-[1.5px] text-left cursor-pointer transition ${
+                  form.letterFormat === 'modern_box'
+                    ? 'border-[#2F3E4E] bg-[#F9C80E] shadow-[0_2px_0_#2F3E4E] text-[#2F3E4E]'
+                    : 'border-[#2F3E4E]/35 bg-white hover:bg-[#FEF2C8]/70 text-[#2F3E4E]'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="font-display font-extrabold text-xs sm:text-sm">
+                    New Format (Boxed Layout)
+                  </span>
+                  {form.letterFormat === 'modern_box' && (
+                    <CheckCircle2 className="w-4 h-4 text-[#2F3E4E] shrink-0" />
+                  )}
+                </div>
+                <p className="text-[11px] text-[#334155] mt-1 leading-snug">
+                  2-column car specs, bold ₹ sum banner, side-by-side payment &amp; enclosure box
+                </p>
+              </button>
+            </div>
+            <p className="text-[11px] text-[#64748B]">
+              Applies directly to Live A4 Preview, Save PDF, Print &amp; Word (.doc) export.
+            </p>
+          </section>
+
           {/* 1. Upload / Drop Zone */}
           <section className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_0_#2F3E4E] space-y-3">
             <div className="flex items-center justify-between gap-2">
@@ -1484,18 +1467,77 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
               />
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="cl-cphone" className="block text-xs font-bold text-[#475569] mb-1">
+                  Customer contact number
+                </label>
+                <input
+                  id="cl-cphone"
+                  type="text"
+                  inputMode="tel"
+                  value={form.cphone}
+                  onChange={(e) => updateField('cphone', e.target.value)}
+                  placeholder="9886082430"
+                  className="w-full px-3 py-2 rounded-lg border-[1.5px] border-[#2F3E4E]/60 bg-white text-xs sm:text-sm font-mono font-semibold text-[#2F3E4E] tabular-nums"
+                />
+              </div>
+              <div>
+                <label htmlFor="cl-colour" className="block text-xs font-bold text-[#475569] mb-1">
+                  Exterior colour
+                </label>
+                <input
+                  id="cl-colour"
+                  type="text"
+                  value={form.colour}
+                  onChange={(e) => updateField('colour', e.target.value)}
+                  placeholder="SKYSCRAPER GREY"
+                  className="w-full px-3 py-2 rounded-lg border-[1.5px] border-[#2F3E4E]/60 bg-white text-xs sm:text-sm font-semibold text-[#2F3E4E]"
+                />
+              </div>
+            </div>
+
             <div>
               <label htmlFor="cl-car" className="block text-xs font-bold text-[#475569] mb-1">
-                Car (model - colour)
+                Car Model / Variant
               </label>
               <input
                 id="cl-car"
                 type="text"
                 value={form.car}
                 onChange={(e) => updateField('car', e.target.value)}
-                placeholder="BMW iX1 eDrive20L M Sport - (Carbon Black)"
+                placeholder="BMW X1 LWB sDrive18Li M Sport"
                 className="w-full px-3 py-2 rounded-lg border-[1.5px] border-[#2F3E4E]/60 bg-white text-xs sm:text-sm font-semibold text-[#2F3E4E]"
               />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="cl-vin" className="block text-xs font-bold text-[#475569] mb-1">
+                  VIN / Chassis No.
+                </label>
+                <input
+                  id="cl-vin"
+                  type="text"
+                  value={form.vin}
+                  onChange={(e) => updateField('vin', e.target.value.toUpperCase())}
+                  placeholder="WBA37HN01TY473053"
+                  className="w-full px-3 py-2 rounded-lg border-[1.5px] border-[#2F3E4E]/60 bg-white text-xs sm:text-sm font-mono font-semibold text-[#2F3E4E] uppercase"
+                />
+              </div>
+              <div>
+                <label htmlFor="cl-eng" className="block text-xs font-bold text-[#475569] mb-1">
+                  Engine Number
+                </label>
+                <input
+                  id="cl-eng"
+                  type="text"
+                  value={form.engineNo}
+                  onChange={(e) => updateField('engineNo', e.target.value.toUpperCase())}
+                  placeholder="0036Y603"
+                  className="w-full px-3 py-2 rounded-lg border-[1.5px] border-[#2F3E4E]/60 bg-white text-xs sm:text-sm font-mono font-semibold text-[#2F3E4E] uppercase"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2110,9 +2152,35 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
         {/* Right Live A4 Preview Column (Full Responsive Fit — No Preview Scrollbar) */}
         <div className="xl:col-span-7 xl:sticky xl:top-20 space-y-3 print:static print:w-full print:overflow-visible print:pr-0">
           <div className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-[#475569] no-print">
-            <span className="font-bold text-[#2F3E4E]">
-              Live A4 Covering Letter Preview
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-[#2F3E4E]">
+                Live A4 Covering Letter Preview
+              </span>
+              <div className="inline-flex rounded-lg border border-[#2F3E4E]/45 bg-[#FEF2C8]/60 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => updateField('letterFormat', 'classic')}
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer transition ${
+                    form.letterFormat === 'classic'
+                      ? 'bg-[#2F3E4E] text-[#F9C80E]'
+                      : 'text-[#2F3E4E] hover:bg-white/70'
+                  }`}
+                >
+                  Old Format
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateField('letterFormat', 'modern_box')}
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer transition ${
+                    form.letterFormat === 'modern_box'
+                      ? 'bg-[#2F3E4E] text-[#F9C80E]'
+                      : 'text-[#2F3E4E] hover:bg-white/70'
+                  }`}
+                >
+                  New Format
+                </button>
+              </div>
+            </div>
             <div className="flex items-center gap-2.5">
               <span className="font-mono text-[11px] font-bold text-[#12805C]">
                 Single Page A4

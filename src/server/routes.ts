@@ -82,12 +82,42 @@ function createRateLimiter(maxRequests: number, windowMs: number) {
   };
 }
 
-function getAdminPasscode(): string {
-  return process.env.VCPL_ADMIN_PASSCODE?.trim() || '202627';
+const EPHEMERAL_ADMIN_SIGNING_KEY = crypto.randomBytes(32).toString('hex');
+
+function getEnvAdminPasscode(): string {
+  return process.env.VCPL_ADMIN_PASSCODE?.trim() || '';
 }
 
 function getAdminSigningKey(): string {
-  return process.env.VCPL_ADMIN_SECRET?.trim() || `vcpl-admin-key:${getAdminPasscode()}`;
+  return process.env.VCPL_ADMIN_SECRET?.trim() || EPHEMERAL_ADMIN_SIGNING_KEY;
+}
+
+function hashPasscodeScrypt(passcode: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = crypto.scryptSync(passcode, salt, 64).toString('hex');
+  return `scrypt:${salt}:${derived}`;
+}
+
+function verifyPasscodeScrypt(passcode: string, stored: string): boolean {
+  const parts = stored.split(':');
+  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
+  const [, salt, hashHex] = parts;
+  const candidate = crypto.scryptSync(passcode, salt, 64);
+  const expected = Buffer.from(hashHex, 'hex');
+  if (candidate.length !== expected.length) return false;
+  return crypto.timingSafeEqual(candidate, expected);
+}
+
+function getStoredAdminPasscodeHash(): string {
+  try {
+    const db = getDb();
+    const row = db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get('admin_passcode_hash') as { value?: string } | undefined;
+    return row?.value || '';
+  } catch {
+    return '';
+  }
 }
 
 function safeEqualStrings(a: string, b: string): boolean {
@@ -1552,9 +1582,56 @@ export function createApiRouter(): Router {
   // =========================================================================
   // ADMIN AUTH & BULK DATA IMPORT / DATA QUALITY DASHBOARD
   // =========================================================================
+  router.get('/admin/status', (_req, res) => {
+    const configured = Boolean(getEnvAdminPasscode() || getStoredAdminPasscodeHash());
+    res.json({ configured });
+  });
+
+  router.post('/admin/claim', adminAuthLimiter, (req, res) => {
+    if (getEnvAdminPasscode() || getStoredAdminPasscodeHash()) {
+      res.status(409).json({ error: 'Administrator passcode is already configured on the server.' });
+      return;
+    }
+    const passcode = String((req.body as { passcode?: string })?.passcode ?? '').trim();
+    if (passcode.length < 6 || passcode.length > 128) {
+      res.status(400).json({ error: 'Initial administrator passcode must be at least 6 characters.' });
+      return;
+    }
+    try {
+      const db = getDb();
+      const hash = hashPasscodeScrypt(passcode);
+      const inserted = db
+        .prepare('INSERT OR IGNORE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)')
+        .run('admin_passcode_hash', hash, new Date().toISOString());
+      if (Number(inserted.changes || 0) === 0) {
+        res.status(409).json({ error: 'Administrator passcode has already been claimed.' });
+        return;
+      }
+      res.status(201).json({ token: signAdminToken(), expiresInSeconds: 12 * 3600 });
+    } catch (err) {
+      console.error('Admin claim error:', err);
+      res.status(500).json({ error: 'Unable to configure administrator passcode.' });
+    }
+  });
+
   router.post('/admin/auth', adminAuthLimiter, (req, res) => {
     const passcode = String((req.body as { passcode?: string })?.passcode ?? '').trim();
-    if (!passcode || !safeEqualStrings(passcode, getAdminPasscode())) {
+    const envPass = getEnvAdminPasscode();
+    const storedHash = getStoredAdminPasscodeHash();
+
+    if (!envPass && !storedHash) {
+      res.status(409).json({
+        code: 'ADMIN_SETUP_REQUIRED',
+        error: 'Set an initial administrator passcode (or configure VCPL_ADMIN_PASSCODE) to unlock.',
+      });
+      return;
+    }
+
+    const valid = envPass
+      ? Boolean(passcode && safeEqualStrings(passcode, envPass))
+      : Boolean(passcode && verifyPasscodeScrypt(passcode, storedHash));
+
+    if (!valid) {
       res.status(401).json({ error: 'Invalid administrator passcode.' });
       return;
     }
@@ -1716,8 +1793,20 @@ export function createApiRouter(): Router {
       return;
     }
 
-    const expected = process.env.VCPL_LAUNCH_CODE?.trim() || getAdminPasscode();
-    if (!safeEqualStrings(submitted, expected)) {
+    const expected = process.env.VCPL_LAUNCH_CODE?.trim() || getEnvAdminPasscode();
+    const storedHash = getStoredAdminPasscodeHash();
+    const isValidLaunch = expected
+      ? safeEqualStrings(submitted, expected)
+      : storedHash
+        ? verifyPasscodeScrypt(submitted, storedHash)
+        : false;
+    if (!expected && !storedHash) {
+      res.status(503).json({
+        error: 'Launch passcode is not configured on the server (set VCPL_LAUNCH_CODE).',
+      });
+      return;
+    }
+    if (!isValidLaunch) {
       res.status(401).json({
         error: 'Incorrect 6-digit launch passcode. Please check your inauguration code and retry.',
       });

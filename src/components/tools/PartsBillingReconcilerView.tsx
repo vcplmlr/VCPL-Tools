@@ -13,7 +13,16 @@ import {
   Upload,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
+import {
+  RecoPeriodFilter,
+  createDefaultRecoPeriodFilter,
+  extractPeriodChoicesFromKeys,
+  isDateKeyInRecoPeriod,
+  resolveRecoPeriodBounds,
+  utcDateToKey,
+} from '../../utils/recoPeriodFilter';
 import { FileDropZone } from './FileDropZone';
+import { RecoPeriodFilterBar } from './RecoPeriodFilterBar';
 
 interface PartsBillingReconcilerViewProps {
   tool?: ToolCatalogItem;
@@ -555,6 +564,9 @@ export const PartsBillingReconcilerView: React.FC<PartsBillingReconcilerViewProp
   const [tab, setTab] = useState<TabKey>('all');
   const [search, setSearch] = useState<string>('');
   const [sort, setSort] = useState<{ c: number; d: 1 | -1 }>({ c: -1, d: 1 });
+  const [periodFilter, setPeriodFilter] = useState<RecoPeriodFilter>(() =>
+    createDefaultRecoPeriodFilter()
+  );
   const [errorMsg, setErrorMsg] = useState<string>('');
 
   const loadBmwFile = async (f: File) => {
@@ -614,18 +626,44 @@ export const PartsBillingReconcilerView: React.FC<PartsBillingReconcilerViewProp
     await loadTallyFiles(Array.from(e.target.files ?? []));
   };
 
+  const availablePeriods = useMemo(() => {
+    if (!bmw && !tally) return undefined;
+    const keys = [
+      ...(bmw ? bmw.map((g) => utcDateToKey(g.date)) : []),
+      ...(tally ? tally.rows.map((r) => utcDateToKey(r.date)) : []),
+    ];
+    return extractPeriodChoicesFromKeys(keys);
+  }, [bmw, tally]);
+
+  const filteredInputs = useMemo(() => {
+    const fBmw = bmw
+      ? bmw.filter((g) => isDateKeyInRecoPeriod(utcDateToKey(g.date), periodFilter))
+      : null;
+    const fTally = tally
+      ? {
+          ...tally,
+          rows: tally.rows.filter((r) =>
+            isDateKeyInRecoPeriod(utcDateToKey(r.date), periodFilter)
+          ),
+        }
+      : null;
+    return { fBmw, fTally };
+  }, [bmw, tally, periodFilter]);
+
+  const periodBounds = useMemo(() => resolveRecoPeriodBounds(periodFilter), [periodFilter]);
+
   const res = useMemo<ReconcileOutput | null>(() => {
-    if (!bmw || !tally || !selAmt) return null;
+    if (!filteredInputs.fBmw || !filteredInputs.fTally || !selAmt) return null;
     const tolNum = parseFloat(tol);
     const winNum = win.trim() === '' ? -1 : parseFloat(win);
-    return runReconcile(bmw, tally, {
+    return runReconcile(filteredInputs.fBmw, filteredInputs.fTally, {
       manual: manualLinks,
       sel: selAmt,
       flt,
       tol: Number.isFinite(tolNum) ? tolNum : 0,
       win: Number.isFinite(winNum) ? winNum : -1,
     });
-  }, [bmw, tally, selAmt, manualLinks, flt, tol, win]);
+  }, [filteredInputs, selAmt, manualLinks, flt, tol, win]);
 
   const findCol = (prefix: string): number =>
     tally ? tally.hdr.findIndex((x) => low(x).startsWith(prefix)) : -1;
@@ -790,6 +828,7 @@ export const PartsBillingReconcilerView: React.FC<PartsBillingReconcilerViewProp
     setTab('all');
     setSearch('');
     setSort({ c: -1, d: 1 });
+    setPeriodFilter(createDefaultRecoPeriodFilter());
     setErrorMsg('');
     if (f1Ref.current) f1Ref.current.value = '';
     if (f2Ref.current) f2Ref.current.value = '';
@@ -809,6 +848,13 @@ export const PartsBillingReconcilerView: React.FC<PartsBillingReconcilerViewProp
       'Summary',
       [
         ['Parts Billing vs Tally Reconciliation'],
+        [
+          'Period Filter',
+          periodBounds.isFiltered
+            ? `${periodBounds.label} (${periodBounds.rangeText})`
+            : 'All dates',
+          '',
+        ],
         [],
         ['Item', 'Count', 'Amount (₹)'],
         ['BMW invoices (DI)', S.n, S.gross],
@@ -823,7 +869,7 @@ export const PartsBillingReconcilerView: React.FC<PartsBillingReconcilerViewProp
         ['E5 adjustment anomalies', S.an, ''],
         ['Manual links', manualLinks.size, ''],
       ],
-      [42, 10, 18]
+      [42, 18, 22]
     );
 
     const W = [11, 14, 13, 14, 11, 14, 11, 18, 40, 14, 13, 13, 10, 18, 14];
@@ -860,7 +906,10 @@ export const PartsBillingReconcilerView: React.FC<PartsBillingReconcilerViewProp
       [12, 12, 16, 14, 16, 16]
     );
 
-    XLSX.writeFile(wb, 'Parts_Billing_vs_Tally_Reconciliation.xlsx');
+    XLSX.writeFile(
+      wb,
+      `Parts_Billing_vs_Tally_Reconciliation${periodBounds.isFiltered ? `_${periodBounds.shortLabel}` : ''}.xlsx`
+    );
   };
 
   return (
@@ -1094,6 +1143,20 @@ export const PartsBillingReconcilerView: React.FC<PartsBillingReconcilerViewProp
           </div>
         )}
       </div>
+
+      {/* Advanced Period & Date Filter */}
+      {(bmw || tally) && (
+        <RecoPeriodFilterBar
+          value={periodFilter}
+          onChange={setPeriodFilter}
+          available={availablePeriods}
+          matchedCount={
+            (filteredInputs.fBmw?.length ?? 0) + (filteredInputs.fTally?.rows.length ?? 0)
+          }
+          totalCount={(bmw?.length ?? 0) + (tally?.rows.length ?? 0)}
+          scopeHint="Filters BMW Post Date & Tally Date before matching, KPIs & Excel report"
+        />
+      )}
 
       {/* Results Dashboard */}
       {res && (

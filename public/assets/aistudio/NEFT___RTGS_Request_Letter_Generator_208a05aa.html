@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NEFT / RTGS Request Letter Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#eef1f5;--card:#fff;--tx:#111827;--mu:#6b7280;--bd:#d1d5db;--ac:#1d4ed8;--acx:#fff;--in:#fff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1220;--card:#162033;--tx:#e5e7eb;--mu:#9ca3af;--bd:#2c3b55;--ac:#60a5fa;--acx:#0b1220;--in:#0f1a2c}}
+:root[data-theme="dark"]{--bg:#0b1220;--card:#162033;--tx:#e5e7eb;--mu:#9ca3af;--bd:#2c3b55;--ac:#60a5fa;--acx:#0b1220;--in:#0f1a2c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.top{padding:12px 18px;font-weight:700;font-size:16px;border-bottom:1px solid var(--bd);background:var(--card)}
+.top small{font-weight:400;color:var(--mu);margin-left:8px}
+.app{display:grid;grid-template-columns:480px 1fr;gap:16px;padding:16px;align-items:start}
+@media(max-width:1000px){.app{grid-template-columns:1fr}}
+.panel{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}
+.card h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--ac)}
+label{display:block;font-size:12px;color:var(--mu);margin:6px 0 2px}
+input,select{width:100%;padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--in);color:var(--tx);font:inherit}
+input[type=checkbox]{width:auto}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{padding:7px 11px;border:1px solid var(--bd);background:var(--in);color:var(--tx);border-radius:6px;cursor:pointer;font:inherit;font-weight:600}
+.btn.p{background:var(--ac);color:var(--acx);border-color:var(--ac)}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.hint{font-size:12px;color:var(--mu);margin-top:4px}
+.ok{color:#16a34a}.bad{color:#dc2626}
+.pt{overflow-x:auto;max-height:340px;overflow-y:auto;border:1px solid var(--bd);border-radius:6px}
+.pt table{border-collapse:collapse;min-width:760px;width:100%}
+.pt td,.pt th{padding:2px;border-bottom:1px solid var(--bd);font-size:12px}
+.pt th{position:sticky;top:0;background:var(--card);text-align:left;padding:4px}
+.pt input{padding:4px;font-size:12px}
+.x{border:0;background:none;color:#dc2626;cursor:pointer;font-size:16px}
+.prev{overflow-x:auto}
+.paper{background:#fff;color:#000;width:210mm;min-height:297mm;margin:0 auto;padding:10mm 14mm;flex:none;box-shadow:0 2px 14px rgba(0,0,0,.25);font:13px/1.45 "Times New Roman",Georgia,serif}
+.ph{border:0;margin-bottom:0}
+.paper img{display:block;max-width:100%}
+.paper h2{text-align:center;font-size:15px;margin:2mm 0 4mm;text-decoration:underline}
+.paper .hd{display:flex;justify-content:space-between;gap:10px}
+.paper table.t{width:100%;border-collapse:collapse;margin:2mm 0}
+.paper table.t th,.paper table.t td{border:1px solid #000;padding:3px 5px;font-size:12px;text-align:left;vertical-align:top}
+.paper table.t td.r,.paper table.t th.r{text-align:right}
+.paper table.a td{padding:1px 6px 1px 0}
+.sig{margin-top:3mm;display:flex;justify-content:space-between;align-items:flex-end}
+@media print{
+ @page{size:A4;margin:0}
+ body{background:#fff}.top,.panel{display:none}
+ .app{display:block;padding:0}.prev{overflow:visible}
+ .paper{box-shadow:none;margin:0;min-height:296mm}
+}
+</style></head><body>
+<div class="top">NEFT / RTGS Request Letter Generator<small>Varsha Cars Private Limited</small></div>
+<div class="app">
+<div class="panel">
+ <div class="card"><h3>1. Letterhead</h3>
+  <div class="g2"><div><label>Upload letterhead image</label><input type="file" id="lhf" accept="image/*"></div>
+  <div><label>Blank space height (mm)</label><input type="number" id="lhh" value="35" min="0"></div></div>
+  <div class="row"><button class="btn" id="lhc">Remove letterhead</button></div>
+  <div class="hint">No image = blank space is kept at top for pre-printed letterhead paper.</div></div>
+
+ <div class="card"><h3>2. Our bank account</h3>
+  <label>Select account</label><select id="acc"></select>
+  <label>Or type last 4 digits of account number</label>
+  <input id="l4" maxlength="4" inputmode="numeric" placeholder="e.g. 6255"><div class="hint" id="l4m"></div>
+  <div class="g2"><div><label>Account number</label><input id="ano"></div><div><label>IFSC</label><input id="aifsc"></div>
+  <div><label>Bank</label><input id="abank"></div><div><label>Branch</label><input id="abr"></div></div>
+  <label>Letter addressed to (Branch Manager address)</label><input id="addr"></div>
+
+ <div class="card"><h3>3. Letter &amp; cheque details</h3>
+  <div class="g2"><div><label>Type</label><select id="mode"><option>NEFT / RTGS</option><option>NEFT</option><option>RTGS</option></select></div>
+  <div><label>Letter date</label><input type="date" id="ldate"></div>
+  <div><label>Cheque number</label><input id="chq" placeholder="6 digits"></div>
+  <div><label>Cheque date</label><input type="date" id="cdate"></div></div>
+  <label>Account name (remitter)</label><input id="aname" value="Varsha Cars Private Limited">
+  <label>Authorised signatory name (optional, printed below sign)</label><input id="sname">
+  <div class="hint" id="tot"></div></div>
+
+ <div class="card"><h3>4. Beneficiaries (payees)</h3>
+  <div class="row"><button class="btn p" id="dl">&#11015; Download Excel format</button>
+  <label class="btn" style="margin:0">&#11014; Upload filled Excel<input type="file" id="xf" accept=".xlsx,.xls,.csv" style="display:none"></label></div>
+  <div class="hint" id="xm">Columns: Account Name, Bank Name, Account Number, Branch, IFSC Code, Amount.</div>
+  <div class="pt"><table><thead><tr><th>#</th><th>Account name</th><th>Bank</th><th>Account no.</th><th>Branch</th><th>IFSC</th><th>Amount</th><th></th></tr></thead><tbody id="pb"></tbody></table></div>
+  <div class="row"><button class="btn" id="add">+ Add row</button><button class="btn" id="clr">Clear all</button></div></div>
+
+ <div class="card"><h3>5. Cheque copy (bottom)</h3>
+  <label><input type="checkbox" id="cs" checked> Show cheque copy area at bottom</label>
+  <div class="g2"><div><label>Upload cheque copy image</label><input type="file" id="cf" accept="image/*"></div>
+  <div><label>Area height (mm)</label><input type="number" id="ch" value="70" min="20"></div></div>
+  <div class="hint">Leave empty to stick or print the cheque photocopy later.</div></div>
+
+ <div class="card"><div class="row"><button class="btn p" id="pr">&#128424; Print / Save as PDF</button><button class="btn" id="sh">Save letter as HTML</button></div>
+ <div class="hint" id="pm"></div></div>
+</div>
+<div class="prev"><div class="paper" id="paper"></div></div>
+</div>
+<script>
+var ACC=[
+{bank:"State Bank of India",br:"Mallikatta (Mangaluru)",no:"40364536255",ifsc:"SBIN0003823",addr:"Branch Manager, State Bank of India, Mallikatta Branch, Mangalore."},
+{bank:"State Bank of India",br:"Mallikatta (Mangaluru)",no:"40611996463",ifsc:"SBIN0003823",addr:"Branch Manager, State Bank of India, Mallikatta Branch, Mangalore."},
+{bank:"State Bank of India",br:"Nagole",no:"40223707235",ifsc:"SBIN0011079",addr:"Branch Manager, State Bank of India, Nagole Branch, Hyderabad."},
+{bank:"HDFC Bank",br:"Mangalore Kadri",no:"50200066162342",ifsc:"HDFC0000094",addr:"Branch Manager, HDFC Bank, Kadri Branch, Mangalore."}];
+var SAMPLE=[
+["Mohan Das Shetty","Union Bank of India","520101007643582","Padavu","UBIN0900761",125730],
+["K2 Learning Resources India Private Limited","ICICI Bank","625405021302","Chamarajpet","ICIC0006254",58261],
+["Javali Auto Mobiles Pvt Ltd","Canara Bank","0514285000001","Station Road Hubli","CNRB0000514",9440],
+["Harisha H","IndusInd Bank","187259637903","Bangalore Urban","INDB0000008",33110],
+["Om Sai Enterprises","Axis Bank Ltd","918020054088588","Gokul Road Hubli","UTIB0002869",17373]];
+var rows=SAMPLE.map(function(r){return {n:r[0],b:r[1],a:r[2],br:r[3],i:r[4],m:r[5]}});
+var LH="",CQ="";
+var $=function(i){return document.getElementById(i)};
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function fd(v){if(!v)return"";var p=v.split("-");return p[2]+"-"+p[1]+"-"+p[0]}
+function inr(n){return Number(n).toLocaleString("en-IN",{minimumFractionDigits:0,maximumFractionDigits:2})}
+var O=["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"],T=["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+function two(n){return n<20?O[n]:T[Math.floor(n/10)]+(n%10?" "+O[n%10]:"")}
+function words(n){if(!n)return"Zero";var o=[],c=Math.floor(n/1e7);n%=1e7;var l=Math.floor(n/1e5);n%=1e5;var t=Math.floor(n/1e3);n%=1e3;var h=Math.floor(n/100);n%=100;
+if(c)o.push(two(c)+" Crore");if(l)o.push(two(l)+" Lakh");if(t)o.push(two(t)+" Thousand");if(h)o.push(O[h]+" Hundred");if(n)o.push(two(n));return o.join(" ")}
+function total(){return Math.round(rows.reduce(function(s,r){return s+(parseFloat(r.m)||0)*100},0))/100}
+function amtWords(t){var r=Math.floor(t),p=Math.round((t-r)*100);return "RUPEES "+words(r).toUpperCase()+(p?" AND "+words(p).toUpperCase()+" PAISE":"")+" ONLY -"}
+
+/* setup */
+$("acc").innerHTML=ACC.map(function(a,i){return "<option value='"+i+"'>"+a.bank+" - "+a.br+" - XXXX"+a.no.slice(-4)+"</option>"}).join("")+"<option value='x'>Other / custom account</option>";
+function pick(i){var a=ACC[i];if(!a)return;$("ano").value=a.no;$("aifsc").value=a.ifsc;$("abank").value=a.bank;$("abr").value=a.br;$("addr").value=a.addr;draw()}
+$("acc").onchange=function(){if(this.value==="x"){["ano","aifsc","abank","abr","addr"].forEach(function(k){$(k).value=""});$("ano").focus();draw()}else pick(this.value)};
+$("l4").oninput=function(){var v=this.value.replace(/\D/g,"");this.value=v;var m=$("l4m");if(v.length<4){m.textContent="";return}
+var f=ACC.findIndex(function(a){return a.no.slice(-4)===v});if(f>=0){$("acc").value=f;pick(f);m.className="hint ok";m.textContent="Matched: "+ACC[f].bank+" - "+ACC[f].br}else{m.className="hint bad";m.textContent="No saved account ends with "+v+". Choose Other / custom and type details."}};
+var now=new Date(),iso=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0");
+$("ldate").value=iso;$("cdate").value=iso;pick(0);
+
+function file2url(f,cb){var r=new FileReader();r.onload=function(){cb(r.result)};r.readAsDataURL(f)}
+$("lhf").onchange=function(){if(this.files[0])file2url(this.files[0],function(u){LH=u;draw()})};
+$("lhc").onclick=function(){LH="";$("lhf").value="";draw()};
+$("cf").onchange=function(){if(this.files[0])file2url(this.files[0],function(u){CQ=u;draw()})};
+
+/* payee table */
+function build(){$("pb").innerHTML=rows.map(function(r,i){
+ var f=function(k,w){return "<td><input data-i='"+i+"' data-k='"+k+"' value=\""+esc(r[k])+"\""+(w?" style='width:"+w+"'":"")+"></td>"};
+ return "<tr><td>"+(i+1)+"</td>"+f("n","150px")+f("b","110px")+f("a","120px")+f("br","100px")+f("i","95px")+f("m","80px")+"<td><button class='x' data-d='"+i+"'>&times;</button></td></tr>"}).join("");draw()}
+$("pb").oninput=function(e){var t=e.target;if(t.dataset.k){rows[t.dataset.i][t.dataset.k]=t.value;draw()}};
+$("pb").onclick=function(e){var d=e.target.dataset.d;if(d!==undefined){rows.splice(+d,1);build()}};
+$("add").onclick=function(){rows.push({n:"",b:"",a:"",br:"",i:"",m:""});build()};
+$("clr").onclick=function(){rows=[];build()};
+
+/* excel */
+var HEAD=["Account Name","Bank Name","Account Number","Branch","IFSC Code","Amount"];
+$("dl").onclick=async function(){
+ var ws=XLSX.utils.aoa_to_sheet([HEAD].concat(SAMPLE.slice(0,2).map(function(r){return r.map(String).slice(0,5).concat([r[5]])})));
+ ws["!cols"]=[{wch:40},{wch:24},{wch:22},{wch:22},{wch:14},{wch:14}];
+ var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Beneficiaries");
+ var buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+ try{var d=await claude.use("downloads");if(!d){$("xm").textContent="Download not available in this view.";return}
+ await d.save({filename:"NEFT_Beneficiary_Format.xlsx",data:new Uint8Array(buf)})}catch(e){$("xm").textContent="Download cancelled or unavailable."}};
+$("xf").onchange=function(){var f=this.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{
+ var wb=XLSX.read(r.result,{type:"array"}),js=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
+ var g=function(o,k){for(var x in o){if(x.toLowerCase().replace(/[^a-z]/g,"").indexOf(k)===0)return o[x]}return""};
+ var n=js.map(function(o){return {n:String(g(o,"accountname")||g(o,"name")).trim(),b:String(g(o,"bank")).trim(),a:String(g(o,"accountnumber")||g(o,"accountno")).trim(),br:String(g(o,"branch")).trim(),i:String(g(o,"ifsc")).trim(),m:String(g(o,"amount")).replace(/,/g,"").trim()}}).filter(function(x){return x.n||x.a||x.m});
+ if(!n.length)throw 0;rows=n;build();$("xm").className="hint ok";$("xm").textContent="Imported "+n.length+" payees from "+f.name}catch(e){$("xm").className="hint bad";$("xm").textContent="Could not read file. Use the downloaded format."}};r.readAsArrayBuffer(f);this.value=""};
+
+/* letter */
+function draw(){
+ var t=total(),mode=$("mode").value,nm=$("aname").value,chq=$("chq").value,cd=fd($("cdate").value);
+ var h=LH?"<img src='"+LH+"'>":"<div class='ph scr' style='height:"+(+$("lhh").value||0)+"mm'></div>";
+ var body=rows.map(function(r,i){return "<tr><td>"+(i+1)+"</td><td>"+esc(r.n)+"</td><td>"+esc(r.b)+"</td><td>"+esc(r.a)+"</td><td>"+esc(r.br)+"</td><td>"+esc(r.i)+"</td><td class='r'>"+(r.m!==""?inr(parseFloat(r.m)||0):"")+"</td></tr>"}).join("");
+ var cq=$("cs").checked?(CQ?"<div style='margin-top:5mm;text-align:center'><img src='"+CQ+"' style='margin:0 auto;max-height:"+(+$("ch").value||70)+"mm;object-fit:contain'></div>":"<div class='ph scr' style='height:"+(+$("ch").value||70)+"mm;margin-top:5mm'></div>"):"";
+ var l=($("addr").value||"").split(",").map(function(s){return esc(s.trim())}).join("<br>");
+ $("paper").innerHTML=h+"<div class='hd'><div></div><div>Date: "+fd($("ldate").value)+"</div></div>"
+ +"<h2>"+esc(mode)+" Request Letter</h2>"
+ +"<div>To,<br>"+l+"</div><p style='margin:3mm 0 0'>Dear Sir,<br>Subject: <b>"+esc(mode)+" Request to below mentioned account numbers:</b></p>"
+ +"<p style='margin:3mm 0 0'><b>A) Details of Applicant (Remitter):</b></p><table class='a' style='margin-left:6mm'>"
+ +"<tr><td>1) Account Name:</td><td>"+esc(nm)+"</td></tr><tr><td>2) Account Number:</td><td>"+esc($("ano").value)+"</td></tr>"
+ +"<tr><td>3) Cheque Number:</td><td>"+esc(chq)+"</td></tr><tr><td>4) Cheque Date:</td><td>"+cd+"</td></tr>"
+ +"<tr><td>5) Cheque Amount:</td><td>Rs. "+inr(t)+"/-</td></tr></table>"
+ +"<p style='margin:3mm 0 0'><b>B) Details of Beneficiaries:</b></p>"
+ +"<table class='t'><tr><th>S.N</th><th>ACCOUNT NAME</th><th>BANK NAME</th><th>ACCOUNT NUMBER</th><th>BRANCH</th><th>IFSC CODE</th><th class='r'>AMOUNT</th></tr>"+body
+ +"<tr><td colspan='6' class='r'><b>TOTAL</b></td><td class='r'><b>"+inr(t)+"</b></td></tr></table>"
+ +"<p style='margin:2mm 0'><b>Amount in Words:</b> "+amtWords(t)+"</p>"
+ +"<p style='margin:2mm 0'>Kindly requesting you to Transfer the above amount to mentioned Account Numbers.</p>"
+ +"<div class='sig'><div>Thanking you,<br>For <b>"+esc(nm)+"</b><div style='height:16mm'></div>Authorised Signatory"+($("sname").value?" - "+esc($("sname").value):"")+"</div><div style='height:22mm;width:40mm'></div></div>"+cq;
+ $("tot").innerHTML="Total payees: <b>"+rows.length+"</b> &nbsp; Total amount: <b>Rs. "+inr(t)+"</b>";
+ var w=[];if(mode==="RTGS"&&t<200000)w.push("RTGS usually needs a minimum of Rs. 2,00,000 per transaction.");if(chq&&chq.length!==6)w.push("Cheque number is normally 6 digits.");
+ $("pm").textContent=w.join(" ")}
+["lhh","ano","aifsc","abank","abr","addr","mode","ldate","chq","cdate","aname","sname","cs","ch"].forEach(function(k){$(k).oninput=draw;$(k).onchange=draw});
+$("pr").onclick=function(){try{window.print()}catch(e){$("pm").textContent="Print is blocked here. Use Save letter as HTML, then open and print it."}};
+$("sh").onclick=async function(){
+ var html="<!DOCTYPE html><html><head><meta charset='utf-8'><title>NEFT RTGS Request</title><style>"+document.querySelector("style").textContent+"</style></head><body><div class='app'><div class='prev'>"+$("paper").outerHTML+"</div></div></body></html>";
+ try{var d=await claude.use("downloads");if(!d){$("pm").textContent="Download not available in this view.";return}
+ await d.save({filename:"NEFT_RTGS_Request_Letter.html",data:html})}catch(e){$("pm").textContent="Save cancelled or unavailable."}};
+build();
+</script></body></html>

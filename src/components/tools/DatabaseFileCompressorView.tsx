@@ -35,7 +35,6 @@ import {
   analyzeFilesCompressibility,
   compressDatabaseFiles,
   formatBytes,
-  generateSampleDatabaseSqlFile,
   rejoinAndDecompressFiles,
   sortPartFilesNaturally,
   supportsNativeGzipStream,
@@ -146,15 +145,6 @@ export const DatabaseFileCompressorView: React.FC<DatabaseFileCompressorViewProp
     setCompressResult(null);
     setCompressError(null);
     setPreScan(null);
-  }, []);
-
-  const handleLoadSampleSql = useCallback(() => {
-    setCompressError(null);
-    setCompressResult(null);
-    const sampleFile = generateSampleDatabaseSqlFile(25);
-    setSelectedFiles([sampleFile]);
-    setMethod('gzip-max');
-    setTargetSizeMb(10);
   }, []);
 
   const handleStartCompression = useCallback(async () => {
@@ -352,15 +342,6 @@ export const DatabaseFileCompressorView: React.FC<DatabaseFileCompressorViewProp
                   <Upload className="w-4 h-4 text-[#B45309]" />
                   1. Select Database or Large Data File(s)
                 </h3>
-                <button
-                  type="button"
-                  onClick={handleLoadSampleSql}
-                  disabled={isCompressing}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FEF2C8] hover:bg-[#F9C80E]/50 border border-[#2F3E4E] font-display font-bold text-[11px] text-[#2F3E4E] transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
-                  Load 25 MB Sample SQL Dump
-                </button>
               </div>
 
               <FileDropZone

@@ -1,5 +1,13 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Info, Minimize2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Info,
+  Minimize2,
+  RotateCcw,
+} from 'lucide-react';
 import { getFinancialCalculatorById } from '../../data/financialCalculators';
 import { getToolArticle } from '../../data/toolArticlesData';
 import { TOOLS_CATALOG, getToolsForCategory } from '../../data/toolsCatalog';
@@ -12,8 +20,16 @@ import { ToolArticleSection } from '../ToolArticleSection';
 const BankSlipGeneratorView = lazy(() =>
   import('./BankSlipGeneratorView').then((m) => ({ default: m.BankSlipGeneratorView }))
 );
+const BmwClaimsReconcilerView = lazy(() =>
+  import('./BmwClaimsReconcilerView').then((m) => ({ default: m.BmwClaimsReconcilerView }))
+);
 const BmwStatementReconcilerView = lazy(() =>
   import('./BmwStatementReconcilerView').then((m) => ({ default: m.BmwStatementReconcilerView }))
+);
+const BmwVendorLedgerReconcilerView = lazy(() =>
+  import('./BmwVendorLedgerReconcilerView').then((m) => ({
+    default: m.BmwVendorLedgerReconcilerView,
+  }))
 );
 const CoveringLetterGeneratorView = lazy(() =>
   import('./CoveringLetterGeneratorView').then((m) => ({
@@ -154,6 +170,16 @@ const TallyShortcutsView = lazy(() =>
     default: m.TallyShortcutsView,
   }))
 );
+const VcplRtgsNeftFormView = lazy(() =>
+  import('./VcplRtgsNeftFormView').then((m) => ({
+    default: m.VcplRtgsNeftFormView,
+  }))
+);
+const Tds26asTallyRecoView = lazy(() =>
+  import('./Tds26asTallyRecoView').then((m) => ({
+    default: m.Tds26asTallyRecoView,
+  }))
+);
 
 function ToolEngineFallback({ title }: { title: string }) {
   return (
@@ -212,6 +238,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   onOpenBankSlipWithBank,
   onOpenDisclaimer,
 }) => {
+
   const financialDefinition =
     tool.kind === 'financial-calc' ? getFinancialCalculatorById(tool.id) : undefined;
   const articleMeta = getToolArticle(tool);
@@ -224,6 +251,14 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   const siblingScrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [workspaceResetNonce, setWorkspaceResetNonce] = useState(0);
+  const [justResetTool, setJustResetTool] = useState(false);
+
+  const handleResetActiveTool = useCallback(() => {
+    setWorkspaceResetNonce((n) => n + 1);
+    setJustResetTool(true);
+    window.setTimeout(() => setJustResetTool(false), 1400);
+  }, []);
 
   const currentSiblingIdx = useMemo(
     () => siblingTools.findIndex((t) => t.id === tool.id),
@@ -402,6 +437,17 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
                 </select>
               </div>
 
+              <button
+                type="button"
+                onClick={handleResetActiveTool}
+                title={`Clear and reset ${tool.title} inputs`}
+                aria-label="Clear tool workspace"
+                className="inline-flex items-center gap-1.5 px-2.5 h-9 rounded-lg border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-[#FEF2C8] dark:bg-[#0B1120] hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] dark:text-slate-100 dark:hover:text-[#0F172A] transition cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${justResetTool ? '-rotate-180 transition-transform duration-300' : ''}`} aria-hidden="true" />
+                <span className="hidden sm:inline">{justResetTool ? 'Cleared' : 'Clear Tool'}</span>
+              </button>
+
               {isRouteFullScreen ? (
                 <button
                   type="button"
@@ -523,6 +569,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
 
         {/* Render Active Tool Engine (Lazy Code-Split Chunk) */}
         <Suspense fallback={<ToolEngineFallback title={tool.title} />}>
+          <React.Fragment key={`${tool.id}-${workspaceResetNonce}`}>
           {tool.kind === 'bank-slip' && (
             <BankSlipGeneratorView
               initialBank={initialBank}
@@ -642,6 +689,22 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <BmwStatementReconcilerView key={tool.id} tool={tool} onBack={onClose} />
           )}
 
+          {tool.kind === 'bmw-vendor-ledger-reconciler' && (
+            <BmwVendorLedgerReconcilerView key={tool.id} tool={tool} onBack={onClose} />
+          )}
+
+          {tool.kind === 'bmw-claims-reconciler' && (
+            <BmwClaimsReconcilerView key={tool.id} tool={tool} onBack={onClose} />
+          )}
+
+          {tool.kind === 'vcpl-rtgs-neft-form' && (
+            <VcplRtgsNeftFormView key={tool.id} tool={tool} onBack={onClose} />
+          )}
+
+          {tool.kind === 'tds-26as-tally-reco' && (
+            <Tds26asTallyRecoView key={tool.id} tool={tool} onBack={onClose} />
+          )}
+
           {tool.kind === 'fuel-report-generator' && (
             <FuelReportGeneratorView key={tool.id} tool={tool} onBack={onClose} />
           )}
@@ -716,6 +779,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           {tool.kind === 'tally-shortcuts' && (
             <TallyShortcutsView key={tool.id} tool={tool} />
           )}
+          </React.Fragment>
         </Suspense>
 
         {!isRouteFullScreen && (

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Calculator } from 'lucide-react';
+import { Calculator, RotateCcw } from 'lucide-react';
 import { FINANCIAL_CALCULATORS } from '../../data/financialCalculators';
 import { ToolCatalogItem } from '../../types/tools';
 import {
@@ -53,6 +53,7 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
   const [financialId, setFinancialId] = useState<string>(FINANCIAL_CALCULATORS[0].id);
   const [examId, setExamId] = useState<string>(EXAM_CALCULATORS[0].id);
   const [dateHealthId, setDateHealthId] = useState<string>(DATE_HEALTH_CALCULATORS[0].id);
+  const [tabResetNonce, setTabResetNonce] = useState<number>(0);
 
   const activeFinancial = useMemo(
     () => FINANCIAL_CALCULATORS.find((c) => c.id === financialId) || FINANCIAL_CALCULATORS[0],
@@ -121,6 +122,24 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
                 : 'All-in-one workspace combining Scientific & Engineering Trig (cos/sin/tan, DEG/RAD), Currency Converter, Financial & Advanced Home Loan planners, FY 25-26 Income Tax, Exam Merit, and Date tools.'}
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setTabResetNonce((n) => n + 1);
+              if (activeTab === 'student') {
+                setBoardMarks('');
+                setSemesters([{ name: 'Semester 1', sgpa: '', credits: '' }]);
+                setAttHeld('');
+                setAttPresent('');
+                setAttTarget(75);
+              }
+            }}
+            className="px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FFE1B3] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] inline-flex items-center gap-1.5 cursor-pointer shrink-0 self-start sm:self-auto"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Active Tab</span>
+          </button>
         </div>
 
         <div role="tablist" aria-label="Calculator Categories" className="flex flex-wrap gap-2 pt-1">
@@ -147,10 +166,12 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
       </div>
 
       {/* 1. SCIENTIFIC & ENGINEERING CALCULATOR */}
-      {activeTab === 'standard' && <ScientificCalculatorPanel onModeChange={setCalcMode} />}
+      {activeTab === 'standard' && (
+        <ScientificCalculatorPanel key={`sci-${tabResetNonce}`} onModeChange={setCalcMode} />
+      )}
 
       {/* 1B. CURRENCY CONVERTER */}
-      {activeTab === 'currency' && <CurrencyConverterPanel />}
+      {activeTab === 'currency' && <CurrencyConverterPanel key={`cur-${tabResetNonce}`} />}
 
       {/* 2. FINANCIAL & LOANS (15 CALCULATORS) */}
       {activeTab === 'financial' && (
@@ -178,6 +199,7 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
           </div>
 
           <FinancialCalculatorView
+            key={`fin-${financialId}-${tabResetNonce}`}
             calculator={activeFinancial}
             onSelectTool={(id) => setFinancialId(id)}
           />
@@ -186,7 +208,7 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
 
       {/* 3. INCOME TAX (FY 25-26) */}
       {activeTab === 'tax' && (
-        <TaxCalculatorView onBack={onClose} />
+        <TaxCalculatorView key={`tax-${tabResetNonce}`} onBack={onClose} />
       )}
 
       {/* 4. EXAM & ACADEMIC (11 CALCULATORS) */}
@@ -214,7 +236,7 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
             </div>
           </div>
 
-          <ExamUtilityCalculatorView tool={syntheticExamTool} />
+          <ExamUtilityCalculatorView key={`exam-${examId}-${tabResetNonce}`} tool={syntheticExamTool} />
         </div>
       )}
 
@@ -243,7 +265,7 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
             </div>
           </div>
 
-          <ExamUtilityCalculatorView tool={syntheticExamTool} />
+          <ExamUtilityCalculatorView key={`dates-${dateHealthId}-${tabResetNonce}`} tool={syntheticExamTool} />
         </div>
       )}
 
@@ -253,9 +275,18 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Card 1: SSLC / 2nd PUC / CBSE Marks % */}
             <div className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-5 shadow-[0_4px_0_#2F3E4E] space-y-4">
-              <h2 className="font-display font-extrabold text-base text-[#2F3E4E]">
-                SSLC (625) / PUC (600) Percentage
-              </h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-display font-extrabold text-base text-[#2F3E4E]">
+                  SSLC (625) / PUC (600) Percentage
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setBoardMarks('')}
+                  className="px-2 py-1 rounded-lg border border-[#2F3E4E]/30 bg-white hover:bg-[#FFE1B3] text-[11px] font-bold text-[#2F3E4E] cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
               <div className="flex flex-wrap gap-1.5 text-xs font-bold">
                 {[
                   { id: 'sslc', label: 'KSEAB SSLC (625)' },
@@ -318,19 +349,28 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
 
             {/* Card 2: Credit-Weighted Degree SGPA & CGPA */}
             <div className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-5 shadow-[0_4px_0_#2F3E4E] space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <h2 className="font-display font-extrabold text-base text-[#2F3E4E]">
                   Degree CGPA Aggregate
                 </h2>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSemesters((p) => [...p, { name: `Semester ${p.length + 1}`, sgpa: '', credits: '' }])
-                  }
-                  className="px-2.5 py-1 rounded-lg border border-[#2F3E4E] bg-[#FEF2C8] text-xs font-bold cursor-pointer"
-                >
-                  + Sem
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSemesters([{ name: 'Semester 1', sgpa: '', credits: '' }])}
+                    className="px-2 py-1 rounded-lg border border-[#2F3E4E]/30 bg-white hover:bg-[#FFE1B3] text-[11px] font-bold text-[#2F3E4E] cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSemesters((p) => [...p, { name: `Semester ${p.length + 1}`, sgpa: '', credits: '' }])
+                    }
+                    className="px-2.5 py-1 rounded-lg border border-[#2F3E4E] bg-[#FEF2C8] text-xs font-bold cursor-pointer"
+                  >
+                    + Sem
+                  </button>
+                </div>
               </div>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                 {semesters.map((s, idx) => (
@@ -398,9 +438,22 @@ export const UnifiedCalculatorView: React.FC<UnifiedCalculatorViewProps> = ({ on
 
             {/* Card 3: 75% / 85% Attendance & Bunk Planner */}
             <div className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-5 shadow-[0_4px_0_#2F3E4E] space-y-4">
-              <h2 className="font-display font-extrabold text-base text-[#2F3E4E]">
-                Attendance &amp; Bunk Planner
-              </h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-display font-extrabold text-base text-[#2F3E4E]">
+                  Attendance &amp; Bunk Planner
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAttHeld('');
+                    setAttPresent('');
+                    setAttTarget(75);
+                  }}
+                  className="px-2 py-1 rounded-lg border border-[#2F3E4E]/30 bg-white hover:bg-[#FFE1B3] text-[11px] font-bold text-[#2F3E4E] cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div>
                   <label className="block font-bold text-[#475569] mb-1">Classes Held</label>

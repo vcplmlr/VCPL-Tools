@@ -242,7 +242,7 @@ export function Navbar({
             })}
           </nav>
 
-          {/* Right Controls in Main Menu Bar: Light / System / Dark Icon Switcher + Mobile Hamburger */}
+          {/* Right Controls in Main Menu Bar: Light / System / Dark Switcher + Mobile Hamburger */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <ThemeSelector
               preference={themePreference}
@@ -300,10 +300,7 @@ export function Navbar({
               })}
             </nav>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#2F3E4E]/15 dark:border-slate-800">
-              <span className="text-xs font-display font-bold text-[#2F3E4E] dark:text-slate-300">
-                Theme Mode
-              </span>
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-[#2F3E4E]/15 dark:border-slate-800">
               <ThemeSelector
                 preference={themePreference}
                 onChange={onChangeTheme}

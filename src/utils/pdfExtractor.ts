@@ -9,18 +9,55 @@ export interface ExtractedPdfPage {
   rawText: string;
 }
 
-export async function extractTextFromPdf(buffer: ArrayBuffer): Promise<{
+export class PdfPasswordError extends Error {
+  reason: 'need_password' | 'incorrect_password';
+
+  constructor(reason: 'need_password' | 'incorrect_password', message: string) {
+    super(message);
+    this.name = 'PdfPasswordError';
+    this.reason = reason;
+  }
+}
+
+export async function extractTextFromPdf(
+  buffer: ArrayBuffer,
+  options?: { password?: string; onProgress?: (page: number, totalPages: number) => void }
+): Promise<{
   pages: ExtractedPdfPage[];
   fullText: string;
   allLines: string[];
+  numPages: number;
 }> {
-  const loadingTask = pdfjsLib.getDocument({ data: buffer.slice(0) });
-  const pdf = await loadingTask.promise;
+  const password = options?.password?.trim();
+  const loadingTask = pdfjsLib.getDocument({
+    data: buffer.slice(0),
+    ...(password ? { password } : {}),
+  });
+
+  let pdf: pdfjsLib.PDFDocumentProxy;
+  try {
+    pdf = await loadingTask.promise;
+  } catch (err: any) {
+    if (err?.name === 'PasswordException') {
+      if (err?.code === 2) {
+        throw new PdfPasswordError(
+          'incorrect_password',
+          'Incorrect PDF password. For TRACES Form 26AS, enter your DOB/DOI (typically DDMMYYYY) and try again.'
+        );
+      }
+      throw new PdfPasswordError(
+        'need_password',
+        'This PDF is password-protected. Enter the PDF password (typically DDMMYYYY) below to unlock and parse it locally.'
+      );
+    }
+    throw err;
+  }
 
   const pages: ExtractedPdfPage[] = [];
   const allLines: string[] = [];
 
   for (let p = 1; p <= pdf.numPages; p++) {
+    options?.onProgress?.(p, pdf.numPages);
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
 
@@ -28,6 +65,8 @@ export async function extractTextFromPdf(buffer: ArrayBuffer): Promise<{
       str: string;
       x: number;
       y: number;
+      w: number;
+      h: number;
     }
 
     const items: PositionedItem[] = [];
@@ -38,6 +77,8 @@ export async function extractTextFromPdf(buffer: ArrayBuffer): Promise<{
           str: rawItem.str,
           x: transform?.[4] ?? 0,
           y: transform?.[5] ?? 0,
+          w: typeof rawItem.width === 'number' ? rawItem.width : 0,
+          h: Math.abs(transform?.[3] ?? transform?.[0] ?? 10),
         });
       }
     }
@@ -55,14 +96,28 @@ export async function extractTextFromPdf(buffer: ArrayBuffer): Promise<{
     const flushLine = () => {
       if (currentLineParts.length === 0) return;
       currentLineParts.sort((a, b) => a.x - b.x);
-      const joined = currentLineParts
-        .map((it) => it.str)
-        .join(' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (joined) {
-        lines.push(joined);
-        allLines.push(joined);
+      let joined = '';
+      for (let idx = 0; idx < currentLineParts.length; idx++) {
+        const cur = currentLineParts[idx];
+        if (idx === 0) {
+          joined = cur.str;
+          continue;
+        }
+        const prev = currentLineParts[idx - 1];
+        const prevEnd = prev.w > 0 ? prev.x + prev.w : prev.x;
+        const gap = cur.x - prevEnd;
+        const fontThreshold = Math.max(1.4, Math.min(prev.h || 10, cur.h || 10) * 0.16);
+        const alreadySpaced = prev.str.endsWith(' ') || cur.str.startsWith(' ');
+        if (!alreadySpaced && (prev.w <= 0 || gap > fontThreshold)) {
+          joined += ' ' + cur.str;
+        } else {
+          joined += cur.str;
+        }
+      }
+      const normalized = joined.replace(/\s+/g, ' ').trim();
+      if (normalized) {
+        lines.push(normalized);
+        allLines.push(normalized);
       }
       currentLineParts = [];
     };
@@ -90,5 +145,6 @@ export async function extractTextFromPdf(buffer: ArrayBuffer): Promise<{
     pages,
     fullText: allLines.join('\n'),
     allLines,
+    numPages: pdf.numPages,
   };
 }

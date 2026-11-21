@@ -132,7 +132,7 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
       {
         stepTitle: 'Download the Standard Excel Template',
         detail:
-          'Click Download Sample .XLSX Template inside the bulk workspace to obtain the pre-formatted columns for bank, slip type, account number, and amounts.',
+          'Click Download Excel Template inside the bulk workspace to obtain the pre-formatted columns for bank, slip type, account number, and amounts.',
       },
       {
         stepTitle: 'Populate Up to 25 Transactions',
@@ -2168,7 +2168,7 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
     ],
     overview: [
       'The GSTR-1 Return Preparation Tool validates Form GSTR-1 V2.2 Excel workbooks and section CSV files directly inside your browser—covering B2B/SEZ/DE, B2CL, B2CS, CDNR, CDNUR, and Exports without uploading taxpayer invoice records to any server.',
-      'You can download blank or sample V2.2 Excel templates, paste multi-cell blocks directly from Microsoft Excel into the interactive audit grid, auto-fill Place of Supply from 15-digit recipient GSTIN state codes, fix highlighted validation rows, and generate ready-to-upload GSTR-1 portal JSON.',
+      'You can download blank V2.2 Excel templates, paste multi-cell blocks directly from Microsoft Excel into the interactive audit grid, auto-fill Place of Supply from 15-digit recipient GSTIN state codes, fix highlighted validation rows, and generate ready-to-upload GSTR-1 portal JSON.',
     ],
     howToUse: [
       {
@@ -2479,9 +2479,9 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
     ],
     howToUse: [
       {
-        stepTitle: 'Drop Images/PDFs, Paste Screenshot, or Try Sample Invoice',
+        stepTitle: 'Drop Images/PDFs or Paste Screenshot',
         detail:
-          'Drag JPG, PNG, WebP, BMP, AVIF photos or PDF files into the dropzone, press Ctrl/Cmd + V anywhere to paste a screenshot, or click Try Sample Invoice to test immediately.',
+          'Drag JPG, PNG, WebP, BMP, AVIF photos or PDF files into the dropzone, or press Ctrl/Cmd + V anywhere to paste a screenshot.',
       },
       {
         stepTitle: 'Pick a Smart Preset, Language Script & Optional ROI Crop',
@@ -2526,6 +2526,124 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
         question: 'Are my confidential GST invoices, bank slips, or customer PDFs uploaded anywhere?',
         answer:
           'Never. Both PDF rendering and Tesseract OCR run completely inside your local browser session. The browser only fetches static OCR language data caches on first use of a new script.',
+      },
+    ],
+  },
+
+  'bmw-vendor-ledger-reconciler': {
+    toolId: 'bmw-vendor-ledger-reconciler',
+    seoTitle: 'BMW Vendor Ledger Reconciliation (SAP vs Tally Bridge & Claims) – VCPL Tools',
+    seoDescription:
+      'Passcode-locked BMW SAP vendor ledger vs multi-sheet Tally ledger reconciliation with opening-to-closing bridge, payment subset matching, TDS analysis, ageing & ExcelJS exports.',
+    adTopic: 'Automotive Dealership Accounting & SAP Ledger Reconciliation',
+    focusKeywords: [
+      'BMW Vendor Ledger Reconciliation',
+      'BMW SAP vendor ledger Tally match',
+      'Opening to closing bridge BMW Tally',
+      'BMW warranty claim code check Excel',
+    ],
+    overview: [
+      'BMW Vendor Ledger Reconciliation (VC-11) is a passcode-protected dealership reconciliation engine that cross-checks BMW India SAP vendor ledger exports against any number of Tally ledger sheets and warranty claim details completely offline in your browser.',
+      'It reconciles both directions (BMW → Tally and Tally → BMW), computes a full opening-to-closing receivable bridge explaining every rupee of difference, matches single or combined payment receipts (subset sum), isolates prior-period/accrual items and TDS deductions, checks claim codes against credited amounts, and exports 16-sheet styled ExcelJS workbooks.',
+    ],
+    howToUse: [
+      {
+        stepTitle: 'Unlock with Authorized 6-Digit Passcode',
+        detail:
+          'Enter the 6-digit dealership passcode to unlock VC-11. The workspace automatically re-locks when you refresh or leave the page.',
+      },
+      {
+        stepTitle: 'Upload BMW Vendor Ledger, Tally Ledgers & Optional Claim Details',
+        detail:
+          'Drop your BMW SAP ledger export (.xlsx/.xls/.csv), one or more Tally ledger files (all ledger sheets are read automatically), and optional BMW warranty claim workbooks.',
+      },
+      {
+        stepTitle: 'Set Tolerances, Reconcile & Download Styled ExcelJS Workbooks',
+        detail:
+          'Adjust amount tolerance, invoice window, and payment window if needed, click Run reconciliation, inspect the Consolidated, Bridge, Ledger-wise & 10 detail tabs, and export Full, Summary, Exceptions Excel or CSV.',
+      },
+    ],
+    keyBenefits: [
+      {
+        title: 'Complete Opening → Closing Receivable Bridge',
+        detail:
+          'Breaks closing differences into opening variance, invoice amount differences, TDS deducted by BMW, prior-period accruals, unbooked payments, and Tally-only entries down to 0.00 unexplained.',
+      },
+      {
+        title: 'Multi-Sheet Tally & Payment Subset Matching',
+        detail:
+          'Combines all uploaded Tally ledger sheets automatically and matches single or combined receipts against BMW KZ payment lines.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Does BMW Vendor Ledger Reconciliation auto-lock on refresh?',
+        answer:
+          'Yes. For dealership data privacy, VC-11 is gated by the 6-digit VCPL passcode and resets automatically whenever the page reloads.',
+      },
+      {
+        question: 'Are SAP ledgers or Tally exports uploaded to any server?',
+        answer:
+          'No. SheetJS parsing, reconciliation math, subset payment matching, and ExcelJS workbook generation all execute locally in your browser.',
+      },
+    ],
+  },
+
+  'bmw-claims-reconciler': {
+    toolId: 'bmw-claims-reconciler',
+    seoTitle: 'BMW Claims Reconciler (DMS Invoices vs Credit/Debit Notes & Warranty Tracker) – VCPL Tools',
+    seoDescription:
+      'Passcode-locked BMW warranty claims reconciliation engine matching DMS Service Invoices, Credit Memos, Debit Notes & multi-sheet claim trackers with multi-claim split sheets & ExcelJS export.',
+    adTopic: 'Automotive Dealership Warranty Claims & DMS Audit',
+    focusKeywords: [
+      'BMW Claims Reconciler',
+      'DMS invoices vs warranty claims Excel',
+      'BMW credit note reconciliation',
+      'multi-claim invoice split audit',
+    ],
+    overview: [
+      'BMW Claims Reconciler (VC-12) is a passcode-protected dealership audit workbench that links DMS Service Invoices, Service Credit Memos, Debit Notes, and multi-month Warranty Claim trackers directly inside your browser.',
+      'It auto-detects and maps Excel headers across files, supports Bill-To filtering and Bajaj EW toggles, prevents double counting when BMW Credit Notes repeat across split claim lines, detects possible VIN re-bills/duplicates, filters every tab globally by date period, and exports formatted multi-sheet ExcelJS reports with live SUBTOTAL formulas.',
+    ],
+    howToUse: [
+      {
+        stepTitle: 'Unlock Workspace & Drop Your Excel Exports',
+        detail:
+          'Enter the 6-digit dealership passcode, then drop DMS Service Invoices (required) plus optional Credit Memos, Debit Notes, and Warranty Claim / Credit tracker files.',
+      },
+      {
+        stepTitle: 'Verify Column Mappings & Reconciliation Options',
+        detail:
+          'Review the auto-detected column dropdowns under each uploaded card, adjust ₹ tolerance, pending-days alert, Bill-To filter, RO fallback, and repeated-CN deduplication.',
+      },
+      {
+        stepTitle: 'Explore Dashboard, Drill-Down Tabs & Export ExcelJS Reports',
+        detail:
+          'Use the Dashboard charts, Register, Multi-Claim, Exceptions, BMW CN Recon, and Audit tabs—filter by period or inline search, add manual remarks, and export Period, All Dates, Multi-Claim, or Exceptions workbooks.',
+      },
+    ],
+    keyBenefits: [
+      {
+        title: 'Multi-Claim & Repeated Credit Note Deduplication',
+        detail:
+          'Automatically handles invoices carrying 2, 3, or 4+ claim lines with dedicated split sheets and avoids double-counting identical BMW CN credits.',
+      },
+      {
+        title: 'Live SUBTOTAL ExcelJS Workbooks & Saved Remarks',
+        detail:
+          'Exports multi-tab formatted Excel workbooks with colored status badges and SUBTOTAL(109) total rows while preserving manual invoice remarks and options locally.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Does BMW Claims Reconciler send any DMS or warranty files online?',
+        answer:
+          'Never. All spreadsheet parsing, RO/VIN/CN matching, period filtering, and ExcelJS workbook exports run 100% locally in your browser.',
+      },
+      {
+        question: 'Why does the Multi-Claim tab group rows by invoice?',
+        answer:
+          'When multiple warranty claims link to a single DMS invoice, grouping by invoice clarifies total billed vs total claimed/approved/credited without double-counting the invoice value.',
       },
     ],
   },
@@ -2697,9 +2815,9 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
     ],
     howToUse: [
       {
-        stepTitle: 'Select Your Database Backup or Load the 25 MB Sample SQL Dump',
+        stepTitle: 'Select Your Database or Large Data File(s)',
         detail:
-          'Drag and drop one or more large .sql, .dump, .bak, .sqlite, .csv, or .json files—or click "Load 25 MB Sample SQL Dump" to benchmark ultra-high-ratio SQL compression instantly.',
+          'Drag and drop one or more large .sql, .dump, .bak, .sqlite, .csv, or .json files to analyze compressibility and run local streaming compression.',
       },
       {
         stepTitle: 'Review the Instant Compressibility Pre-Scan & Target Limit',
@@ -2912,6 +3030,124 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
         question: 'Why are Credit Note and Debit Note different in TallyPrime?',
         answer:
           'TallyPrime standardized secondary accounting notes to Alt+F6 (Credit Note) and Alt+F5 (Debit Note), replacing Ctrl+F8 and Ctrl+F9 from Tally.ERP 9.',
+      },
+    ],
+  },
+  'vcpl-rtgs-neft-form': {
+    toolId: 'vcpl-rtgs-neft-form',
+    seoTitle: 'VCPL Bulk Bank Transfer Form – Same Bank (SBI) & NEFT/RTGS Request Letter | VCPL Tools',
+    seoDescription:
+      'Generate A4 Same Bank (SBI intra-bank Payment Transfer Request Letter) & NEFT/RTGS bank request letters with built-in Varsha Cars letterhead, saved accounts, INR words, Excel batch upload, Word/PDF/Excel exports & cheque copy slot.',
+    adTopic: 'Same Bank Transfer, RTGS & NEFT Request Letter & Corporate Remittance',
+    focusKeywords: [
+      'VCPL Bulk Bank Transfer Form',
+      'Same Bank Transfer Payment Request Letter',
+      'SBI intra bank transfer letter',
+      'NEFT RTGS request letter generator',
+      'Indian Rupees in words bank letter',
+    ],
+    overview: [
+      'VCPL Bulk Bank Transfer Form (VC-13) builds bank-ready A4 request letters for Same Bank Transfers (SBI intra-bank Payment Transfer Request Letter) as well as single or multi-beneficiary NEFT and RTGS remittances directly in your browser.',
+      'It ships with built-in Varsha Cars Pvt. Ltd. Mangalore letterhead & BMW roundel header (or pre-printed paper / custom upload), saved SBI & HDFC accounts with 4-digit quick lookup, Indian Lakhs/Crores words conversion, mode-aware Excel beneficiary batch upload, and direct A4 PDF, Word (.docx), Excel (.xlsx), CSV, Print, and HTML exports.',
+    ],
+    howToUse: [
+      {
+        stepTitle: 'Choose Mode & Source Bank Account',
+        detail:
+          'Switch between Same Bank Transfer (Payment Transfer Request Letter) and NEFT / RTGS modes, then select a saved VCPL SBI/HDFC preset or enter the last 4 digits.',
+      },
+      {
+        stepTitle: 'Add Cheque Info & Beneficiaries',
+        detail:
+          'Enter cheque number, cheque date, and edit beneficiary rows inline, or upload a filled Excel (.xlsx / .csv) sheet.',
+      },
+      {
+        stepTitle: 'Export A4 PDF, Word, Excel, CSV, HTML or Print',
+        detail:
+          'Verify the live scaled A4 preview with automatic INR words, optionally attach a cheque copy image, and print or download in your preferred document format.',
+      },
+    ],
+    keyBenefits: [
+      {
+        title: 'Same Bank Letterhead + NEFT / RTGS in One Workspace',
+        detail:
+          'Produces the clean 4-column Same Bank SBI Payment Transfer Request Letter (S.N, ACCOUNT NAME, ACCOUNT NUMBER, AMOUNT + TOTAL) or the 7-column NEFT/RTGS table automatically.',
+      },
+      {
+        title: 'Excel Batch Upload & Multi-Format Export',
+        detail:
+          'Download mode-specific Excel templates, fill vendor rows offline, upload back, and export to A4 PDF, Word (.docx), Excel (.xlsx), UTF-8 CSV, HTML, or Print.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'How does Same Bank Transfer mode differ from NEFT / RTGS mode?',
+        answer:
+          'Same Bank Transfer formats an intra-bank Payment Transfer Request Letter with Varsha Cars letterhead, Applicant (Remitter) Section A, a crisp 4-column Beneficiary Table (S.N, ACCOUNT NAME, ACCOUNT NUMBER, AMOUNT + TOTAL), and Amount in Words without unnecessary IFSC columns.',
+      },
+      {
+        question: 'Can I print on pre-printed Varsha Cars letterhead paper?',
+        answer:
+          'Yes. Switch Letterhead Header to Blank Pre-Printed Paper and adjust Blank Top Space (mm) so the A4 printout leaves exact room for your physical letterhead.',
+      },
+    ],
+  },
+  'tds-26as-tally-reco': {
+    toolId: 'tds-26as-tally-reco',
+    seoTitle: '26AS ⇄ Tally Ledger Reco – Form 26AS & ATS vs Tally TDS/TCS Reconciliation | VCPL Tools',
+    seoDescription:
+      'Reconcile Form 26AS and ATS (.pdf, .txt, .xlsx, .csv) against multi-sheet Tally TDS/TCS asset ledgers with automatic union-find mapping, G/B reversal netting, 18 period filters, SVG dashboard & ExcelJS formulas.',
+    adTopic: 'Form 26AS Tally TDS TCS Ledger Reconciliation & Audit',
+    focusKeywords: [
+      '26AS to Tally ledger reconciliation',
+      'Form 26AS vs Tally TDS reco',
+      'ATS PDF Tally reconciliation',
+      'TDSTCS ledger matching tool',
+      'ExcelJS 26AS reconciliation formulas',
+    ],
+    overview: [
+      '26AS ⇄ Tally Ledger Reco (VC-14) compares your Form 26AS / Annual Tax Statement (ATS) entries from TRACES (.pdf including password-protected files, .txt, .xlsx, or .csv) against multi-sheet Tally TDS & TCS asset ledger exports.',
+      'Only current-period transactions are reconciled (Tally opening and closing balances are ignored cleanly), reversal pairs marked G/B are netted automatically, and results export to a styled multi-sheet ExcelJS workbook with live COUNTIFS/SUMIFS formulas on Manual Links.',
+    ],
+    howToUse: [
+      {
+        stepTitle: 'Upload Tally Ledgers & Form 26AS / ATS Files',
+        detail:
+          'Drop one or more Tally ledger Excel exports (.xlsx/.xls) and one or more Form 26AS/ATS files (.pdf, .txt, .xlsx, .csv) to begin.',
+      },
+      {
+        stepTitle: 'Choose Period, Date Basis & Ledger Mapping',
+        detail:
+          'Select any of 18 period modes (or pick custom months/quarters interactively), verify auto-mapped Tally Ledger <-> 26AS Deductor pairs, and untick any ledger for Manual Reco.',
+      },
+      {
+        stepTitle: 'Inspect 12 Views & Export Pro ExcelJS Workbook',
+        detail:
+          'Review the SVG Dashboard, Group Summary, Missing entries, Mismatches, link items interactively on Manual Reco, and export to Pro Excel (.xlsx), PDF Audit, Word (.docx), CSV, Print, or JSON.',
+      },
+    ],
+    keyBenefits: [
+      {
+        title: 'Intelligent Multi-Pass Matching & Union-Find Grouping',
+        detail:
+          'Handles exact matches, rounding tolerance, many-to-one / one-to-many grouped subset sums, near-amount flags, and multi-ledger or multi-deductor groups cleanly.',
+      },
+      {
+        title: 'Live Formula ExcelJS Workbook & Password PDF Support',
+        detail:
+          'Exports Dashboard, Group Summary, Detail tabs, Manual Reco dropdowns, live COUNTIFS/SUMIFS Manual Links, Period-wise, Day Buckets, and per-group Ledger sheets.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Can I upload a password-protected Form 26AS PDF directly?',
+        answer:
+          'Yes. If an uploaded 26AS/ATS PDF is encrypted, an inline password unlock bar appears right below the upload cards so you can enter the password (e.g. DDMMYYYY) and unlock it locally in your browser.',
+      },
+      {
+        question: 'Does the tool use Tally opening or closing balances in the reconciliation?',
+        answer:
+          'No. Opening Balance / B/F and Closing Balance rows are stripped during Tally parsing so only actual transactions within your selected period range are reconciled.',
       },
     ],
   },

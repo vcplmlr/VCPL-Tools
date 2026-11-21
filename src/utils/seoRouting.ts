@@ -209,6 +209,14 @@ export function parseLocationToRoute(pathname: string, search: string): ParsedRo
         subParam: codeParam,
       };
     }
+    if (toolSlug === 'vcpl-bulk-bank-transfer-form') {
+      return {
+        view: 'tool',
+        toolId: 'vcpl-rtgs-neft-form',
+        fullScreen: wantsFull,
+        subParam: codeParam,
+      };
+    }
     const tool = getToolById(toolSlug);
     if (tool && (CATEGORY_SLUG_BY_FILTER[tool.category] === catSlug || catSlug === 'tools')) {
       return {

@@ -813,7 +813,7 @@ export const BulkSlipModal: React.FC<BulkSlipModalProps> = ({
                   01. Download Excel Template
                 </div>
                 <p className="text-xs text-[#475569] leading-relaxed">
-                  Download the pre-formatted <strong>{bankShort}</strong> Excel sheet tailored for <strong>{activeMeta.title}</strong> with sample rows.
+                  Download the pre-formatted <strong>{bankShort}</strong> Excel sheet tailored for <strong>{activeMeta.title}</strong> with ready-to-fill header columns.
                 </p>
               </div>
               <button

@@ -28,17 +28,17 @@ import {
   Layers,
   Loader2,
   Plus,
+  RotateCcw,
   RotateCw,
   ScanText,
   Scissors,
   Shield,
-  Sparkles,
   Trash2,
   UploadCloud,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
 import { FileDropZone } from './FileDropZone';
-import { createSamplePdfBytes, sanitizeWinAnsi } from '../../utils/pdfOperations';
+import { sanitizeWinAnsi } from '../../utils/pdfOperations';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -310,6 +310,32 @@ export const PdfAdvancedSuiteView: React.FC<PdfAdvancedSuiteViewProps> = ({ tool
     setDeskewAngle(0);
   }, [tool.id]);
 
+  const handleResetAll = () => {
+    setStatus(null);
+    setBusy(false);
+    setProgressText('');
+    setPdfFile(null);
+    setPdfBytes(null);
+    setNumPages(0);
+    setThumbs([]);
+    setPdfFileB(null);
+    setPdfBytesB(null);
+    setNumPagesB(0);
+    setBatchFiles([]);
+    setPptFile(null);
+    setImageBatch([]);
+    setExtractedImgs([]);
+    setDiffRows([]);
+    setDiffVisualUrl('');
+    setRedactBoxes([]);
+    setRedactPreviewUrl('');
+    setDeskewAngle(0);
+    setDeskewPreviewUrl('');
+    setOcrOutput('');
+    setSummaryData(null);
+    setRenamePreviews([]);
+  };
+
   const loadSinglePdf = async (file: File) => {
     setBusy(true);
     setStatus(null);
@@ -343,12 +369,6 @@ export const PdfAdvancedSuiteView: React.FC<PdfAdvancedSuiteViewProps> = ({ tool
     } finally {
       setBusy(false);
     }
-  };
-
-  const handleLoadSamplePdf = async () => {
-    const bytes = await createSamplePdfBytes();
-    const file = new File([bytes as unknown as BlobPart], 'VCPL_Sample_Document.pdf', { type: 'application/pdf' });
-    await loadSinglePdf(file);
   };
 
   // Live preview for Redact or Deskew
@@ -1595,16 +1615,16 @@ export const PdfAdvancedSuiteView: React.FC<PdfAdvancedSuiteViewProps> = ({ tool
           <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
         </div>
 
-        {!needsNoPdfUpload && (
+        <div className="flex flex-wrap items-center gap-2 shrink-0 no-print">
           <button
             type="button"
-            onClick={handleLoadSamplePdf}
+            onClick={handleResetAll}
             disabled={busy}
-            className="px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
-            <Sparkles className="w-3.5 h-3.5" /> Load 4-Page Sample PDF
+            <RotateCcw className="w-3.5 h-3.5" /> Clear / Reset
           </button>
-        )}
+        </div>
       </div>
 
       {/* Status Alert */}

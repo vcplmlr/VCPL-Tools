@@ -355,6 +355,7 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
   // Lorem Ipsum
   const [loremMode, setLoremMode] = useState<'paragraphs' | 'sentences' | 'words'>('paragraphs');
   const [loremQty, setLoremQty] = useState<number>(3);
+  const [loremFormat, setLoremFormat] = useState<'plain' | 'html' | 'markdown' | 'json'>('plain');
 
   // Hash Checksum
   const [hashInput, setHashInput] = useState<string>('');
@@ -839,29 +840,44 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
   // 5. LOREM IPSUM GENERATOR
   if (tool.id === 'lorem-ipsum-generator') {
     const qty = Math.min(25, Math.max(1, loremQty));
-    const generatedLorem = (() => {
+    const baseChunks = (() => {
       if (loremMode === 'words') {
         const pool = LOREM_SENTENCES.join(' ').split(/\s+/);
-        return Array.from({ length: qty }, (_, i) => pool[i % pool.length]).join(' ');
+        return [Array.from({ length: qty }, (_, i) => pool[i % pool.length]).join(' ')];
       }
       if (loremMode === 'sentences') {
-        return Array.from({ length: qty }, (_, i) => LOREM_SENTENCES[i % LOREM_SENTENCES.length]).join(' ');
+        return [Array.from({ length: qty }, (_, i) => LOREM_SENTENCES[i % LOREM_SENTENCES.length]).join(' ')];
       }
       return Array.from({ length: qty }, (_, p) =>
         [0, 1, 2].map((s) => LOREM_SENTENCES[(p + s) % LOREM_SENTENCES.length]).join(' ')
-      ).join('\n\n');
+      );
     })();
+
+    const generatedLorem = (() => {
+      if (loremFormat === 'html') {
+        return baseChunks.map((p) => `<p>${p}</p>`).join('\n');
+      }
+      if (loremFormat === 'markdown') {
+        return baseChunks.map((p, idx) => (loremMode === 'paragraphs' ? `### Section ${idx + 1}\n\n${p}` : `- ${p}`)).join('\n\n');
+      }
+      if (loremFormat === 'json') {
+        return JSON.stringify({ mode: loremMode, quantity: qty, blocks: baseChunks }, null, 2);
+      }
+      return baseChunks.join('\n\n');
+    })();
+
+    const wordCountLorem = baseChunks.join(' ').trim().split(/\s+/).filter(Boolean).length;
 
     return (
       <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-6 sm:p-8 space-y-6">
         {headerBanner}
-        <div className="flex flex-wrap items-center gap-3 text-xs font-bold">
+        <div className="flex flex-wrap items-center gap-2.5 text-xs font-bold">
           {(['paragraphs', 'sentences', 'words'] as const).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setLoremMode(m)}
-              className={`px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 capitalize cursor-pointer ${
+              className={`px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 capitalize cursor-pointer ${
                 loremMode === m
                   ? 'bg-[#2F3E4E] text-white dark:bg-[#F9C80E] dark:text-[#0F172A]'
                   : 'bg-white dark:bg-[#0F172A] text-[#2F3E4E] dark:text-slate-200'
@@ -878,25 +894,54 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
             onChange={(e) => setLoremQty(Number(e.target.value) || 1)}
             className="w-20 px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0F172A] text-[#2F3E4E] dark:text-slate-100 font-mono"
           />
+          <div className="flex items-center gap-1 border-l border-[#2F3E4E]/20 dark:border-slate-700 pl-2.5">
+            {(['plain', 'html', 'markdown', 'json'] as const).map((fmt) => (
+              <button
+                key={fmt}
+                type="button"
+                onClick={() => setLoremFormat(fmt)}
+                className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold uppercase cursor-pointer ${
+                  loremFormat === fmt
+                    ? 'bg-[#F9C80E] border-[#2F3E4E] text-[#2F3E4E]'
+                    : 'bg-white dark:bg-[#0F172A] border-[#2F3E4E]/30 dark:border-slate-600 text-[#475569] dark:text-slate-300'
+                }`}
+              >
+                {fmt}
+              </button>
+            ))}
+          </div>
+          <span className="ml-auto font-mono text-[11px] font-bold text-[#12805C] dark:text-emerald-300 bg-[#CEE5DC]/65 dark:bg-emerald-950/60 px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/25">
+            {wordCountLorem} words · {generatedLorem.length} chars
+          </span>
           <button
             type="button"
-            onClick={() => void copyText(generatedLorem)}
-            className="ml-auto px-4 py-2 rounded-xl bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] text-[#2F3E4E] inline-flex items-center gap-1.5 cursor-pointer"
+            onClick={() => {
+              setLoremMode('paragraphs');
+              setLoremQty(3);
+              setLoremFormat('plain');
+            }}
+            className="px-3 py-2 rounded-xl bg-white dark:bg-[#0F172A] border-[1.5px] border-[#2F3E4E] dark:border-slate-600 text-[#2F3E4E] dark:text-slate-200 inline-flex items-center gap-1 cursor-pointer"
           >
-            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} Copy Text
+            <RotateCcw className="w-3.5 h-3.5" /> Reset
           </button>
         </div>
         <textarea
           readOnly
           rows={10}
           value={generatedLorem}
-          className="w-full p-4 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0F172A] text-[#2F3E4E] dark:text-slate-100 text-sm leading-relaxed"
+          className="w-full p-4 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0F172A] text-[#2F3E4E] dark:text-slate-100 text-sm leading-relaxed font-mono"
         />
         <ToolExportBar
+          clearLabel="Reset Defaults"
+          onClear={() => {
+            setLoremMode('paragraphs');
+            setLoremQty(3);
+            setLoremFormat('plain');
+          }}
           onCopy={() => void copyText(generatedLorem)}
           copied={copied}
-          onWord={() => void downloadWordDocument('Placeholder Text', [{ title: `${loremQty} ${loremMode}`, lines: generatedLorem.split('\n') }], 'lorem_text.docx')}
-          onJson={() => downloadJsonFile({ mode: loremMode, quantity: qty, text: generatedLorem }, 'lorem_text.json')}
+          onWord={() => void downloadWordDocument('Placeholder Text', [{ title: `${loremQty} ${loremMode} (${loremFormat})`, lines: generatedLorem.split('\n') }], 'lorem_text.docx')}
+          onJson={() => downloadJsonFile({ mode: loremMode, format: loremFormat, quantity: qty, text: generatedLorem }, 'lorem_text.json')}
         />
       </div>
     );
@@ -1226,8 +1271,14 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
             </button>
             <button
               type="button"
-              onClick={() => setActiveClockZones(DEFAULT_CLOCK_ZONES)}
-              title="Reset to 9 default cities"
+              onClick={() => {
+                setActiveClockZones(DEFAULT_CLOCK_ZONES);
+                setClockBaseIso(formatCurrentLocalDatetimeInput());
+                setZoneSearchQuery('');
+                setCustomCountryInput('');
+                setCustomCityInput('');
+              }}
+              title="Reset to 9 default cities and live local time"
               className="px-3 py-1.5 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#1E293B] text-[#475569] dark:text-slate-300 hover:text-[#2F3E4E] dark:hover:text-white font-semibold inline-flex items-center gap-1 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Reset ({DEFAULT_CLOCK_ZONES.length})
@@ -1473,6 +1524,14 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
 
         <ToolExportBar
           title="Export World Clock Schedule"
+          clearLabel="Reset Clocks"
+          onClear={() => {
+            setActiveClockZones(DEFAULT_CLOCK_ZONES);
+            setClockBaseIso(formatCurrentLocalDatetimeInput());
+            setZoneSearchQuery('');
+            setCustomCountryInput('');
+            setCustomCityInput('');
+          }}
           onCopy={() => void copyMeetingSummary()}
           copied={copiedClockSummary}
           onExcel={() =>

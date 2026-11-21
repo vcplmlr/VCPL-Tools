@@ -1,0 +1,612 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>26AS ⇄ Tally Reconciliation Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1d2330;--mu:#667085;--bd:#e1e5ec;--pr:#1f5eff;--ok:#0a8a4a;--wa:#b86e00;--er:#c62828;--okb:#e3f6ec;--wab:#fff1da;--erb:#fde7e7;--hd:#eef1f6}
+@media(prefers-color-scheme:dark){:root{--bg:#12151c;--card:#1a1f2a;--tx:#e8ebf2;--mu:#98a2b3;--bd:#2c3445;--pr:#6c93ff;--ok:#4cd08a;--wa:#f0b04a;--er:#ff7b7b;--okb:#14352a;--wab:#3a2c10;--erb:#3b1c1c;--hd:#232a38}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+header{padding:14px 20px;border-bottom:1px solid var(--bd);background:var(--card);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+h1{font-size:18px;margin:0}h2{font-size:15px;margin:0 0 10px}.mu{color:var(--mu);font-size:12px}
+main{max-width:1500px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+label{display:block;font-size:12px;color:var(--mu);margin-bottom:3px}
+input,select,button{font:inherit;padding:6px 9px;border:1px solid var(--bd);border-radius:7px;background:var(--card);color:var(--tx);max-width:100%}
+button{cursor:pointer}button.p{background:var(--pr);color:#fff;border-color:var(--pr);font-weight:600}button:disabled{opacity:.5;cursor:not-allowed}
+.drop{border:2px dashed var(--bd);border-radius:10px;padding:14px;text-align:center}.drop.on{border-color:var(--pr)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.chip{font-size:12px;background:var(--hd);border-radius:99px;padding:2px 10px}
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}.kpi{background:var(--hd);border-radius:9px;padding:10px}.kpi b{display:block;font-size:18px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}.tab{padding:6px 12px;border-radius:7px;border:1px solid var(--bd);background:var(--card);cursor:pointer;font-size:13px}.tab.on{background:var(--pr);color:#fff;border-color:var(--pr)}
+.tw{overflow:auto;max-height:68vh;border:1px solid var(--bd);border-radius:8px}table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:var(--hd);text-align:left;padding:6px 8px;white-space:nowrap;border-bottom:1px solid var(--bd);z-index:1}
+td{padding:5px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}td.n{text-align:right;font-variant-numeric:tabular-nums}tr:hover td{background:var(--hd)}
+.b{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:600}.b.ok{background:var(--okb);color:var(--ok)}.b.wa{background:var(--wab);color:var(--wa)}.b.er{background:var(--erb);color:var(--er)}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}.hide{display:none}
+.w{border-left:3px solid var(--wa);padding:4px 10px;margin:4px 0;background:var(--wab);border-radius:4px}
+.mc{cursor:pointer;border:1px solid var(--bd);border-radius:8px;padding:3px 9px;font-size:12px;background:var(--card);text-align:center;user-select:none}.mc.on{background:var(--pr);color:#fff;border-color:var(--pr)}.mc.no{opacity:.5}.mc small{display:block;font-size:10px;opacity:.85}.mc.qb{font-weight:600;background:var(--hd)}.mc.qb.on{background:var(--pr)}.fyr{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:5px 0}
+.hb{height:10px;border-radius:5px}.dg{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));margin-top:12px}.pn{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}.pn h3{margin:0 0 8px;font-size:13px}.rw{display:grid;grid-template-columns:170px 1fr 120px;gap:8px;align-items:center;font-size:12px;margin:5px 0}.rw span:last-child{text-align:right}
+</style></head><body>
+<header><h1>26AS ⇄ Tally Reconciliation</h1><span class="mu">Upload Tally ledger export + Form 26AS / ATS (xlsx, txt or pdf) → mapped, matched, exported. Only transactions of the chosen period are reconciled (opening / closing balances never used). Runs fully in your browser.</span></header>
+<main>
+<div class="card"><h2>1 · Upload files</h2><div class="grid">
+<div><div class="drop" id="dT"><b>Tally ledger export (.xlsx)</b><div class="mu">All TDS/TCS asset ledgers; many ledgers per sheet / many sheets are fine</div><input type="file" id="fT" accept=".xlsx,.xls" multiple></div></div>
+<div><div class="drop" id="dA"><b>26AS / ATS file(s) (.xlsx / .txt / .pdf)</b><div class="mu">Any one format works; you may add several – duplicates are merged safely</div><input type="file" id="fA" accept=".xlsx,.xls,.txt,.pdf,.csv" multiple></div></div>
+</div><div class="chips" id="chips"></div></div>
+
+<div class="card hide" id="cOpt"><h2>2 · Reconciliation options</h2><div class="grid">
+<div><label>Period</label><select id="per"><option value="FY">Full financial year</option><option value="Q1">Q1 (Apr–Jun)</option><option value="Q2">Q2 (Jul–Sep)</option><option value="Q3">Q3 (Oct–Dec)</option><option value="Q4">Q4 (Jan–Mar)</option><option value="H1">H1 (Apr–Sep)</option><option value="H2">H2 (Oct–Mar)</option><option value="M3">Apr</option><option value="M4">May</option><option value="M5">Jun</option><option value="M6">Jul</option><option value="M7">Aug</option><option value="M8">Sep</option><option value="M9">Oct</option><option value="M10">Nov</option><option value="M11">Dec</option><option value="M0">Jan</option><option value="M1">Feb</option><option value="M2">Mar</option><option value="MR">Month range…</option><option value="YTD">Year-to-date (FY start → as-on date)</option><option value="LD">Last N days (to as-on date)</option><option value="MS">★ Selected months / quarters (pick below)</option><option value="CQ">Current quarter (of as-on date)</option><option value="PQ">Previous quarter (before as-on date)</option><option value="QR">Quarter range… (e.g. Q1–Q3)</option><option value="LM">Last N months (to as-on date)</option><option value="FR">Multiple financial years…</option><option value="CY">Calendar year (Jan–Dec of FY start year)</option><option value="C">Custom from – to dates…</option></select></div><div><label>Financial year</label><select id="fysel"></select></div>
+<div id="cust" class="hide"><label>From – To</label><input type="date" id="cs"> <input type="date" id="ce"></div><div id="mr" class="hide"><label>From month – To month</label><select id="m1"></select> <select id="m2"></select></div><div id="ld" class="hide"><label>As-on date · N (days, or months for “Last N months”)</label><input type="date" id="ason"> <input type="number" id="days" value="30" min="1" style="width:80px"></div>
+<div id="fr" class="hide"><label>From FY – To FY</label><select id="f1"></select> <select id="f2"></select></div><div id="qr" class="hide"><label>From quarter – To quarter</label><select id="q1"><option value="0">Q1 Apr–Jun</option><option value="1">Q2 Jul–Sep</option><option value="2">Q3 Oct–Dec</option><option value="3">Q4 Jan–Mar</option></select> <select id="q2"><option value="0">Q1 Apr–Jun</option><option value="1">Q2 Jul–Sep</option><option value="2">Q3 Oct–Dec</option><option value="3" selected>Q4 Jan–Mar</option></select></div>
+<div><label>26AS date used for period</label><select id="basis"><option value="txn">Transaction date</option><option value="book">Date of booking</option></select></div>
+<div><label>Matching scope</label><select id="scope"><option value="strict">Strict – only transactions inside the period</option><option value="buf">Period + buffer days (cut-off timing)</option><option value="all">Whole data, report selected period (old)</option></select></div><div><label>Buffer days (only for “Period + buffer”)</label><input type="number" id="buf" value="10" min="0" style="width:90px"></div><div><label>26AS entries to include</label><select id="fin"><option value="">All entries</option><option value="F">Final-status only</option></select></div><div><label>Day-bucket size (days) for “Day buckets” tab</label><input type="number" id="bkt" value="30" min="1" style="width:90px"></div>
+<div><label>Rounding tolerance (₹ per match)</label><input type="number" id="tol" value="2" min="0" step="0.5" style="width:90px"></div>
+<div><label>Date window for grouped matches (days)</label><input type="number" id="win" value="45" min="1" style="width:90px"></div>
+</div><div id="msP" style="margin-top:12px;border-top:1px solid var(--bd);padding-top:10px"></div></div>
+
+<div class="card hide" id="cMap"><h2>3 · Tally ledger ⇄ 26AS deductor mapping <span class="mu" id="mapInfo"></span></h2>
+<div class="mu" style="margin-bottom:8px">Auto-mapped using names + matching amounts. Correct any row; one deductor may have several ledgers, and a ledger may map to two deductors.</div>
+<div class="bar"><button id="incAll">☑ Select all for auto-reco</button><button id="incNone">☐ Unselect all (manual only)</button><span class="mu">Ticked ledgers are reconciled automatically. Unticked ledgers are NOT matched: their 26AS and Tally entries go to the “Manual reco” tab and Excel sheet, where you link them yourself.</span></div>
+<div class="tw" style="max-height:38vh"><table id="mapT"></table></div><div class="bar" style="margin-top:10px"><button class="p" id="run">Run reconciliation</button><span class="mu">Re-runs automatically when you change options.</span></div></div>
+
+<div class="card hide" id="cRes"><div class="bar"><h2 style="margin:0" id="resT">Results</h2><span style="flex:1"></span><button class="p" id="xl">⬇ Export to Excel (all sheets + ledger-wise)</button></div>
+<div class="kpis" id="kpis"></div><div class="tabs" id="tabs" style="margin-top:12px"></div>
+<div id="manBar" class="bar hide"></div><div class="bar" id="bar2"><input id="q" placeholder="Search…" style="min-width:220px"><select id="sf"><option value="">All statuses</option></select><select id="gsel" class="hide"></select><span class="mu" id="cnt"></span></div>
+<div class="tw" id="twr"><table id="tbl"></table></div><div id="dash" class="hide"></div></div>
+</main>
+<script>
+/* ===== CORE: parsers + matching (no DOM) ===== */
+const MON={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const p2=n=>String(n).padStart(2,'0'), ISO=(y,m,d)=>y+'-'+p2(m+1)+'-'+p2(d);
+function pd(s){
+  if(s instanceof Date){const x=new Date(+s+12*36e5);return ISO(x.getFullYear(),x.getMonth(),x.getDate());}
+  if(typeof s==='number'){if(s<30000)return null;const x=new Date(Math.round((s-25569)*864e5));return ISO(x.getUTCFullYear(),x.getUTCMonth(),x.getUTCDate());}
+  s=String(s==null?'':s).trim();let m;
+  if(m=s.match(/^(\d{1,2})[- ]([A-Za-z]{3})[a-z]*[- ,]+(\d{2,4})$/)){const y=+m[3]<100?2000+ +m[3]:+m[3],mo=MON[m[2].toLowerCase()];return mo==null?null:ISO(y,mo,+m[1]);}
+  if(m=s.match(/^(\d{4})-(\d\d)-(\d\d)/))return m[0].slice(0,10);
+  if(m=s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/))return ISO(+m[3],+m[2]-1,+m[1]);
+  return null;}
+const dfmt=d=>{if(!d)return'';const[y,m,dd]=d.split('-');return dd+'-'+MN[+m-1]+'-'+y;};
+const isNumLike=s=>/^\(?-?[\d,]*\.?\d+\)?$/.test(String(s).trim())&&/\d/.test(s);
+function num(s){if(s==null||s==='')return null;if(typeof s==='number')return s;let t=String(s).replace(/[₹,\s]/g,'');if(!t||t==='-')return null;const neg=/^\(.*\)$/.test(t)||/^-/.test(t);t=t.replace(/[()\-]/g,'');const v=parseFloat(t);return isNaN(v)?null:(neg?-v:v);}
+const r2=x=>Math.round(x*100)/100;
+const TANRE=/^[A-Z]{4}\d{5}[A-Z]$/,PANRE=/^[A-Z]{5}\d{4}[A-Z]$/;
+const cell=v=>v==null?'':(v instanceof Date?dfmt(pd(v)):String(v).replace(/_x000D_|[\r\n]+/g,' ').trim());
+
+/* ---------- 26AS parser: rows = array of token arrays ---------- */
+function parse26(rows,file){
+  let part=null,cur=null,buf=[],lastDed=false;const raw=[],deds={},chk={};
+  for(const t of rows){
+    if(!t.length)continue;const txt=t.join(' ');
+    let m=txt.match(/^PART[\s-]*([IVX]+)\b/i);
+    if(m){const R=m[1].toUpperCase(),np=(R==='I'||R==='II')?'TDS':R==='VI'?'TCS':null;if(np!==part)cur=null;part=np;buf=[];continue;}
+    if(!part)continue;
+    const ti=t.findIndex(x=>TANRE.test(x));
+    if(ti>=0){
+      const s=/^\d+$/.test(t[0])?1:0;
+      let name=(buf.join(' ')+' '+t.slice(s,ti).join(' ')).replace(/^\d+\s+/,'').replace(/\s+/g,' ').trim();
+      let pan='',k=ti+1;if(t[k]&&PANRE.test(t[k])){pan=t[k];k++;}else if(t[k]==='-')k++;
+      const nums=t.slice(k).filter(isNumLike).map(num);
+      cur={typ:part,tan:t[ti],pan,name,tot:nums.length>=3?nums[nums.length-2]:null};
+      deds[part+'|'+cur.tan]=cur;buf=[];lastDed=true;continue;}
+    const di=t.findIndex(x=>pd(x)&&/\d{4}$/.test(x)&&/[-\/]/.test(x));
+    if(di>0&&/^\d{4}$/.test(t[di-1])&&cur){
+      const d2=t.findIndex((x,i)=>i>di&&pd(x)&&/[-\/]/.test(x));
+      const st=(t[di+1]||'')[0]==null?'':t[di+1];
+      const after=t.slice((d2>0?d2:di)+1).filter(isNumLike).map(num);
+      if(after.length>=3){const n=after.length;
+        raw.push({typ:cur.typ,tan:cur.tan,pan:cur.pan,name:cur.name,sec:t[di-1],td:pd(t[di]),bd:d2>0?pd(t[d2]):'',st:/^(F|Final)$/i.test(st)?'F':st,gross:after[n-3],amt:after[n-2],file});}
+      buf=[];lastDed=false;continue;}
+    const hdr=/S\.No|Section|Transaction|Booking|Page \d|Data updated|Deductor|Collector|Amount|Remarks|Tax|TDS|TCS|Name of|Gross|Total|No transactions/.test(txt);
+    if(!hdr){
+      if(lastDed&&cur&&!/\d/.test(txt)){cur.name=(cur.name+' '+txt).trim();}
+      else{buf.push(txt);if(buf.length>2)buf.shift();}}
+    else lastDed=false;
+  }
+  /* net reversals (G/B remark pairs appear as negative lines) */
+  const g={};let lines=raw.length;
+  for(const e of raw){const k=[e.typ,e.tan,e.sec,e.td,e.bd,Math.abs(e.amt).toFixed(2)].join('|');(g[k]=g[k]||{e,n:0}).n+=Math.sign(e.amt)||0;}
+  const out=[];for(const k in g){const{e,n}=g[k];for(let i=0;i<Math.abs(n);i++)out.push({...e,amt:n>0?Math.abs(e.amt):-Math.abs(e.amt)});}
+  /* validate vs deductor header totals */
+  const sums={};out.forEach(e=>{const k=e.typ+'|'+e.tan;sums[k]=(sums[k]||0)+e.amt;});
+  const bad=[];for(const k in deds){const d=deds[k];if(d.tot!=null&&Math.abs((sums[k]||0)-d.tot)>1)bad.push(d.name+': lines '+r2(sums[k]||0)+' vs header '+d.tot);}
+  return{entries:out,deds,lines,netted:lines-out.length,bad};
+}
+function merge26(list){
+  const cnt={},ent={},deds={};let netted=0,bad=[];
+  for(const r of list){netted+=r.netted;bad=bad.concat(r.bad);
+    for(const k in r.deds){const d=r.deds[k];if(!deds[k]||(d.name||'').length>deds[k].name.length)deds[k]={...d};if(!deds[k].pan&&d.pan)deds[k].pan=d.pan;}
+    const c={};for(const e of r.entries){const k=[e.typ,e.tan,e.sec,e.td,e.bd,e.amt.toFixed(2)].join('|');c[k]=(c[k]||0)+1;ent[k]=ent[k]||e;}
+    for(const k in c)cnt[k]=Math.max(cnt[k]||0,c[k]);}
+  const out=[];for(const k in cnt)for(let i=0;i<cnt[k];i++){const e={...ent[k]};e.name=(deds[e.typ+'|'+e.tan]||e).name;out.push(e);}
+  out.sort((a,b)=>a.td<b.td?-1:a.td>b.td?1:0);out.forEach((e,i)=>e.id=i);
+  return{entries:out,deds,netted,bad};
+}
+
+/* ---------- Tally parser: sheets = [{name,rows}] ---------- */
+function parseTally(sheets){
+  const L={},warn=[];let dup=0;
+  for(const sh of sheets){const R=sh.rows;
+    for(let r=0;r<R.length;r++)for(let c=0;c<(R[r]||[]).length;c++){
+      if(!/^ledger account$/i.test(cell(R[r][c])))continue;
+      const name=cell((R[r-1]||[])[c]);if(!name)continue;
+      let cov=null,h=-1;
+      for(let k=r+1;k<Math.min(R.length,r+9);k++){const x=cell((R[k]||[])[c]);
+        const m=x.match(/(\d{1,2}-[A-Za-z]{3}-\d{2,4})\s+to\s+(\d{1,2}-[A-Za-z]{3}-\d{2,4})/);if(m)cov={s:pd(m[1]),e:pd(m[2])};
+        if(/^date$/i.test(x)){h=k;break;}}
+      if(h<0)continue;
+      const key=name.toLowerCase().replace(/\s+/g,' ');
+      const led=L[key]=L[key]||{name,typ:/^\s*tcs/i.test(name)?'TCS':'TDS',entries:[],open:0,cov,sheets:[],seen:new Set()};
+      if(cov&&led.cov){led.cov={s:cov.s<led.cov.s?cov.s:led.cov.s,e:cov.e>led.cov.e?cov.e:led.cov.e};}else if(cov)led.cov=cov;
+      led.sheets.push(sh.name);
+      for(let k=h+1;k<R.length;k++){const row=R[k]||[];const d=typeof row[c]==='number'?null:pd(row[c]);if(!d)break;
+        const part=cell(row[c+2]),dr=num(row[c+5])||0,cr=num(row[c+6])||0;
+        if(/opening balance|brought forward|^b\/f\b/i.test(part)){led.open+=dr-cr;continue;}
+        if(/closing balance/i.test(part))continue;
+        const e={ledger:led.name,d,vt:cell(row[c+3]),vno:cell(row[c+4]),part,amt:r2(dr-cr)};
+        const sk=[d,e.vno,e.amt,part].join('|');if(led.seen.has(sk)){dup++;continue;}led.seen.add(sk);led.entries.push(e);}
+    }}
+  if(dup)warn.push(dup+' duplicate Tally rows (same ledger repeated in more than one sheet) were ignored.');
+  const leds=Object.values(L);leds.forEach(l=>{delete l.seen;l.entries.sort((a,b)=>a.d<b.d?-1:1);});
+  return{ledgers:leds,warn};
+}
+
+/* ---------- auto mapping ---------- */
+const STOP=new Set('tds tcs asset assset ledger account ltd limited pvt private company co the and of llp india services service corporation corp'.split(' '));
+const ALIAS={ins:'insurance',fs:'financial'};
+const tok=s=>String(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').split(' ').map(x=>ALIAS[x]||x).filter(x=>x.length>1&&!STOP.has(x)&&!/^\d+$/.test(x));
+const GEN=new Set(['insurance','general','bank','assurance','cars','car','motors','motor','auto','automobiles','steel','steels']);
+const tm=(a,b)=>a===b||(a.length>=5&&b.length>=5&&a.slice(0,5)===b.slice(0,5));
+function autoMap(ledgers,deds,A,o){
+  const map={};
+  const byD={};A.forEach(e=>(byD[e.typ+'|'+e.tan]=byD[e.typ+'|'+e.tan]||[]).push(e.amt));
+  for(const L of ledgers){
+    const lt=tok(L.name);let best=null,bs=0;
+    for(const k in deds){const D=deds[k],dt=tok(D.name);
+      const w=x=>GEN.has(x)?.25:1,ns=lt.length?lt.filter(x=>dt.some(y=>tm(x,y))).reduce((a,x)=>a+w(x),0)/lt.reduce((a,x)=>a+w(x),0):0;
+      const am=byD[k]||[];const ent=L.entries.filter(e=>e.amt>0);
+      const hit=ent.length?ent.filter(e=>am.some(a=>Math.abs(a-e.amt)<=o.tol)).length/ent.length:0;
+      const s=ns+2*hit+(D.typ===L.typ?.3:-1);
+      if((ns>=.3||(ent.length>=3&&hit>=.8))&&s>=.8&&s>bs){bs=s;best=k;}}
+    map[L.name]=best?[best]:[];}
+  return map;
+}
+
+/* ---------- matching engine ---------- */
+const dayd=(a,b)=>Math.abs((Date.parse(a)-Date.parse(b))/864e5);
+function subset(c,target,tol,maxK){let best=null,n=0;
+  (function dfs(s,sum,pick){if(best||n++>3e5)return;
+    if(pick.length>=2&&Math.abs(sum-target)<=tol){best=pick.slice();return;}
+    if(pick.length>=maxK)return;
+    for(let x=s;x<c.length;x++){const v=c[x].amt;if(sum+v>target+tol)continue;pick.push(c[x].i);dfs(x+1,sum+v,pick);pick.pop();if(best)return;}})(0,0,[]);
+  return best;}
+function matchGroup(A,T,o){
+  const ua=new Set(A.map((_,i)=>i)),ut=new Set(T.map((_,i)=>i)),pairs=[];
+  const pass=(thr,kind)=>{const c=[];
+    for(const i of ua)for(const j of ut){const df=Math.round(Math.abs(A[i].amt-T[j].amt)*100);if(df<=Math.round(thr*100))c.push([df,dayd(A[i].d,T[j].d),i,j]);}
+    c.sort((x,y)=>x[0]-y[0]||x[1]-y[1]);
+    for(const[,,i,j]of c)if(ua.has(i)&&ut.has(j)){ua.delete(i);ut.delete(j);pairs.push({a:[i],t:[j],kind});}};
+  pass(0,'exact');pass(o.tol,'tol');
+  for(const win of[o.win,365]){
+    [...ut].filter(j=>T[j].amt>0).sort((x,y)=>T[y].amt-T[x].amt).forEach(j=>{if(!ut.has(j))return;
+      const c=[...ua].filter(i=>A[i].amt>0&&dayd(A[i].d,T[j].d)<=win).sort((x,y)=>dayd(A[x].d,T[j].d)-dayd(A[y].d,T[j].d)).slice(0,22).map(i=>({i,amt:A[i].amt})).sort((x,y)=>y.amt-x.amt);
+      const s=subset(c,T[j].amt,o.tol,6);if(s){s.forEach(i=>ua.delete(i));ut.delete(j);pairs.push({a:s,t:[j],kind:'many'});}});
+    [...ua].filter(i=>A[i].amt>0).sort((x,y)=>A[y].amt-A[x].amt).forEach(i=>{if(!ua.has(i))return;
+      const c=[...ut].filter(j=>T[j].amt>0&&dayd(A[i].d,T[j].d)<=win).sort((x,y)=>dayd(A[i].d,T[x].d)-dayd(A[i].d,T[y].d)).slice(0,22).map(j=>({i:j,amt:T[j].amt})).sort((x,y)=>y.amt-x.amt);
+      const s=subset(c,A[i].amt,o.tol,6);if(s){s.forEach(j=>ut.delete(j));ua.delete(i);pairs.push({a:[i],t:s,kind:'many'});}});}
+  {const c=[];for(const i of ua)for(const j of ut){const a=A[i].amt,t=T[j].amt,g=dayd(A[i].d,T[j].d);
+      if(a>0&&t>0&&Math.abs(a-t)/Math.max(a,t)<=.1&&g<=o.win)c.push([Math.abs(a-t)/Math.max(a,t),g,i,j]);}
+    c.sort((x,y)=>x[0]-y[0]||x[1]-y[1]);
+    for(const[,,i,j]of c)if(ua.has(i)&&ut.has(j)){ua.delete(i);ut.delete(j);pairs.push({a:[i],t:[j],kind:'near'});}}
+  return{pairs,ua:[...ua],ut:[...ut]};
+}
+
+/* ---------- periods ---------- */
+function fyStart(A){const ds=A.map(e=>e.td).filter(Boolean).sort();if(!ds.length)return new Date().getFullYear();const[y,m]=ds[0].split('-').map(Number);return m>=4?y:y-1;}
+function periodRange(code,fy,cs,ce,x){
+  x=x||{};
+  const S=(y,m,d)=>ISO(y,m,d),E=(y,m)=>ISO(y,m,new Date(y,m+1,0).getDate());
+  const q={Q1:[[fy,3],[fy,5]],Q2:[[fy,6],[fy,8]],Q3:[[fy,9],[fy,11]],Q4:[[fy+1,0],[fy+1,2]],H1:[[fy,3],[fy,8]],H2:[[fy,9],[fy+1,2]],FY:[[fy,3],[fy+1,2]]};
+  if(q[code])return{s:S(q[code][0][0],q[code][0][1],1),e:E(q[code][1][0],q[code][1][1])};
+  const my=m=>m>=3?fy:fy+1;
+  if(/^M\d+$/.test(code)){const m=+code.slice(1);return{s:S(my(m),m,1),e:E(my(m),m)};}
+  if(code==='MR'){const m1=(3+(+x.m1||0))%12,m2=(3+(+x.m2||11))%12;return{s:S(my(m1),m1,1),e:E(my(m2),m2)};}
+  if(code==='FR'){const a=Math.min(+x.f1,+x.f2),b=Math.max(+x.f1,+x.f2);return{s:S(a,3,1),e:E(b+1,2)};}
+  if(code==='MS'){const k=[...(x.ms||[])].sort();if(!k.length)return{s:S(fy,3,1),e:E(fy+1,2)};const[y1,m1]=k[0].split('-').map(Number),[y2,m2]=k[k.length-1].split('-').map(Number);return{s:S(y1,m1-1,1),e:E(y2,m2-1)};}
+  if(code==='CY')return{s:S(fy,0,1),e:S(fy,11,31)};
+  if(code==='QR'){const a=+x.q1||0,b=x.q2==null?3:+x.q2,lo=Math.min(a,b),hi=Math.max(a,b),ma=(3+3*lo)%12,mb=(3+3*hi+2)%12;return{s:S(my(ma),ma,1),e:E(my(mb),mb)};}
+  const as=x.asOn||ISO(fy+1,2,31);
+  const ym=d=>[+d.slice(0,4),+d.slice(5,7)-1],mo=(y,m,o)=>{const t=new Date(Date.UTC(y,m+o,1));return[t.getUTCFullYear(),t.getUTCMonth()];};
+  if(code==='CQ'||code==='PQ'){const[y,m]=ym(as),sm=(3+3*Math.floor(((m-3+12)%12)/3))%12,[sy,sm2]=mo(y,sm,code==='PQ'?-3:0),[ey,em]=mo(sy,sm2,2);return{s:S(sy,sm2,1),e:E(ey,em)};}
+  if(code==='LM'){const[y,m]=ym(as),[sy,sm]=mo(y,m,-((+x.days||3)-1));return{s:S(sy,sm,1),e:as};}
+  if(code==='YTD')return{s:S(fy,3,1),e:as};
+  if(code==='LD'){const d=new Date(as+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-((+x.days||30)-1));return{s:ISO(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()),e:as};}
+  return{s:cs||'0000-01-01',e:ce||'9999-12-31'};
+}
+
+/* ---------- full reconciliation ---------- */
+function runReco(S,o){
+  const P=o.per,msOK=d=>!o.ms||o.ms.has(d.slice(0,7)),inP=d=>d>=P.s&&d<=P.e&&msOK(d);
+  const sh=(d,n)=>{if(!n||d<'0001'||d>'9998')return d;const x=new Date(d+'T00:00:00Z');x.setUTCDate(x.getUTCDate()+n);return x.toISOString().slice(0,10);};
+  const lo=o.scope==='all'?'0000-01-01':sh(P.s,-(o.buf||0)),hi=o.scope==='all'?'9999-12-31':sh(P.e,o.buf||0),inS=d=>d>=lo&&d<=hi&&(o.scope!=='strict'||msOK(d));
+  const A=S.A26.filter(e=>o.fin!=='F'||!e.st||e.st==='F').map(e=>({...e,d:o.basis==='book'&&e.bd?e.bd:e.td})).filter(e=>inS(e.d));
+  const T=[];S.ledgers.forEach(l=>l.entries.forEach(e=>{if(inS(e.d))T.push({...e,typ:l.typ});}));
+  /* union-find groups over ledgers + deductors */
+  const par={};const f=x=>(par[x]=par[x]||x)===x?x:(par[x]=f(par[x]));const u=(a,b)=>{par[f(a)]=f(b);};
+  const lk=l=>'L|'+l.name;
+  S.ledgers.forEach(l=>{f(lk(l));(S.map[l.name]||[]).forEach(k=>u(lk(l),'D|'+k));});
+  Object.keys(S.deds).forEach(k=>f('D|'+k));
+  const G={};
+  const gof=x=>{const r=f(x);return G[r]=G[r]||{ledgers:[],dk:[],A:[],T:[]};};
+  S.ledgers.forEach(l=>gof(lk(l)).ledgers.push(l));
+  Object.keys(S.deds).forEach(k=>gof('D|'+k).dk.push(k));
+  A.forEach(e=>gof('D|'+e.typ+'|'+e.tan).A.push(e));
+  T.forEach(e=>gof('L|'+e.ledger).T.push(e));
+  const groups=Object.values(G).filter(g=>g.A.length||g.T.length||g.ledgers.length||g.dk.length);
+  const out={groups:[],o,P};
+  for(const g of groups){
+    g.name=[...new Set(g.dk.map(k=>S.deds[k].name))].join(' + ');
+    g.lname=g.ledgers.map(l=>l.name).join(' + ');
+    g.title=g.name||g.lname;g.typ=g.dk.length?S.deds[g.dk[0]].typ:(g.ledgers[0]||{}).typ;
+    g.open=g.ledgers.reduce((s,l)=>s+l.open,0);
+    const cv=g.ledgers.map(l=>l.cov).filter(Boolean);
+    g.cov=cv.length?{s:cv.map(c=>c.s).sort()[0],e:cv.map(c=>c.e).sort().reverse()[0]}:null;
+    g.hasL=g.ledgers.length>0;g.hasD=g.dk.length>0;g.manual=g.ledgers.some(l=>S.inc[l.name]===false);
+    const m=g.A.length&&g.T.length&&!g.manual?matchGroup(g.A,g.T,o):{pairs:[],ua:g.A.map((_,i)=>i),ut:g.T.map((_,i)=>i)};
+    g.pairs=m.pairs;
+    g.pairs.forEach((p,pi)=>{p.id=pi;p.sa=r2(p.a.reduce((s,i)=>s+g.A[i].amt,0));p.st=r2(p.t.reduce((s,j)=>s+g.T[j].amt,0));p.diff=r2(p.sa-p.st);
+      const ad=p.a.map(i=>g.A[i].d),td=p.t.map(j=>g.T[j].d);
+      p.gap=Math.round(Math.min(...ad.flatMap(x=>td.map(y=>dayd(x,y)))));
+      p.ain=p.a.filter(i=>inP(g.A[i].d)),p.tin=p.t.filter(j=>inP(g.T[j].d));
+      p.inA=r2(p.ain.reduce((s,i)=>s+g.A[i].amt,0));p.inT=r2(p.tin.reduce((s,j)=>s+g.T[j].amt,0));
+      p.full=p.ain.length===p.a.length&&p.tin.length===p.t.length;
+      p.cat=p.full?(p.kind==='exact'?'Matched':p.kind==='tol'?'Rounding diff':p.kind==='near'?'Amount mismatch':'Grouped match'):(p.ain.length||p.tin.length)?'Timing – other period':'out';
+      p.a.forEach(i=>g.A[i].p=p);p.t.forEach(j=>g.T[j].p=p);});
+    const outside=d=>g.cov&&(d<g.cov.s||d>g.cov.e);
+    m.ua.forEach(i=>{const e=g.A[i];e.cat=g.manual?'Manual':outside(e.d)?'Outside Tally export range':'Not in Tally';});
+    m.ut.forEach(j=>g.T[j].cat=g.manual?'Manual':'Not in 26AS');
+    /* period reco */
+    const aP=g.A.filter(e=>inP(e.d)),tP=g.T.filter(e=>inP(e.d));
+    const sum=x=>r2(x.reduce((s,e)=>s+e.amt,0));
+    g.sA=sum(aP);g.sT=sum(tP);g.diff=r2(g.sA-g.sT);
+    const uA=aP.filter(e=>!e.p&&e.cat==='Not in Tally'),uO=aP.filter(e=>!e.p&&e.cat!=='Not in Tally'),uT=tP.filter(e=>!e.p);
+    g.uA=sum(uA);g.uO=sum(uO);g.uT=sum(uT);g.nA=uA.length;g.nT=uT.length;g.nO=uO.length;
+    g.rnd=r2(g.pairs.filter(p=>p.full).reduce((s,p)=>s+p.diff,0));
+    g.tim=r2(g.pairs.filter(p=>!p.full&&p.cat!=='out').reduce((s,p)=>s+p.inA-p.inT,0));
+    g.chk=r2(g.diff-(g.uA+g.uO-g.uT+g.rnd+g.tim));
+    g.nM=g.pairs.filter(p=>p.full).length;g.nNear=g.pairs.filter(p=>p.full&&p.kind==='near').length;g.nTim=g.pairs.filter(p=>p.cat.startsWith('Timing')).length;
+    g.status=!g.hasD?'Ledger not in 26AS':!g.hasL?'No Tally ledger':(g.nA||g.nT||g.nO||g.nNear)?'Mismatch':g.nTim?'Timing difference':'Reconciled';
+    if(g.manual){g.uA=g.uO=g.uT=g.nA=g.nO=g.nT=g.tim=g.rnd=0;g.nM=g.nNear=g.nTim=0;g.chk=g.diff;g.status='Manual reco';}
+    if(!aP.length&&!tP.length)g.status='No activity';
+    out.groups.push(g);
+  }
+  out.groups.sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff)||a.title.localeCompare(b.title));
+  out.groups.forEach((g,i)=>g.n=i+1);
+  return out;
+}
+
+/* ===== UI ===== */
+const $=id=>document.getElementById(id);
+const S={A26:[],deds:{},ledgers:[],map:{},inc:{},man:{},tw:[],aw:[],files26:[],filesT:[],tfiles:0};let RES=null,TAB='dash',R=null;const SEL=new Set();
+const fmt=x=>x==null||x===''?'':typeof x==='number'?x.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):x;
+const esc=s=>String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const chip=t=>{const c=document.createElement('span');c.className='chip';c.textContent=t;$('chips').appendChild(c);};
+/* ---- file readers ---- */
+const buf=f=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsArrayBuffer(f);});
+async function pdfRows(ab){
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const doc=await pdfjsLib.getDocument({data:new Uint8Array(ab)}).promise,rows=[];
+  for(let p=1;p<=doc.numPages;p++){const tc=await(await doc.getPage(p)).getTextContent();
+    const it=tc.items.filter(x=>x.str.trim()).map(x=>({s:x.str.trim(),x:x.transform[4],y:x.transform[5]})).sort((a,b)=>b.y-a.y||a.x-b.x);
+    let ln=null;const L=[];for(const i of it){if(ln&&Math.abs(ln.y-i.y)<3)ln.t.push(i);else{ln={y:i.y,t:[i]};L.push(ln);}}
+    L.forEach(l=>rows.push(l.t.sort((a,b)=>a.x-b.x).map(z=>z.s).join(' ').split(/\s+/).filter(Boolean)));}
+  return rows;}
+function xlsxSheets(ab){const wb=XLSX.read(ab,{type:'array',cellDates:true});return wb.SheetNames.map(n=>({name:n,rows:XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:null,raw:true})}));}
+function ingest26(rows,name){const r=parse26(rows,name);S.files26.push(r);chip('26AS · '+name+' → '+r.entries.length+' net entries');}
+function ingestTally(shs,name){S.tw.push(...shs);chip('Tally · '+name+' → '+shs.length+' sheet(s)');}
+function rebuild(){
+  const m=merge26(S.files26);S.A26=m.entries;S.deds=m.deds;S.netted=m.netted;S.bad=m.bad;
+  const t=parseTally(S.tw);S.ledgers=t.ledgers;S.twarn=t.warn;
+  if(!S.A26.length&&!S.ledgers.length)return;
+  S.fy=fyStart(S.A26);initPeriodUI();
+  if(S.A26.length&&S.ledgers.length){S.map=autoMap(S.ledgers,S.deds,S.A26,opts());showMap();$('cOpt').classList.remove('hide');$('cMap').classList.remove('hide');}
+  else chip('Waiting for both Tally and 26AS files…');
+}
+async function onFiles(kind,files){
+  for(const f of files){try{const ab=await buf(f),ext=f.name.split('.').pop().toLowerCase();
+    if(kind==='T'){ingestTally(xlsxSheets(ab),f.name);}
+    else if(ext==='pdf')ingest26(await pdfRows(ab),f.name);
+    else if(ext==='txt'||ext==='csv'){const tx=new TextDecoder('utf-8').decode(ab);const sep=tx.includes('^')?'^':',';ingest26(tx.split(/\r?\n/).map(l=>l.split(sep).map(x=>x.trim()).filter(Boolean)),f.name);}
+    else ingest26(xlsxSheets(ab).flatMap(s=>s.rows.map(r=>r.map(cell).filter(Boolean))),f.name);
+  }catch(e){chip('⚠ '+f.name+': '+e.message);console.error(e);}}
+  rebuild();}
+$('fT').onchange=e=>onFiles('T',e.target.files);$('fA').onchange=e=>onFiles('A',e.target.files);
+['dT','dA'].forEach(id=>{const d=$(id);d.ondragover=e=>{e.preventDefault();d.classList.add('on')};d.ondragleave=()=>d.classList.remove('on');d.ondrop=e=>{e.preventDefault();d.classList.remove('on');onFiles(id==='dT'?'T':'A',e.dataTransfer.files);};});
+/* ---- options + mapping ---- */
+const opts=()=>{const code=$('per').value,fy=+$('fysel').value||S.fy||new Date().getFullYear();
+  return{tol:+$('tol').value||0,win:+$('win').value||45,basis:$('basis').value,per:periodRange(code==='C'?'X':code,fy,$('cs').value,$('ce').value,{m1:$('m1').value,m2:$('m2').value,asOn:$('ason').value,days:$('days').value,ms:($('per').value==='MS'?[...MSET]:null),f1:$('f1').value,f2:$('f2').value,q1:$('q1').value,q2:$('q2').value}),code,fy,ms:($('per').value==='MS'&&MSET.size?new Set(MSET):null),scope:$('scope').value,buf:$('scope').value==='buf'?(+$('buf').value||0):0,fin:$('fin').value};};
+function initPeriodUI(){
+  const ds=[...S.A26.map(e=>e.td),...S.ledgers.flatMap(l=>l.entries.map(e=>e.d))].filter(Boolean).sort();
+  const f=d=>{const[y,m]=d.split('-').map(Number);return m>=4?y:y-1;};
+  const a=f(ds[0]),b=f(ds[ds.length-1]);let h='';for(let y=a;y<=b;y++)h+=`<option value="${y}">FY ${y}-${String(y+1).slice(2)}</option>`;
+  $('fysel').innerHTML=h;$('fysel').value=S.fy;$('f1').innerHTML=h;$('f2').innerHTML=h;$('f1').value=a;$('f2').value=b;
+  const mo=['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'].map((x,i)=>`<option value="${i}">${x}</option>`).join('');
+  $('m1').innerHTML=mo;$('m2').innerHTML=mo;$('m2').value=11;$('ason').value=ds[ds.length-1];drawMS();}
+function showMap(){
+  const dk=Object.keys(S.deds).sort((a,b)=>S.deds[a].name.localeCompare(S.deds[b].name));
+  const op=sel=>'<option value="">— none —</option>'+dk.map(k=>`<option value="${k}"${k===sel?' selected':''}>${esc(S.deds[k].typ+' · '+S.deds[k].name.slice(0,48)+' · '+S.deds[k].tan)}</option>`).join('');
+  $('mapT').innerHTML='<tr><th><input type="checkbox" id="incM" title="Select / unselect all"> Auto-reco</th><th>Tally ledger</th><th>Type</th><th>Entries</th><th>Σ Tally</th><th>26AS deductor / collector</th><th>2nd (optional)</th></tr>'+S.ledgers.map((l,i)=>`<tr><td style="text-align:center"><input type="checkbox" data-inc="${i}"${S.inc[l.name]===false?'':' checked'}></td><td>${esc(l.name)}</td><td>${l.typ}</td><td class="n">${l.entries.length}</td><td class="n">${fmt(l.entries.reduce((s,e)=>s+e.amt,0))}</td><td><select data-i="${i}" data-s="0">${op((S.map[l.name]||[])[0])}</select></td><td><select data-i="${i}" data-s="1">${op((S.map[l.name]||[])[1])}</select></td></tr>`).join('');
+  $('mapT').querySelectorAll('select').forEach(s=>s.onchange=()=>{const l=S.ledgers[+s.dataset.i],g=[...$('mapT').querySelectorAll(`select[data-i="${s.dataset.i}"]`)].map(x=>x.value).filter(Boolean);S.map[l.name]=[...new Set(g)];if(RES)run();});
+  $('mapT').querySelectorAll('[data-inc]').forEach(c=>c.onchange=()=>{S.inc[S.ledgers[+c.dataset.inc].name]=c.checked;RES?run():showMap();});
+  const im=$('incM');if(im){im.checked=S.ledgers.every(l=>S.inc[l.name]!==false);im.onchange=()=>{S.ledgers.forEach(l=>S.inc[l.name]=im.checked);RES?run():showMap();};}
+  const mapped=new Set(Object.values(S.map).flat());$('mapInfo').textContent=`· ${S.ledgers.filter(l=>(S.map[l.name]||[]).length).length}/${S.ledgers.length} ledgers mapped · ${dk.length-mapped.size} deductors without a ledger · ${S.ledgers.filter(l=>S.inc[l.name]===false).length} ledger(s) on manual reco`;
+}
+['per','basis','tol','win','cs','ce','fysel','m1','m2','ason','days','f1','f2','q1','q2','scope','buf','fin','bkt'].forEach(id=>$(id).onchange=()=>{const p=$('per').value;$('cust').classList.toggle('hide',p!=='C');$('mr').classList.toggle('hide',p!=='MR');$('fr').classList.toggle('hide',p!=='FR');$('qr').classList.toggle('hide',p!=='QR');$('ld').classList.toggle('hide',!['LD','YTD','LM','CQ','PQ'].includes(p));$('days').style.display=(p==='LD'||p==='LM')?'':'none';if(RES)run();});
+/* ---- month / quarter picker ---- */
+const MSET=new Set(),mlbl=k=>MN[+k.slice(5)-1]+'-'+k.slice(2,4);
+function msChanged(){if(MSET.size)$('per').value='MS';$('per').dispatchEvent(new Event('change'));drawMS();}
+function drawMS(){
+  const basis=$('basis').value,a={},t={};
+  S.A26.forEach(e=>{const d=basis==='book'&&e.bd?e.bd:e.td;if(d)a[d.slice(0,7)]=(a[d.slice(0,7)]||0)+1;});
+  S.ledgers.forEach(l=>l.entries.forEach(e=>{const k=e.d.slice(0,7);t[k]=(t[k]||0)+1;}));
+  const keys=[...new Set([...Object.keys(a),...Object.keys(t)])].sort(),box=$('msP');
+  if(!keys.length){box.innerHTML='';return;}
+  const fyOf=k=>{const y=+k.slice(0,4),m=+k.slice(5);return m>=4?y:y-1;},lastK=keys[keys.length-1],fa=fyOf(keys[0]),fb=fyOf(lastK);
+  const mk=(y,i)=>{const m=(3+i)%12;return(m>=3?y:y+1)+'-'+p2(m+1);};
+  let h='<div class="mu" style="margin-bottom:6px"><b style="color:var(--tx)">Pick months / TDS quarters</b> – click any month or quarter (several allowed, any FY, even Q1 + Q3). Counts show 26AS entries · Tally entries. Last transaction month in data: <b style="color:var(--tx)">'+mlbl(lastK)+'</b></div><div class="fyr">'+
+   [['last','Last transaction month'],['last3','Last 3 months with data'],['lastq','Latest quarter with data'],['lastfy','Whole latest FY'],['all','All months with data'],['clear','Clear']].map(b=>'<button data-qk="'+b[0]+'">'+b[1]+'</button>').join('')+'</div>';
+  for(let y=fb;y>=fa;y--){
+    h+='<div class="fyr"><b style="min-width:84px">FY '+y+'-'+String(y+1).slice(2)+'</b>';
+    for(let q=0;q<4;q++){const ms=[0,1,2].map(j=>mk(y,q*3+j));h+='<span class="mc qb'+(ms.every(k=>MSET.has(k))?' on':'')+'" data-ms="'+ms.join(',')+'" title="TDS return quarter Q'+(q+1)+'">Q'+(q+1)+'</span>';}
+    h+='<span style="width:10px"></span>';
+    for(let i=0;i<12;i++){const k=mk(y,i),n1=a[k]||0,n2=t[k]||0;h+='<span class="mc'+(MSET.has(k)?' on':'')+((n1||n2)?'':' no')+'" data-ms="'+k+'">'+MN[+k.slice(5)-1]+'<small>'+n1+' · '+n2+'</small></span>';}
+    h+='</div>';}
+  box.innerHTML=h;
+  box.querySelectorAll('.mc').forEach(x=>x.onclick=()=>{const ms=x.dataset.ms.split(',');const all=ms.every(k=>MSET.has(k));ms.forEach(k=>all?MSET.delete(k):MSET.add(k));msChanged();});
+  box.querySelectorAll('button').forEach(b=>b.onclick=()=>{const c=b.dataset.qk;MSET.clear();
+    if(c==='last')MSET.add(lastK);
+    else if(c==='last3')keys.slice(-3).forEach(k=>MSET.add(k));
+    else if(c==='lastq'){const m=+lastK.slice(5),y=fyOf(lastK),q=Math.floor(((m-4+12)%12)/3);[0,1,2].forEach(j=>MSET.add(mk(y,q*3+j)));}
+    else if(c==='lastfy'){for(let i=0;i<12;i++)MSET.add(mk(fb,i));}
+    else if(c==='all')keys.forEach(k=>MSET.add(k));
+    if(c==='clear'&&$('per').value==='MS')$('per').value='FY';
+    msChanged();});
+}
+$('basis').addEventListener('change',drawMS);
+$('run').onclick=()=>run();$('incAll').onclick=()=>{S.ledgers.forEach(l=>S.inc[l.name]=true);RES?run():showMap();};$('incNone').onclick=()=>{S.ledgers.forEach(l=>S.inc[l.name]=false);RES?run():showMap();};
+/* ---- run ---- */
+function run(){
+  const o=opts();R=runReco(S,o);RES=true;buildSheets();
+  $('cRes').classList.remove('hide');showMap();render();
+  $('cRes').scrollIntoView({behavior:'smooth',block:'start'});}
+const st=s=>/^(Matched|Reconciled)/.test(s)?'ok':/Not in|Mismatch|No Tally|not in 26AS|Outside|Amount/.test(s)?'er':'wa';
+const badge=s=>s?`<span class="b ${st(s)}">${esc(s)}</span>`:'';
+/* ---- sheet builders (shared by screen + Excel) ---- */
+let SH={};
+function periodLabel(){if(R.o.ms)return'Selected months: '+[...R.o.ms].sort().map(k=>MN[+k.slice(5)-1]+'-'+k.slice(2,4)).join(', ');const p=R.P,sel=$('per').options[$('per').selectedIndex].text;return sel+' ('+dfmt(p.s)+' to '+dfmt(p.e)+')';}
+function buildSheets(){
+  const o=R.o,inP=d=>d>=R.P.s&&d<=R.P.e,G=R.groups;
+  const join=(a,f)=>[...new Set(a.map(f))].join('; ');
+  const dm=a=>a.length>1?'multiple':dfmt(a[0]);
+  SH={};
+  SH.sum={h:['#','26AS deductor / collector','TAN','Tally ledger(s)','Type','26AS total','Tally total','Difference','Not in Tally (₹)','# ','Not in 26AS (₹)',' #','Timing diff','Rounding diff','Status'],
+    d:G.filter(g=>g.status!=='No activity').map(g=>[g.n,g.name||'—',g.dk.map(k=>S.deds[k].tan).join(', '),g.lname||'— no ledger —',g.typ,g.sA,g.sT,g.diff,g.uA+g.uO,g.nA+g.nO,g.uT,g.nT,g.tim,g.rnd,g.status])};
+  SH.tva={h:['#','Group','Tally ledger','Vch date','Vch type','Vch no','Particulars','Tally amount','Status','26AS deductor','TAN','26AS txn date','26AS booking date','Section','26AS amount','Diff (Tally − 26AS)','Remarks'],d:[]};
+  SH.avt={h:['#','Group','26AS deductor','TAN','Type','Section','Txn date','Booking date','26AS status','26AS amount','Status','Tally ledger','Vch date','Vch no','Tally amount','Diff (26AS − Tally)','Remarks'],d:[]};
+  SH.mis={h:['#','Group','Category','Type','26AS txn dates','Sections','26AS amount','Tally ledger','Tally vch dates','Tally vch no','Tally amount','Difference','Day gap','Remarks'],d:[]};
+  SH.mA={h:['#','Group / 26AS deductor','TAN','Type','Section','Txn date','Booking date','26AS status','Tax amount','Reason'],d:[]};
+  SH.mT={h:['#','Group','Tally ledger','Vch date','Vch type','Vch no','Particulars','Amount','Reason'],d:[]};
+  const MI=[];const mi=(src,g,x,why)=>({k:src==='A'?'A|'+x.id:'T|'+[x.ledger,x.d,x.vno,x.amt,x.part].join('|'),src:src==='A'?'26AS':'Tally',grp:g.title,why,d:x.d,party:src==='A'?x.name:x.ledger,ref:src==='A'?x.sec+' · '+x.tan:x.vno,amt:x.amt,gn:g.n});
+  SH.gl={};let a=0,b=0,c=0,e=0,f=0;
+  for(const g of G){
+    if(g.manual){g.A.forEach(x=>{if(inP(x.d))MI.push(mi('A',g,x,'Manual reco ledger'));});g.T.forEach(x=>{if(inP(x.d))MI.push(mi('T',g,x,'Manual reco ledger'));});continue;}
+    const L=[];const sn=g.title.replace(/[\\\/?*\[\]:]/g,'').slice(0,24);
+    const remark=p=>p.kind==='many'?(p.a.length>1?p.a.length+' 26AS entries = 1 Tally entry':p.t.length+' Tally entries = 1 26AS entry'):p.kind==='near'?'Amount differs – verify booking':p.gap>o.win?'Date gap '+p.gap+' days':p.kind==='tol'?'Rounding ₹'+fmt(p.diff):'';
+    g.T.forEach(t=>{if(!inP(t.d))return;const p=t.p,A=p?p.a.map(i=>g.A[i]):[];
+      SH.tva.d.push([++a,g.title,t.ledger,dfmt(t.d),t.vt,t.vno,t.part,t.amt,p?p.cat:t.cat,A.length?join(A,x=>x.name):'',A.length?join(A,x=>x.tan):'',A.length?dm(A.map(x=>x.td)):'',A.length?dm(A.map(x=>x.bd)):'',A.length?join(A,x=>x.sec):'',p?p.sa:'',p?r2(t.amt-p.sa):'',p?remark(p):(g.hasD?'Booked in Tally but not in 26AS':'Ledger not mapped to any 26AS deductor')]);
+      if(!p)SH.mT.d.push([++e,g.title,t.ledger,dfmt(t.d),t.vt,t.vno,t.part,t.amt,g.hasD?'Not in 26AS (deductor has not reported / wrong TAN / wrong amount)':'Ledger not mapped to any 26AS deductor']);});
+    g.A.forEach(x=>{if(!inP(x.d))return;const p=x.p,T=p?p.t.map(j=>g.T[j]):[];
+      SH.avt.d.push([++b,g.title,x.name,x.tan,x.typ,x.sec,dfmt(x.td),dfmt(x.bd),x.st==='F'?'Final':x.st,x.amt,p?p.cat:x.cat,T.length?join(T,y=>y.ledger):'',T.length?dm(T.map(y=>y.d)):'',T.length?join(T,y=>y.vno):'',p?p.st:'',p?r2(x.amt-p.st):'',p?remark(p):(g.hasL?(x.cat==='Not in Tally'?'In 26AS but not booked in Tally':'Tally export does not cover this date'):'No Tally ledger mapped for this deductor')]);
+      if(!p)SH.mA.d.push([++f,g.title,x.tan,x.typ,x.sec,dfmt(x.td),dfmt(x.bd),x.st==='F'?'Final':x.st,x.amt,g.hasL?x.cat==='Not in Tally'?'Not booked in Tally':'Outside Tally export range':'No Tally ledger mapped']);});
+    g.pairs.forEach(p=>{if(p.cat==='out')return;const A=p.a.map(i=>g.A[i]),T=p.t.map(j=>g.T[j]);
+      const gapBad=p.cat==='Matched'&&p.gap>o.win;
+      if(p.cat!=='Matched'||gapBad)SH.mis.d.push([++c,g.title,gapBad?'Date gap':p.cat,g.typ,dm(A.map(x=>x.td)),join(A,x=>x.sec),p.sa,join(T,x=>x.ledger),dm(T.map(x=>x.d)),join(T,x=>x.vno),p.st,p.diff,p.gap,remark(p)]);
+      L.push([A.map(x=>x.td).sort()[0]||T[0].d,A.length?dm(A.map(x=>x.td)):'',join(A,x=>x.sec),p.sa,dm(T.map(x=>x.d)),join(T,x=>x.vno),join(T,x=>x.ledger),p.st,p.diff,p.cat,remark(p)]);});
+    g.A.forEach(x=>{if(!x.p&&inP(x.d))L.push([x.d,dfmt(x.td),x.sec,x.amt,'','','',null,x.amt,x.cat,'']);});
+    g.T.forEach(x=>{if(!x.p&&inP(x.d))L.push([x.d,'','',null,dfmt(x.d),x.vno,x.ledger,x.amt,-x.amt,'Not in 26AS','']);});
+    g.A.forEach(x=>{if(!x.p&&inP(x.d))MI.push(mi('A',g,x,x.cat==='Not in Tally'?'Not booked in Tally':'Outside Tally export range'));});g.T.forEach(x=>{if(!x.p&&inP(x.d))MI.push(mi('T',g,x,'Not in 26AS'));});
+    L.sort((p,q)=>p[0]<q[0]?-1:p[0]>q[0]?1:0);
+    SH.gl[g.n]={name:g.n+'-'+sn,g,hdr:[['Group',g.title],['26AS deductor(s)',g.name||'—'],['Tally ledger(s)',g.lname||'— none —'],['Period',periodLabel()],['26AS total',g.sA],['Tally total',g.sT],['Difference (26AS − Tally)',g.diff],['  Not booked in Tally ('+(g.nA+g.nO)+')',g.uA+g.uO],['  Booked in Tally, not in 26AS ('+g.nT+')',g.uT],['  Timing (matched in another period)',g.tim],['  Rounding / amount differences',g.rnd],['Unexplained (should be 0)',g.chk],['Status',g.status]],
+      h:['26AS txn date','Section','26AS amount','Tally vch date','Vch no','Tally ledger','Tally amount','Diff (26AS − Tally)','Status','Remarks'].slice(0,10),d:L.map(r=>r.slice(1))};
+    g.rows=SH.gl[g.n];
+  }
+  MI.sort((p,q)=>p.gn-q.gn||(p.d<q.d?-1:p.d>q.d?1:0));SH.man={items:MI,d:MI};
+  const fy=o.fy,mn=['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+  const PH=['Period','From','To','26AS total','Tally total','Difference','Not in Tally (₹)',' #','Not in 26AS (₹)','# ','Status'];
+  /* every row is its own strict reconciliation: only transactions inside that period are used */
+  const prow=(n,p)=>{const rr=runReco(S,{...o,per:p,scope:'strict',buf:0,ms:null});let sa=0,stt=0,ua=0,na=0,ut=0,nt=0;
+    rr.groups.forEach(g=>{sa+=g.sA;stt+=g.sT;ua+=g.uA+g.uO;na+=g.nA+g.nO;ut+=g.uT;nt+=g.nT;});
+    sa=r2(sa);stt=r2(stt);return[n,dfmt(p.s),dfmt(p.e),sa,stt,r2(sa-stt),r2(ua),na,r2(ut),nt,(!na&&!nt&&Math.abs(sa-stt)<=o.tol*10)?'Reconciled':(sa||stt)?'Mismatch':'No activity'];};
+  const defs=[...mn.map((n,i)=>[n,'M'+(3+i)%12]),['Q1 (Apr–Jun)','Q1'],['Q2 (Jul–Sep)','Q2'],['Q3 (Oct–Dec)','Q3'],['Q4 (Jan–Mar)','Q4'],['H1 (Apr–Sep)','H1'],['H2 (Oct–Mar)','H2'],['Full FY '+fy+'-'+String(fy+1).slice(2),'FY']];
+  SH.pw={h:PH,d:defs.map(([n,cd])=>prow(n,periodRange(cd,fy)))};
+  [...$('fysel').options].map(x=>+x.value).filter(y=>y!==fy).forEach(y=>SH.pw.d.push(prow('Full FY '+y+'-'+String(y+1).slice(2),periodRange('FY',y))));
+  const ds=[...S.A26.map(e=>e.td),...S.ledgers.flatMap(l=>l.entries.map(e=>e.d))].filter(Boolean).sort();
+  const ad=(d,n)=>{const x=new Date(d+'T00:00:00Z');x.setUTCDate(x.getUTCDate()+n);return x.toISOString().slice(0,10);};
+  const bs=ds.length&&R.P.s<ds[0]?ds[0]:R.P.s,be=ds.length&&R.P.e>ds[ds.length-1]?ds[ds.length-1]:R.P.e,N=Math.max(1,+$('bkt').value||30),bd=[];
+  for(let s0=bs,k=0;s0<=be&&k<60;s0=ad(s0,N),k++){const e0=ad(s0,N-1);bd.push(prow('Bucket '+(k+1),{s:s0,e:e0>be?be:e0}));}
+  SH.bk={h:PH,d:bd};
+  SH.warn=warnings();
+}
+function scopeNote(){const o=R.o;return o.scope==='all'?'Scope: whole data is matched and the selected period only decides what is reported; entries booked in another period appear as "Timing – other period".':o.scope==='buf'?'Scope: only transactions inside the period ± '+o.buf+' days are considered; opening / closing balances and everything else are ignored.':'Scope: STRICT – only transactions dated inside the selected period are considered; nothing outside it and no opening / closing balance is used.';}
+function warnings(){
+  const w=[],G=R.groups;{const mg=G.filter(g=>g.manual);if(mg.length)w.push(mg.length+' group(s) are set to MANUAL reconciliation (unticked in the mapping table): '+mg.map(g=>g.title).join('; ')+'. Their 26AS and Tally entries are listed in the Manual reco tab; nothing was auto-matched for them.');}
+  (S.twarn||[]).forEach(x=>w.push(x));
+  if(S.files26.length>1)w.push(S.files26.length+' 26AS files were merged; identical entries across files are counted only once.');
+  w.push('26AS reversal pairs (remark G / B) netted out: '+(S.netted||0)+' lines. Only net entries are reconciled.');
+  (S.bad||[]).forEach(x=>w.push('26AS file check: '+x));
+  const nf=S.A26.filter(e=>e.st&&e.st!=='F').length;if(nf)w.push(nf+' 26AS entries are not in "Final" booking status – credit may not yet be available.');
+  const nl=G.filter(g=>g.hasD&&!g.hasL&&g.sA);if(nl.length)w.push(nl.length+' 26AS deductors have no Tally ledger mapped (₹ '+fmt(nl.reduce((s,g)=>s+g.sA,0))+'). Check the mapping table.');
+  const un=G.filter(g=>g.hasL&&!g.hasD);if(un.length)w.push(un.length+' Tally ledgers are not mapped to any 26AS deductor: '+un.map(g=>g.lname).join(', ')+'.');
+  S.ledgers.filter(l=>l.cov&&(l.cov.s>R.P.s||l.cov.e<R.P.e)).forEach(l=>w.push('Ledger "'+l.name+'" was exported only for '+dfmt(l.cov.s)+' – '+dfmt(l.cov.e)+'; 26AS entries outside this range are flagged "Outside Tally export range", not "missing".'));
+  const fyE=ISO(S.fy+1,2,31),fyS=ISO(S.fy,3,1),oo=S.ledgers.flatMap(l=>l.entries).filter(e=>e.d<fyS||e.d>fyE).length;if(oo)w.push(oo+' Tally entries fall outside FY '+S.fy+'-'+String(S.fy+1).slice(2)+'.');
+  w.push('Only current-period transactions are reconciled. Opening and closing balances of Tally ledgers are ignored completely.');
+  w.push('Matching order: exact amount → within rounding tolerance → grouped (many 26AS = one Tally entry, or reverse) → near-amount (≤10% apart) flagged as Amount mismatch. ');w.push(scopeNote());
+  return w;}
+/* ---- render ---- */
+const TABS=[['dash','📊 Dashboard'],['sum','Summary (group-wise)'],['tva','Tally vs 26AS'],['avt','26AS vs Tally'],['mis','Mismatches'],['mA','Missing in Tally'],['mT','Missing in 26AS'],['man','✍ Manual reco / Not reconciled'],['gl','Ledger-wise reco'],['pw','Period-wise (month / quarter / half / FY)'],['bk','Day buckets (every N days)'],['warn','Notes & warnings']];
+function render(){
+  const G=R.groups,A=G.filter(g=>g.status!=='No activity'),sm=k=>r2(A.reduce((s,g)=>s+g[k],0));
+  $('resT').textContent='Results · '+periodLabel();
+  const cnt=s=>A.filter(g=>g.status===s).length;
+  $('kpis').innerHTML=[['26AS total',fmt(sm('sA'))],['Tally total',fmt(sm('sT'))],['Difference',fmt(sm('diff'))],['Not booked in Tally',fmt(r2(sm('uA')+sm('uO')))],['In Tally, not in 26AS',fmt(sm('uT'))],['Groups reconciled',cnt('Reconciled')+' / '+A.length],['Manual reco · open items',manOpen()]].map(k=>`<div class="kpi"><span class="mu">${k[0]}</span><b>${k[1]}</b></div>`).join('');
+  $('tabs').innerHTML=TABS.map(t=>`<div class="tab${t[0]===TAB?' on':''}" data-t="${t[0]}">${t[1]}${SH[t[0]]&&SH[t[0]].d?' ('+SH[t[0]].d.length+')':''}</div>`).join('');
+  $('tabs').querySelectorAll('.tab').forEach(x=>x.onclick=()=>{TAB=x.dataset.t;$('q').value='';$('sf').value='';render();});
+  const gs=$('gsel');gs.classList.toggle('hide',TAB!=='gl');
+  if(TAB==='gl'){const cur=gs.value;gs.innerHTML=G.filter(g=>!g.manual).map(g=>`<option value="${g.n}">${g.n}. ${esc(g.title.slice(0,60))} — ${g.status}</option>`).join('');if(cur)gs.value=cur;gs.onchange=draw;}
+  draw();}
+function draw(){
+  const isD=TAB==='dash',isM=TAB==='man';
+  $('dash').classList.toggle('hide',!isD);$('twr').classList.toggle('hide',isD);$('bar2').classList.toggle('hide',isD);$('manBar').classList.toggle('hide',!isM);
+  if(isD){drawDash();return;}
+  if(isM){drawMan();return;}
+  let h,d,pre='';
+  if(TAB==='warn'){$('tbl').innerHTML='';$('tbl').outerHTML='<table id="tbl"><tr><td style="white-space:normal">'+SH.warn.map(x=>'<div class="w">'+esc(x)+'</div>').join('')+'</td></tr></table>';$('cnt').textContent='';$('sf').classList.add('hide');return;}
+  $('sf').classList.remove('hide');
+  if(TAB==='gl'){const x=SH.gl[$('gsel').value||(R.groups.find(g=>!g.manual)||{}).n];if(!x){$('tbl').innerHTML='';$('cnt').textContent='No auto-reconciled groups';return;}h=x.h;d=x.d;
+    pre='<tr><td colspan="'+h.length+'" style="white-space:normal;background:var(--hd)">'+x.hdr.map(r=>`<div style="display:flex;gap:12px"><span style="min-width:290px;color:var(--mu)">${esc(r[0])}</span><b>${esc(typeof r[1]==='number'?fmt(r[1]):r[1])}</b></div>`).join('')+'</td></tr>';}
+  else{h=SH[TAB].h;d=SH[TAB].d;}
+  const sci=h.findIndex(x=>/^(Status|Category|Reason)$/.test(x));
+  const opts=[...new Set(d.map(r=>sci>=0?r[sci]:'').filter(Boolean))];const sf=$('sf'),cur=sf.value;
+  sf.innerHTML='<option value="">All statuses</option>'+opts.map(o=>`<option>${esc(o)}</option>`).join('');sf.value=opts.includes(cur)?cur:'';
+  const q=$('q').value.toLowerCase(),f=sf.value;
+  const rows=d.filter(r=>(!f||r[sci]===f)&&(!q||r.join(' ').toLowerCase().includes(q)));
+  $('tbl').innerHTML=pre+'<tr>'+h.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr>'+rows.map(r=>'<tr>'+r.map((v,i)=>i===sci?'<td>'+badge(v)+'</td>':typeof v==='number'&&!/^(#|\s*#|Section|Day gap)/.test(h[i])?'<td class="n">'+fmt(v)+'</td>':'<td'+(typeof v==='number'?' class="n"':'')+'>'+esc(v)+'</td>').join('')+'</tr>').join('');
+  $('cnt').textContent=rows.length+' of '+d.length+' rows';}
+$('q').oninput=draw;$('sf').onchange=draw;
+/* ---- Excel export ---- */
+function xlPlain(){
+  const wb=XLSX.utils.book_new(),add=(name,aoa,w)=>{const ws=XLSX.utils.aoa_to_sheet(aoa);
+    for(const k in ws){if(k[0]==='!')continue;if(typeof ws[k].v==='number'&&!/^#?$/.test('')){ws[k].z='#,##0.00';}}
+    const n=Math.max(...aoa.map(r=>r.length));ws['!cols']=Array.from({length:n},(_,i)=>({wch:Math.min(48,Math.max(10,...aoa.slice(0,60).map(r=>String(r[i]==null?'':r[i]).length+2)))}));
+    XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));};
+  const T=[['Reconciliation: Form 26AS vs Tally'],['Period',periodLabel()],['26AS date basis',R.o.basis==='book'?'Date of booking':'Transaction date'],['Rounding tolerance',R.o.tol],['Matching scope',scopeNote()],['']];
+  [['Summary','sum'],['Tally vs 26AS','tva'],['26AS vs Tally','avt'],['Mismatches','mis'],['Missing in Tally','mA'],['Missing in 26AS','mT'],['Period-wise','pw'],['Day buckets','bk']].forEach(([n,k])=>add(n,k==='sum'?[...T,SH.sum.h,...SH.sum.d]:[SH[k].h,...SH[k].d]));
+  add('Notes',[['Notes & warnings'],...SH.warn.map(x=>[x])]);
+  R.groups.filter(g=>g.status!=='No activity').forEach(g=>{const x=SH.gl[g.n];add(x.name,[...x.hdr,[''],x.h,...x.d]);});
+  XLSX.writeFile(wb,'26AS_vs_Tally_Reco_'+$('per').value+'.xlsx');}
+/* ===== dashboard, manual reco, professional Excel ===== */
+const manOpen=()=>SH.man?SH.man.items.filter(i=>!S.man[i.k]).length:0;
+const inPer=d=>d>=R.P.s&&d<=R.P.e&&(!R.o.ms||R.o.ms.has(d.slice(0,7)));
+function dashData(){
+  const G=R.groups.filter(g=>g.status!=='No activity'),sm=k=>r2(G.reduce((a,g)=>a+g[k],0));
+  const sA=sm('sA'),sT=sm('sT'),miss=r2(sm('uA')+sm('uO')),uT=sm('uT'),mansA=r2(G.filter(g=>g.manual).reduce((a,g)=>a+g.sA,0));
+  const byS={};G.forEach(g=>byS[g.status]=(byS[g.status]||0)+1);
+  const top=[...G].filter(g=>g.diff).sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff)).slice(0,10);
+  const sec={};G.forEach(g=>g.A.forEach(x=>{if(!inPer(x.d))return;const o=sec[x.sec]=sec[x.sec]||{t:0,u:0};o.t+=x.amt;if(!x.p&&x.cat==='Not in Tally')o.u+=x.amt;}));
+  const open=SH.man.items.filter(i=>!S.man[i.k]);
+  return{G,sA,sT,miss,uT,mansA,byS,top,months:SH.pw.d.slice(0,12),open,openA:r2(open.filter(i=>i.src==='26AS').reduce((a,i)=>a+i.amt,0)),
+    sec:Object.entries(sec).map(([k,v])=>[k,r2(v.t),r2(v.u)]).sort((a,b)=>b[1]-a[1]),pct:sA?Math.round((sA-miss-mansA)/sA*1000)/10:0};}
+const scol=x=>({ok:'var(--ok)',wa:'var(--wa)',er:'var(--er)'}[st(x)]);
+const hbar=(p,c)=>`<div style="background:var(--hd);border-radius:5px"><div class="hb" style="width:${Math.max(1,Math.min(100,p))}%;background:${c}"></div></div>`;
+function drawDash(){
+  const D=dashData(),mx=a=>Math.max(1,...a.map(Math.abs));
+  const K=[['26AS total',fmt(D.sA)],['Tally total',fmt(D.sT)],['Difference',fmt(r2(D.sA-D.sT))],['26AS value reconciled',D.pct+' %'],['Not booked in Tally',fmt(D.miss)],['In Tally, not in 26AS',fmt(D.uT)],['Manual items open',D.open.length+' · ₹ '+fmt(D.openA)]];
+  const tot=D.G.length||1,C=2*Math.PI*54;let off=0,segs='';
+  Object.entries(D.byS).forEach(([k,n])=>{const L=C*n/tot;segs+=`<circle r="54" cx="70" cy="70" fill="none" stroke="${scol(k)}" stroke-width="22" stroke-dasharray="${L} ${C-L}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;off+=L;});
+  const m1=mx(D.top.map(g=>g.diff)),m2=mx(D.months.flatMap(r=>[r[3],r[4]])),m3=mx(D.sec.map(r=>r[1]));
+  $('dash').innerHTML=`<div class="kpis" style="margin-top:12px">${K.map(k=>`<div class="kpi"><span class="mu">${k[0]}</span><b>${k[1]}</b></div>`).join('')}</div><div class="dg">
+  <div class="pn"><h3>Group status (${D.G.length} groups)</h3><div style="display:flex;gap:16px;align-items:center"><svg width="140" height="140" viewBox="0 0 140 140">${segs}<text x="70" y="75" text-anchor="middle" font-size="20" font-weight="700" fill="currentColor">${D.pct}%</text></svg><div>${Object.entries(D.byS).map(([k,n])=>`<div style="font-size:12px"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${scol(k)};margin-right:6px"></span>${esc(k)} · <b>${n}</b></div>`).join('')}</div></div></div>
+  <div class="pn"><h3>Top 10 differences (26AS − Tally)</h3>${D.top.map(g=>`<div class="rw"><span title="${esc(g.title)}">${esc(g.title.slice(0,24))}</span>${hbar(Math.abs(g.diff)/m1*100,g.diff>0?'var(--er)':'var(--wa)')}<span>${fmt(g.diff)}</span></div>`).join('')||'<span class="mu">No differences 🎉</span>'}</div>
+  <div class="pn"><h3>Month-wise: 26AS <span style="color:var(--pr)">■</span> vs Tally <span style="color:var(--ok)">■</span></h3>${D.months.map(r=>`<div class="rw"><span>${r[0]} <span class="mu">${r[10]==='Reconciled'?'✓':r[10]==='Mismatch'?'✗':''}</span></span><div>${hbar(r[3]/m2*100,'var(--pr)')}<div style="height:3px"></div>${hbar(r[4]/m2*100,'var(--ok)')}</div><span>${fmt(r[3])}<br>${fmt(r[4])}</span></div>`).join('')}</div>
+  <div class="pn"><h3>Section-wise 26AS (red = not booked in Tally)</h3>${D.sec.map(r=>`<div class="rw"><span>${esc(r[0])}</span><div style="background:var(--hd);border-radius:5px;position:relative"><div class="hb" style="width:${Math.max(1,r[1]/m3*100)}%;background:var(--pr)"></div><div class="hb" style="width:${Math.max(0,r[2]/m3*100)}%;background:var(--er);position:absolute;top:0"></div></div><span>${fmt(r[1])}</span></div>`).join('')||'<span class="mu">No data</span>'}</div></div>`;}
+/* ---- manual reconciliation ---- */
+function drawMan(){
+  const items=SH.man.items,sf=$('sf'),q=$('q').value.toLowerCase(),cur=sf.value;
+  sf.classList.remove('hide');sf.innerHTML='<option value="">All statuses</option><option>Open</option><option>Matched manually</option>';sf.value=cur;
+  const stt=i=>S.man[i.k]?'Matched manually':'Open';
+  const rows=items.map((it,ix)=>({it,ix})).filter(({it})=>(!sf.value||stt(it)===sf.value)&&(!q||[it.grp,it.why,it.party,it.ref,it.src].join(' ').toLowerCase().includes(q)));
+  const bk=new Map(items.map((i,ix)=>[i.k,ix]));let sa=0,stt2=0;SEL.forEach(k=>{const i=items[bk.get(k)];if(i){if(i.src==='26AS')sa+=i.amt;else stt2+=i.amt;}});
+  $('manBar').innerHTML=`<b>Selected ${SEL.size}</b><span>26AS ₹ ${fmt(r2(sa))} · Tally ₹ ${fmt(r2(stt2))} · Diff ₹ <b>${fmt(r2(sa-stt2))}</b></span><button class="p" id="mL">🔗 Link as manual match</button><button id="mU">Unlink</button><button id="mS">Select shown</button><button id="mC">Clear</button><span class="mu">Tick 26AS and Tally rows that belong together, then link. Links are used in the Excel “Manual Reco” and “Manual Links” sheets.</span>`;
+  $('mL').onclick=()=>{if(!SEL.size)return;const id=Math.max(0,...Object.values(S.man))+1;SEL.forEach(k=>S.man[k]=id);SEL.clear();render();};
+  $('mU').onclick=()=>{const ids=new Set([...SEL].map(k=>S.man[k]).filter(Boolean));Object.keys(S.man).forEach(k=>{if(ids.has(S.man[k]))delete S.man[k];});SEL.clear();render();};
+  $('mS').onclick=()=>{rows.forEach(({it})=>SEL.add(it.k));drawMan();};$('mC').onclick=()=>{SEL.clear();drawMan();};
+  $('tbl').innerHTML='<tr><th></th><th>#</th><th>Source</th><th>Group</th><th>Why listed</th><th>Date</th><th>Party / ledger</th><th>Ref</th><th>Amount</th><th>Link</th><th>Status</th></tr>'+rows.map(({it,ix},n)=>`<tr><td><input type="checkbox" data-ix="${ix}"${SEL.has(it.k)?' checked':''}></td><td>${n+1}</td><td><span class="b ${it.src==='26AS'?'wa':'ok'}">${it.src}</span></td><td>${esc(it.grp.slice(0,40))}</td><td>${esc(it.why)}</td><td>${dfmt(it.d)}</td><td>${esc(String(it.party).slice(0,40))}</td><td>${esc(it.ref)}</td><td class="n">${fmt(it.amt)}</td><td>${S.man[it.k]?'#'+S.man[it.k]:''}</td><td>${badge(stt(it))}</td></tr>`).join('');
+  $('tbl').querySelectorAll('[data-ix]').forEach(c=>c.onchange=()=>{const k=items[+c.dataset.ix].k;c.checked?SEL.add(k):SEL.delete(k);drawMan();});
+  $('cnt').textContent=rows.length+' of '+items.length+' items';}
+/* ---- professional Excel (ExcelJS) ---- */
+async function exportXL(){
+  if(!window.ExcelJS){alert('Styled export needs the ExcelJS library (internet). Falling back to a plain workbook.');xlPlain();return;}
+  const o=R.o,wb=new ExcelJS.Workbook();wb.creator='26AS ⇄ Tally Reconciliation Tool';wb.created=new Date();
+  const NAVY='FF1B2A49',LG='FFEEF1F6',BD={style:'thin',color:{argb:'FFD0D5DD'}},BR={top:BD,left:BD,bottom:BD,right:BD};
+  const FILL={ok:'FFE3F6EC',wa:'FFFFF1DA',er:'FFFDE7E7'},FONT={ok:'FF0A8A4A',wa:'FFB86E00',er:'FFC62828'},NUM='#,##0.00;[Red]-#,##0.00';
+  const solid=a=>({type:'pattern',pattern:'solid',fgColor:{argb:a}});
+  const INFO='Period: '+periodLabel()+'   |   26AS date basis: '+(o.basis==='book'?'Booking date':'Transaction date')+'   |   Tolerance ₹'+o.tol+'   |   Generated '+new Date().toLocaleString('en-IN');
+  const cnt=h=>/^(#|\s*#\s*|Section|Day gap|Manual match)/.test(String(h).trim());
+  const add=(name,title,h,rows,x)=>{x=x||{};const hs=4+(x.hdr?x.hdr.length+1:0),n=h.length,nc=Math.max(n,4);
+    const ws=wb.addWorksheet(name.slice(0,31),{properties:{tabColor:{argb:x.tab||'FF1F5EFF'}},views:[{state:'frozen',ySplit:hs,showGridLines:false}],pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0}});
+    ws.mergeCells(1,1,1,nc);ws.getCell(1,1).value=title;ws.getCell(1,1).font={bold:true,size:15,color:{argb:NAVY}};ws.getRow(1).height=26;
+    ws.mergeCells(2,1,2,nc);ws.getCell(2,1).value=INFO;ws.getCell(2,1).font={italic:true,size:10,color:{argb:'FF667085'}};
+    (x.hdr||[]).forEach((r,i)=>{const a=ws.getCell(3+i,1),b=ws.getCell(3+i,2);a.value=r[0];a.font={bold:true};a.fill=solid(LG);a.border=BR;b.value=r[1];b.font={bold:true};b.border=BR;if(typeof r[1]==='number')b.numFmt=NUM;b.alignment={horizontal:'left'};});
+    const hr=ws.getRow(hs);h.forEach((v,i)=>{const c=hr.getCell(i+1);c.value=String(v).trim();c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill=solid(NAVY);c.alignment={vertical:'middle',horizontal:'center',wrapText:true};c.border=BR;});hr.height=30;
+    const si=h.findIndex(v=>/^(Status|Category|Reason)$/.test(String(v).trim()));
+    rows.forEach((r,ri)=>{const row=ws.getRow(hs+1+ri);r.forEach((v,i)=>{const c=row.getCell(i+1);c.value=v===''||v==null?null:v;c.border=BR;
+      if(ri%2)c.fill=solid('FFF8F9FB');
+      if(typeof v==='number'){c.numFmt=cnt(h[i])?'0':NUM;c.alignment={horizontal:'right'};}
+      if(i===si&&v){const k=st(String(v));c.fill=solid(FILL[k]);c.font={bold:true,color:{argb:FONT[k]}};c.alignment={horizontal:'center'};}});});
+    const last=hs+rows.length;
+    if(x.total&&rows.length){const row=ws.getRow(last+1);row.getCell(1).value='TOTAL';h.forEach((v,i)=>{const c=row.getCell(i+1);c.fill=solid(LG);c.font={bold:true};c.border={top:{style:'medium',color:{argb:NAVY}},bottom:BD,left:BD,right:BD};
+      if(i>0&&!cnt(v)&&rows.some(r=>typeof r[i]==='number')){const L=ws.getColumn(i+1).letter,t=r2(rows.reduce((a,r)=>a+(typeof r[i]==='number'?r[i]:0),0));c.value={formula:`SUM(${L}${hs+1}:${L}${last})`,result:t};c.numFmt=NUM;}});}
+    if(!rows.length){ws.getCell(hs+1,1).value='No records';ws.getCell(hs+1,1).font={italic:true,color:{argb:'FF667085'}};}
+    for(let i=0;i<n;i++){const col=ws.getColumn(i+1);const smp=[String(h[i]||''),...rows.slice(0,80).map(r=>String(r[i]==null?'':typeof r[i]==='number'?fmt(r[i]):r[i]))];if(i===0&&x.hdr)smp.push(...x.hdr.map(r=>String(r[0])));col.width=Math.min(48,Math.max(11,...smp.map(t=>t.length+3)));}
+    if(rows.length)ws.autoFilter={from:{row:hs,column:1},to:{row:hs,column:n}};
+    if(x.after)x.after(ws,hs);return ws;};
+  /* Dashboard */
+  {const D=dashData(),ws=wb.addWorksheet('Dashboard',{properties:{tabColor:{argb:'FF0A8A4A'}},views:[{showGridLines:false}]});
+   [42,18,18,18,34,34].forEach((w,i)=>ws.getColumn(i+1).width=w);
+   ws.mergeCells('A1:F1');ws.getCell('A1').value='26AS ⇄ Tally Reconciliation – Dashboard';ws.getCell('A1').font={bold:true,size:18,color:{argb:NAVY}};ws.getRow(1).height=30;
+   ws.mergeCells('A2:F2');ws.getCell('A2').value=INFO;ws.getCell('A2').font={italic:true,size:10,color:{argb:'FF667085'}};
+   let r=4;const title=t=>{ws.mergeCells(r,1,r,6);const c=ws.getCell(r,1);c.value=t;c.font={bold:true,size:12,color:{argb:'FFFFFFFF'}};c.fill=solid(NAVY);r++;};
+   const head=a=>{a.forEach((t,i)=>{const c=ws.getCell(r,i+1);c.value=t;c.font={bold:true};c.fill=solid(LG);c.border=BR;c.alignment={horizontal:i?'center':'left'};});r++;};
+   const put=(a,bars)=>{a.forEach((v,i)=>{const c=ws.getCell(r,i+1);c.value=v;c.border=BR;if(typeof v==='number'){c.numFmt=NUM;}if(bars&&bars[i]){c.font={color:{argb:bars[i]}};c.border={};}});r++;};
+   const bar=(v,m)=>'█'.repeat(Math.max(v?1:0,Math.round(Math.abs(v)/m*28)));
+   title('Key figures');
+   [['26AS total (period)',D.sA],['Tally total (period)',D.sT],['Difference (26AS − Tally)',r2(D.sA-D.sT)],['26AS value reconciled (%)',D.pct],['Not booked in Tally (₹)',D.miss],['Booked in Tally, not in 26AS (₹)',D.uT],['Manual items open (count)',D.open.length],['Manual items open – 26AS value (₹)',D.openA]].forEach(a=>{put(a);ws.getCell(r-1,1).font={bold:true};ws.getCell(r-1,2).font={bold:true,size:12};});
+   r++;title('Group status');head(['Status','Groups','% of groups']);
+   Object.entries(D.byS).forEach(([k,n])=>{const c=st(k);put([k,n,Math.round(n/(D.G.length||1)*1000)/10]);const a=ws.getCell(r-1,1);a.fill=solid(FILL[c]);a.font={bold:true,color:{argb:FONT[c]}};ws.getCell(r-1,2).numFmt='0';ws.getCell(r-1,3).numFmt='0.0"%"';});
+   r++;title('Top 10 differences (26AS − Tally)');head(['26AS deductor / ledger','26AS','Tally','Difference','']);
+   const m1=Math.max(1,...D.top.map(g=>Math.abs(g.diff)));D.top.forEach(g=>put([g.title,g.sA,g.sT,g.diff,bar(g.diff,m1)],{4:g.diff>0?'FFC62828':'FFB86E00'}));
+   r++;title('Month-wise (selected FY)');head(['Month','26AS','Tally','Difference','26AS bar','Tally bar']);
+   const m2=Math.max(1,...D.months.flatMap(x=>[x[3],x[4]]));D.months.forEach(x=>put([x[0],x[3],x[4],x[5],bar(x[3],m2),bar(x[4],m2)],{4:'FF1F5EFF',5:'FF0A8A4A'}));
+   r++;title('Section-wise 26AS');head(['Section','26AS total','Not booked in Tally','% not booked','']);
+   const m3=Math.max(1,...D.sec.map(x=>x[1]));D.sec.forEach(x=>{put([x[0],x[1],x[2],x[1]?Math.round(x[2]/x[1]*1000)/10:0,bar(x[1],m3)],{4:'FF1F5EFF'});ws.getCell(r-1,4).numFmt='0.0"%"';});}
+  const G=R.groups;
+  add('Summary','Group-wise reconciliation summary',SH.sum.h,SH.sum.d,{total:true,tab:'FF1B2A49'});
+  [['Tally vs 26AS','tva','Tally ledger vs 26AS – every Tally entry'],['26AS vs Tally','avt','26AS vs Tally – every 26AS entry'],['Mismatches','mis','Mismatches, rounding & timing differences'],['Missing in Tally','mA','26AS entries not booked in Tally'],['Missing in 26AS','mT','Tally entries not found in 26AS']].forEach(([n,k,t])=>add(n,t,SH[k].h,SH[k].d,{tab:k==='mA'||k==='mT'?'FFC62828':'FF1F5EFF'}));
+  /* manual reco workbench */
+  {const it=SH.man.items,mh=['#','Source','Group','Why listed','Date','Party / ledger','Ref','Amount','Manual match no.','Status','Remarks'];
+   const rows=it.map((i,n)=>[n+1,i.src,i.grp,i.why,dfmt(i.d),i.party,i.ref,i.amt,S.man[i.k]||'',S.man[i.k]?'Matched manually':'Open','']);
+   add('Manual Reco','Manual reconciliation – 26AS extract & unreconciled items (type the same “Manual match no.” on 26AS and Tally rows)',mh,rows,{tab:'FFB86E00',after:(ws,hs)=>{
+     rows.forEach((r,ri)=>{const R0=hs+1+ri;[9,10,11].forEach(c=>{ws.getCell(R0,c).fill=solid('FFFFFBEA');});ws.getCell(R0,10).dataValidation={type:'list',allowBlank:true,formulae:['"Open,Matched manually,Query raised,Write-off"']};});ws.getColumn(11).width=34;}});
+   if(it.length){const L=4+it.length,rg=c=>`'Manual Reco'!$${c}$5:$${c}$${L}`,ids=[...new Set(Object.values(S.man))],N=Math.max(0,...ids)+40,lr=[];
+     const agg=(id,src)=>it.filter(i=>S.man[i.k]===id&&i.src===src);
+     for(let id=1;id<=N;id++){const a=agg(id,'26AS'),t=agg(id,'Tally'),sa=r2(a.reduce((x,i)=>x+i.amt,0)),stt=r2(t.reduce((x,i)=>x+i.amt,0));lr.push([id,a.length,sa,t.length,stt,r2(sa-stt),a.length+t.length?(Math.abs(sa-stt)<=o.tol?'Reconciled':'Difference'):'']);}
+     add('Manual Links','Manual matches – totals recalculate when you type match numbers in the Manual Reco sheet',['Manual match no.','26AS entries (#)','26AS total','Tally entries (#)','Tally total','Difference (26AS − Tally)','Status'],lr,{tab:'FFB86E00',after:(ws,hs)=>{
+       lr.forEach((r,ri)=>{const n=hs+1+ri;
+         ws.getCell(n,2).value={formula:`COUNTIFS(${rg('I')},A${n},${rg('B')},"26AS")`,result:r[1]};
+         ws.getCell(n,3).value={formula:`SUMIFS(${rg('H')},${rg('I')},A${n},${rg('B')},"26AS")`,result:r[2]};
+         ws.getCell(n,4).value={formula:`COUNTIFS(${rg('I')},A${n},${rg('B')},"Tally")`,result:r[3]};
+         ws.getCell(n,5).value={formula:`SUMIFS(${rg('H')},${rg('I')},A${n},${rg('B')},"Tally")`,result:r[4]};
+         ws.getCell(n,6).value={formula:`C${n}-E${n}`,result:r[5]};
+         ws.getCell(n,7).value={formula:`IF(B${n}+D${n}=0,"",IF(ABS(F${n})<=${o.tol},"Reconciled","Difference"))`,result:r[6]};});}});}}
+  add('Period-wise','Period-wise reconciliation (each period reconciled on its own transactions)',SH.pw.h,SH.pw.d,{total:false,tab:'FF0A8A4A'});
+  add('Day buckets','Day-bucket reconciliation (every '+($('bkt').value||30)+' days)',SH.bk.h,SH.bk.d,{tab:'FF0A8A4A'});
+  add('Notes','Notes & warnings',['#','Note'],SH.warn.map((x,i)=>[i+1,x]),{tab:'FF667085',after:ws=>{ws.getColumn(2).width=130;ws.eachRow((row,n)=>{if(n>4)row.getCell(2).alignment={wrapText:true,vertical:'top'};});}});
+  G.filter(g=>g.status!=='No activity'&&!g.manual).forEach(g=>{const x=SH.gl[g.n];add(x.name,g.title,x.h,x.d,{hdr:x.hdr,tab:'FF98A2B3'});});
+  const buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download='26AS_vs_Tally_Reco_'+$('per').value+'.xlsx';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);}
+$('xl').onclick=()=>exportXL().catch(e=>{console.error(e);alert('Styled export failed ('+e.message+'). Plain workbook will be downloaded instead.');xlPlain();});
+$('xl').textContent='⬇ Export professional Excel (dashboard + all sheets)';
+
+</script></body></html>

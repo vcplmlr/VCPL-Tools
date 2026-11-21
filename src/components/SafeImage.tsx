@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ImageOff } from 'lucide-react';
+import {useState} from 'react';
+import {Building2} from 'lucide-react';
 
 interface SafeImageProps {
   src: string;
@@ -8,24 +8,19 @@ interface SafeImageProps {
   fallbackTitle?: string;
 }
 
-export function SafeImage({
-  src,
-  alt,
-  className = '',
-  fallbackTitle,
-}: SafeImageProps) {
-  const [hasError, setHasError] = useState(false);
+export function SafeImage({src, alt, className = '', fallbackTitle}: SafeImageProps) {
+  const [failed, setFailed] = useState(false);
 
-  if (hasError) {
+  if (failed) {
     return (
       <div
         role="img"
         aria-label={alt}
-        className={`flex flex-col items-center justify-center bg-gradient-to-br from-[#EAEAE5] via-[#F2F2EE] to-[#DFE1E5] text-[#5C6068] p-6 ${className}`}
+        className={`flex flex-col items-center justify-center bg-gradient-to-br from-[#EAE9E4] to-[#DCDAD2] text-[#575652] p-6 text-center ${className}`}
       >
-        <ImageOff className="w-6 h-6 mb-2 opacity-60" strokeWidth={1.5} />
-        <span className="text-xs font-medium text-center max-w-[22ch]">
-          {fallbackTitle || alt}
+        <Building2 className="w-8 h-8 mb-2 stroke-[1.5]" aria-hidden="true" />
+        <span className="text-sm font-medium text-[#141413]">
+          {fallbackTitle || 'Architectural Acoustic Pavilion'}
         </span>
       </div>
     );
@@ -36,7 +31,7 @@ export function SafeImage({
       src={src}
       alt={alt}
       referrerPolicy="no-referrer"
-      onError={() => setHasError(true)}
+      onError={() => setFailed(true)}
       className={className}
     />
   );

@@ -38,7 +38,6 @@ import {
   ExtractedEntities,
   ImageProcessOptions,
   OcrWordBox,
-  createSampleInvoiceImageFile,
   extractPdfPageText,
   extractStructuredEntities,
   loadImageFileToCanvas,
@@ -813,11 +812,6 @@ export const TextliftOcrProView: React.FC<TextliftOcrProViewProps> = ({ tool }) 
     setEngineStatus('Queue cleared.');
   };
 
-  const handleLoadSample = async () => {
-    const sample = await createSampleInvoiceImageFile();
-    addFiles([sample]);
-  };
-
   // Text formatting helper
   const cleanText = useCallback(
     (raw: string): string => {
@@ -1209,14 +1203,6 @@ export const TextliftOcrProView: React.FC<TextliftOcrProViewProps> = ({ tool }) 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={handleLoadSample}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-xl bg-[#FEF2C8] hover:bg-[#FFE1B3] border-[1.5px] border-[#2F3E4E] text-xs font-bold text-[#2F3E4E] transition cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Try Sample Invoice</span>
-            </button>
-            <button
-              type="button"
               onClick={() => fileInputRef.current?.click()}
               className="inline-flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl bg-[#F9C80E] hover:bg-[#FFE1B3] border-[1.5px] border-[#2F3E4E] shadow-[0_2px_0_#2F3E4E] text-xs font-display font-extrabold text-[#2F3E4E] transition cursor-pointer"
             >
@@ -1348,7 +1334,7 @@ export const TextliftOcrProView: React.FC<TextliftOcrProViewProps> = ({ tool }) 
 
             {files.length === 0 ? (
               <p className="text-xs text-[#64748B] py-3 text-center border border-dashed border-[#2F3E4E]/25 rounded-xl bg-white/60">
-                No files queued yet. Drop documents or click &ldquo;Try Sample Invoice&rdquo;.
+                No files queued yet. Drop images or PDFs above to begin.
               </p>
             ) : (
               <ul className="space-y-2 max-h-[260px] overflow-y-auto pr-0.5">
@@ -1998,7 +1984,7 @@ export const TextliftOcrProView: React.FC<TextliftOcrProViewProps> = ({ tool }) 
                 </h3>
                 <p className="text-xs sm:text-sm text-[#475569] max-w-md mx-auto">
                   {!currentFile
-                    ? 'Drop an image, screenshot, or PDF on the left—or click "Try Sample Invoice" above to inspect GSTIN, PAN, HSN & Excel table extraction right away.'
+                    ? 'Drop an image, screenshot, or PDF on the left to inspect GSTIN, PAN, HSN & Excel table extraction right away.'
                     : currentFile.status === 'error'
                     ? currentFile.msg
                     : currentFile.status === 'working'

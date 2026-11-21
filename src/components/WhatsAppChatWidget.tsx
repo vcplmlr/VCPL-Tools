@@ -5,7 +5,13 @@ import { TOOLS_CATALOG } from '../data/toolsCatalog';
 import { ToolCatalogItem, ToolFilterType } from '../types/tools';
 import { WhatsAppIcon } from './WhatsAppIcon';
 
-export type WhatsAppPageView = 'home' | 'all-tools' | 'tool' | 'legal' | 'sitemap' | 'not-found';
+export type WhatsAppPageView =
+  | 'home'
+  | 'all-tools'
+  | 'tool'
+  | 'legal'
+  | 'sitemap'
+  | 'not-found';
 
 interface WhatsAppChatWidgetProps {
   view: WhatsAppPageView;

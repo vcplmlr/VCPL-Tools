@@ -688,28 +688,6 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
     });
   };
 
-  const handleLoadSample = () => {
-    const today = getTodayIso();
-    setForm((prev) => ({
-      ...prev,
-      ldate: today,
-      month: 'May 2026',
-      mode: 'taxable',
-      rent: '125000',
-      pdate: today,
-      ref: 'UTR20260515009123',
-      lname: prev.lname.trim() || 'Horizon Commercial Properties',
-      laddr:
-        prev.laddr.trim() ||
-        'Suite 402, Trade Arcade,\nMG Road, Central Business District,\nBengaluru - 560001',
-      bname: prev.bname.trim() || 'Horizon Commercial Properties',
-      lbank: prev.lbank.trim() || 'HDFC Bank',
-      co: prev.co.trim() || 'Sample Enterprises Pvt Ltd',
-      pbank: prev.pbank.trim() || 'State Bank of India, Main Branch',
-    }));
-    setNotice({ kind: 'ok', text: 'Neutral sample entries loaded for layout preview.' });
-  };
-
   const handleResetEntries = () => {
     setForm((prev) => ({
       ...prev,
@@ -1016,13 +994,6 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleLoadSample}
-            className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#CEE5DC] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] cursor-pointer transition whitespace-nowrap shrink-0"
-          >
-            <span>Load Sample</span>
-          </button>
           <button
             type="button"
             onClick={handleResetEntries}

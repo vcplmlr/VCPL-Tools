@@ -12,7 +12,6 @@ import {
   Plus,
   RotateCcw,
   Save,
-  Sparkles,
   Trash2,
   Upload,
   X,
@@ -239,65 +238,6 @@ const DEF: Partial<Record<SectionKey, Record<string, string>>> = {
   exp: { 'Export Type': 'WPAY' },
 };
 
-const SAMPLE: Record<SectionKey, (string | number)[][]> = {
-  b2b: [
-    [
-      '27AABCU9603R1ZX',
-      'Sample Buyer Pvt Ltd',
-      'INV-001',
-      '05-10-2026',
-      118000,
-      '27-Maharashtra',
-      'N',
-      '',
-      'Regular',
-      '',
-      18,
-      100000,
-      '',
-    ],
-    [
-      '29AAACR5055K1ZG',
-      'Local Traders',
-      'INV-002',
-      '06-10-2026',
-      59000,
-      '29-Karnataka',
-      'N',
-      '',
-      'Regular',
-      '',
-      18,
-      50000,
-      '',
-    ],
-  ],
-  b2cl: [['INV-B2CL-1', '07-10-2026', 300000, '27-Maharashtra', '', 18, 254237.29, '', '']],
-  b2cs: [
-    ['OE', '29-Karnataka', '', 5, 40000, '', ''],
-    ['OE', '27-Maharashtra', '', 18, 25000, '', ''],
-  ],
-  cdnr: [
-    [
-      '27AABCU9603R1ZX',
-      'Sample Buyer Pvt Ltd',
-      'CN-001',
-      '12-10-2026',
-      'C',
-      '27-Maharashtra',
-      'N',
-      'Regular B2B',
-      11800,
-      '',
-      18,
-      10000,
-      '',
-    ],
-  ],
-  cdnur: [['B2CL', 'CN-U-1', '12-10-2026', 'C', '27-Maharashtra', 5900, '', 18, 5000, '']],
-  exp: [['WPAY', 'EXP-001', '08-10-2026', 236000, 'INMAA1', '1234567', '09-10-2026', 18, 200000, '']],
-};
-
 const norm = (s: unknown) =>
   String(s == null ? '' : s)
     .toLowerCase()
@@ -408,20 +348,6 @@ function newRow(k: SectionKey): RowRecord {
     o[h] = (def && def[h]) || '';
   });
   return o;
-}
-
-function sampleData(): Partial<Record<SectionKey, RowRecord[]>> {
-  const d: Partial<Record<SectionKey, RowRecord[]>> = {};
-  SECTION_KEYS.forEach((k) => {
-    d[k] = SAMPLE[k].map((a) => {
-      const o: RowRecord = {};
-      SEC[k].headers.forEach((h, j) => {
-        o[h] = a[j] ?? '';
-      });
-      return o;
-    });
-  });
-  return d;
 }
 
 function dv(h: string, v: unknown): string | number {
@@ -1249,15 +1175,6 @@ export const Gstr1ReturnPrepView: React.FC<Gstr1ReturnPrepViewProps> = ({ tool, 
     });
   };
 
-  const handleLoadSampleIntoGrid = () => {
-    setData(sampleData());
-    setCur('b2b');
-    setStatusMessage({
-      text: 'Sample GSTR-1 invoice rows loaded across sections. Enter your own GSTIN and Return Period above when preparing a filing.',
-      tone: 'ok',
-    });
-  };
-
   // Browser Vault Handlers
   const handleSaveProfile = () => {
     const cleanName =
@@ -1565,29 +1482,11 @@ export const Gstr1ReturnPrepView: React.FC<Gstr1ReturnPrepViewProps> = ({ tool, 
 
           <button
             type="button"
-            onClick={() => handleDownloadWorkbook('GSTR1_Sample_Workbook.xlsx', sampleData())}
-            className="px-3.5 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <Download className="w-3.5 h-3.5 text-[#12805C]" aria-hidden="true" />
-            <span>Sample Excel</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => handleDownloadWorkbook('GSTR1_Blank_Template.xlsx', {})}
             className="px-3.5 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <Download className="w-3.5 h-3.5 text-[#2F3E4E]" aria-hidden="true" />
             <span>Blank Template</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleLoadSampleIntoGrid}
-            className="px-3.5 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] inline-flex items-center gap-1.5 cursor-pointer transition-colors"
-          >
-            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Load Sample Grid</span>
           </button>
 
           <button
@@ -1840,7 +1739,7 @@ export const Gstr1ReturnPrepView: React.FC<Gstr1ReturnPrepViewProps> = ({ tool, 
       {/* 4-Step Guide Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {[
-          { step: '1', text: 'Download sample or blank V2.2 Excel' },
+          { step: '1', text: 'Download blank V2.2 Excel template' },
           { step: '2', text: 'Fill, paste from Excel, or upload workbook' },
           { step: '3', text: 'Fix any rows highlighted in red' },
           { step: '4', text: 'Generate GSTR-1 JSON for GST portal' },
@@ -2153,7 +2052,7 @@ export const Gstr1ReturnPrepView: React.FC<Gstr1ReturnPrepViewProps> = ({ tool, 
           {currentRows.length === 0 ? (
             <div className="p-8 text-center text-xs text-[#64748B]">
               No rows in <strong>{SEC[cur].label}</strong> yet. Click <strong>Add Row</strong>,
-              paste directly from Excel, load sample grid, or upload your workbook.
+              paste directly from Excel, or upload your workbook.
             </div>
           ) : (
             <table className="w-full border-collapse text-xs font-mono tabular-nums">

@@ -37,7 +37,6 @@ import {
   aggregateMonthlyTrend,
   aggregateParties,
   autoFixInvoices,
-  buildSampleInvoices,
   invoiceComputedTotal,
   invoiceNetTotal,
   invoiceTaxTotal,
@@ -375,26 +374,6 @@ export const InvoiceToExcelView: React.FC<InvoiceToExcelViewProps> = ({
         text: `Extracted ${addedCount} PDF invoice(s) into unified format. Review tabs or export Excel workbook.`,
       });
     }
-  };
-
-  const handleLoadSamples = () => {
-    pushUndoSnapshot(invoices);
-    const samples = buildSampleInvoices(nextFidRef.current);
-    nextFidRef.current += samples.length + 1;
-    setInvoices((prev) => [...prev, ...samples]);
-    setFileChips((prev) => [
-      ...prev,
-      ...samples.map((s) => ({
-        fid: s.fid,
-        name: s.file,
-        status: `1 page · ${s.items.length} line(s) · ${s.parserMode}`,
-        state: 'ok' as const,
-      })),
-    ]);
-    setStatusBanner({
-      type: 'ok',
-      text: 'Loaded 6 multi-format sample invoices (including deliberate audit cases to demonstrate validation checks).',
-    });
   };
 
   const handleParsePasted = () => {
@@ -845,14 +824,6 @@ export const InvoiceToExcelView: React.FC<InvoiceToExcelViewProps> = ({
           >
             <Settings2 className="w-3.5 h-3.5" />
             <span>Settings</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleLoadSamples}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] cursor-pointer whitespace-nowrap"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Load Sample Batch</span>
           </button>
           {onBack && (
             <button

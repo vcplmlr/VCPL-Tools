@@ -11,6 +11,7 @@ import {
   Minimize2,
   Percent,
   Printer,
+  RotateCcw,
   RotateCw,
   Target,
   TrendingDown,
@@ -18,6 +19,15 @@ import {
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
 import { formatINR } from '../../utils/numberToWords';
+import {
+  downloadBomCsv,
+  downloadExcelWorkbook,
+  downloadJsonFile,
+  downloadWordDocument,
+  exportStructuredReportPdf,
+  printHtmlDocument,
+} from '../../utils/printReport';
+import { ToolExportBar } from './ToolExportBar';
 
 interface IncomeTaxFy2627ViewProps {
   tool?: ToolCatalogItem;
@@ -340,6 +350,7 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
   const [sec80D, setSec80D] = useState<number>(25000);
   const [npsEmployee, setNpsEmployee] = useState<number>(0);
   const [npsEmployer, setNpsEmployer] = useState<number>(0);
+  const [homeLoanInterest, setHomeLoanInterest] = useState<number>(0);
 
   // FAQs state
   const [faqCategory, setFaqCategory] = useState<FaqCategory>('All');
@@ -373,11 +384,19 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
     const effNpsEmp = Math.min(50000, Math.max(0, npsEmployee));
     const effNpsEmprOld = Math.min(Math.round(basicAnnual * 0.1), Math.max(0, npsEmployer));
     const effNpsEmprNew = Math.min(Math.round(basicAnnual * 0.14), Math.max(0, npsEmployer));
+    const effHomeLoanInt = Math.min(200000, Math.max(0, homeLoanInterest));
 
     // Old Regime
     const stdDedOld = grossSalary > 0 ? 50000 : 0;
     const oldTotalDeductions =
-      stdDedOld + ptAnnual + hraExempt + eff80C + eff80D + effNpsEmp + effNpsEmprOld;
+      stdDedOld +
+      ptAnnual +
+      hraExempt +
+      eff80C +
+      eff80D +
+      effNpsEmp +
+      effNpsEmprOld +
+      effHomeLoanInt;
     const oldTaxable = Math.max(0, grossSalary - oldTotalDeductions);
     const oldRes = computeOldRegimeFY2627(oldTaxable);
 
@@ -408,7 +427,7 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
 
     // Binary search for break-even extra Old deduction
     const oldExemptionsClaimedExcludingStdPt =
-      hraExempt + eff80C + eff80D + effNpsEmp + effNpsEmprOld;
+      hraExempt + eff80C + eff80D + effNpsEmp + effNpsEmprOld + effHomeLoanInt;
     let breakEvenExtra: number | null = null;
     if (grossSalary > 0) {
       if (oldRes.totalTax <= newRes.totalTax) {
@@ -484,8 +503,9 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
       healthSaved,
       takeHomeOld,
       takeHomeNew,
+      effHomeLoanInt,
     };
-  }, [grossSalary, metro, rentPaid, sec80C, sec80D, npsEmployee, npsEmployer]);
+  }, [grossSalary, metro, rentPaid, sec80C, sec80D, npsEmployee, npsEmployer, homeLoanInterest]);
 
   const filteredFaqs = useMemo(
     () =>
@@ -529,43 +549,45 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
             </div>
           </div>
 
-          {activeTab === 'workbook' && (
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={handlePrintWorkbook}
-                className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] transition cursor-pointer"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print Workbook</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIframeKey((k) => k + 1)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] transition cursor-pointer"
-              >
-                <RotateCw className="w-3.5 h-3.5" />
-                <span>Reload Sheet</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsFullscreen((f) => !f)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#F9C80E] hover:bg-[#F4B400] text-xs font-display font-extrabold text-[#2F3E4E] shadow-[0_2px_0_#2F3E4E] transition cursor-pointer"
-              >
-                {isFullscreen ? (
-                  <>
-                    <Minimize2 className="w-3.5 h-3.5" />
-                    <span>Exit Fullscreen</span>
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 className="w-3.5 h-3.5" />
-                    <span>Fullscreen View</span>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {activeTab === 'workbook' && (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePrintWorkbook}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] transition cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Workbook</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIframeKey((k) => k + 1)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] transition cursor-pointer"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                  <span>Reload Sheet</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreen((f) => !f)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#F9C80E] hover:bg-[#F4B400] text-xs font-display font-extrabold text-[#2F3E4E] shadow-[0_2px_0_#2F3E4E] transition cursor-pointer"
+                >
+                  {isFullscreen ? (
+                    <>
+                      <Minimize2 className="w-3.5 h-3.5" />
+                      <span>Exit Fullscreen</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="w-3.5 h-3.5" />
+                      <span>Fullscreen View</span>
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Sub-Navigation Tabs */}
@@ -685,8 +707,26 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
                       Break-Even Deduction &amp; Marginal Tax Rate Planner
                     </h2>
                     <p className="text-xs text-[#475569]">
-                      Simulate salary, rent, 80C, 80D &amp; NPS to see your exact Old vs New break-even threshold.
+                      Simulate salary, rent, 80C, 80D, 24(b) Home Loan &amp; NPS to see your exact Old vs New break-even threshold.
                     </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 no-print">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGrossSalary(0);
+                        setRentPaid(0);
+                        setSec80C(0);
+                        setSec80D(0);
+                        setNpsEmployee(0);
+                        setNpsEmployer(0);
+                        setHomeLoanInterest(0);
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#2F3E4E] bg-white hover:bg-[#FFE1B3] text-[11px] font-bold text-[#2F3E4E] cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Clear Planner (₹0)
+                    </button>
                   </div>
                 </div>
 
@@ -841,6 +881,30 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
                       onChange={(e) => setNpsEmployer(Math.max(0, Number(e.target.value) || 0))}
                       className="mt-1 w-full rounded-lg border-[1.5px] border-[#2F3E4E] bg-white px-3 py-2 text-sm font-bold text-[#2F3E4E] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#F9C80E]"
                     />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="it-planner-home-loan"
+                      className="block text-xs font-bold text-[#2F3E4E]"
+                    >
+                      Home Loan Int. u/s 24(b) (₹)
+                    </label>
+                    <input
+                      id="it-planner-home-loan"
+                      type="number"
+                      min={0}
+                      max={200000}
+                      step={10000}
+                      value={homeLoanInterest}
+                      onChange={(e) =>
+                        setHomeLoanInterest(Math.min(200000, Math.max(0, Number(e.target.value) || 0)))
+                      }
+                      className="mt-1 w-full rounded-lg border-[1.5px] border-[#2F3E4E] bg-white px-3 py-2 text-sm font-bold text-[#2F3E4E] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#F9C80E]"
+                    />
+                    <p className="mt-1 text-[11px] text-[#64748B]">
+                      Self-occupied max ₹2,00,000 (Old Regime)
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1190,6 +1254,130 @@ export const IncomeTaxFy2627View: React.FC<IncomeTaxFy2627ViewProps> = ({ tool }
               </button>
             </div>
           </div>
+
+          <ToolExportBar
+            title="Export FY 2026-27 Regime Comparison"
+            clearLabel="Clear Planner (₹0)"
+            onClear={() => {
+              setGrossSalary(0);
+              setRentPaid(0);
+              setSec80C(0);
+              setSec80D(0);
+              setNpsEmployee(0);
+              setNpsEmployer(0);
+              setHomeLoanInterest(0);
+            }}
+            onExcel={() =>
+              downloadExcelWorkbook({
+                filename: 'FY2627_Income_Tax_Planner.xlsx',
+                sheets: [
+                  {
+                    name: 'Regime_Comparison',
+                    headers: ['Particulars', 'Old Regime', 'New Regime'],
+                    rows: [
+                      ['Gross Salary', grossSalary, grossSalary],
+                      ['HRA Exemption u/s 10(13A)', plannerStats.hraExempt, 0],
+                      ['Home Loan Int. u/s 24(b)', plannerStats.effHomeLoanInt, 0],
+                      ['Total Deductions', plannerStats.oldTotalDeductions, plannerStats.newTotalDeductions],
+                      ['Net Taxable Income', plannerStats.oldTaxable, plannerStats.newTaxable],
+                      ['Annual Tax + 4% Cess', plannerStats.oldTax, plannerStats.newTax],
+                      ['Annual Take-Home (Net)', plannerStats.takeHomeOld, plannerStats.takeHomeNew],
+                      ['Monthly Take-Home', Math.round(plannerStats.takeHomeOld / 12), Math.round(plannerStats.takeHomeNew / 12)],
+                    ],
+                  },
+                ],
+              })
+            }
+            onCsv={() =>
+              downloadBomCsv({
+                filename: 'FY2627_Income_Tax_Planner.csv',
+                headers: ['Particulars', 'Old Regime', 'New Regime'],
+                rows: [
+                  ['Gross Salary', grossSalary, grossSalary],
+                  ['Total Deductions', plannerStats.oldTotalDeductions, plannerStats.newTotalDeductions],
+                  ['Net Taxable Income', plannerStats.oldTaxable, plannerStats.newTaxable],
+                  ['Annual Tax + Cess', plannerStats.oldTax, plannerStats.newTax],
+                  ['Annual Take-Home', plannerStats.takeHomeOld, plannerStats.takeHomeNew],
+                ],
+              })
+            }
+            onWord={() =>
+              void downloadWordDocument({
+                filename: 'FY2627_Income_Tax_Planner.docx',
+                title: 'FY 2026-27 Income Tax Comparison Report',
+                subtitle: `Gross Salary: ${formatINR(grossSalary)} · Recommended: ${plannerStats.winner === 'equal' ? 'Equal Tax' : `${plannerStats.winner === 'new' ? 'New' : 'Old'} Regime`}`,
+                kpis: [
+                  { label: 'Old Regime Tax', value: formatINR(plannerStats.oldTax) },
+                  { label: 'New Regime Tax', value: formatINR(plannerStats.newTax) },
+                  { label: 'Annual Tax Savings', value: formatINR(plannerStats.savings) },
+                ],
+                table: {
+                  title: 'Regime & Cashflow Breakdown',
+                  headers: ['Particulars', 'Old Regime', 'New Regime'],
+                  rows: [
+                    ['Gross Salary', formatINR(grossSalary), formatINR(grossSalary)],
+                    ['Total Deductions', formatINR(plannerStats.oldTotalDeductions), formatINR(plannerStats.newTotalDeductions)],
+                    ['Taxable Income', formatINR(plannerStats.oldTaxable), formatINR(plannerStats.newTaxable)],
+                    ['Annual Tax + Cess', formatINR(plannerStats.oldTax), formatINR(plannerStats.newTax)],
+                    ['Monthly In-Hand', formatINR(Math.round(plannerStats.takeHomeOld / 12)), formatINR(Math.round(plannerStats.takeHomeNew / 12))],
+                  ],
+                },
+              })
+            }
+            onJson={() =>
+              downloadJsonFile('FY2627_Income_Tax_Planner.json', {
+                inputs: { grossSalary, metro, rentPaid, sec80C, sec80D, npsEmployee, npsEmployer, homeLoanInterest },
+                summary: plannerStats,
+              })
+            }
+            onPdf={() =>
+              void exportStructuredReportPdf({
+                title: 'FY 2026-27 Income Tax Planner (Old vs New)',
+                subtitle: `Gross Salary: ${formatINR(grossSalary)} · Verdict: ${plannerStats.winner.toUpperCase()} Regime`,
+                filename: 'FY2627_Income_Tax_Planner.pdf',
+                kpis: [
+                  { label: 'Old Regime Tax', value: formatINR(plannerStats.oldTax) },
+                  { label: 'New Regime Tax', value: formatINR(plannerStats.newTax) },
+                  { label: 'Annual Savings', value: formatINR(plannerStats.savings) },
+                ],
+                table: {
+                  title: 'Old vs New Regime Comparison',
+                  headers: ['Particulars', 'Old Regime', 'New Regime'],
+                  rows: [
+                    ['Gross Salary', formatINR(grossSalary), formatINR(grossSalary)],
+                    ['Total Deductions', formatINR(plannerStats.oldTotalDeductions), formatINR(plannerStats.newTotalDeductions)],
+                    ['Net Taxable Income', formatINR(plannerStats.oldTaxable), formatINR(plannerStats.newTaxable)],
+                    ['Total Tax + 4% Cess', formatINR(plannerStats.oldTax), formatINR(plannerStats.newTax)],
+                    ['Annual In-Hand Take-Home', formatINR(plannerStats.takeHomeOld), formatINR(plannerStats.takeHomeNew)],
+                  ],
+                },
+              })
+            }
+            onPrint={() =>
+              void printHtmlDocument({
+                title: 'FY 2026-27 Income Tax Planner',
+                bodyHtml: `
+                  <h1>FY 2026-27 Income Tax Break-Even &amp; Cashflow Report</h1>
+                  <div class="kpi-grid">
+                    <div class="kpi-card"><div class="kpi-label">Gross Salary</div><div class="kpi-val">${formatINR(grossSalary)}</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Old Regime Tax</div><div class="kpi-val">${formatINR(plannerStats.oldTax)}</div></div>
+                    <div class="kpi-card"><div class="kpi-label">New Regime Tax</div><div class="kpi-val">${formatINR(plannerStats.newTax)}</div></div>
+                    <div class="kpi-card"><div class="kpi-label">Annual Savings</div><div class="kpi-val">${formatINR(plannerStats.savings)}</div></div>
+                  </div>
+                  <table>
+                    <thead><tr><th>Particulars</th><th class="num">Old Regime</th><th class="num">New Regime</th></tr></thead>
+                    <tbody>
+                      <tr><td>Total Deductions</td><td class="num">${formatINR(plannerStats.oldTotalDeductions)}</td><td class="num">${formatINR(plannerStats.newTotalDeductions)}</td></tr>
+                      <tr><td>Net Taxable Income</td><td class="num">${formatINR(plannerStats.oldTaxable)}</td><td class="num">${formatINR(plannerStats.newTaxable)}</td></tr>
+                      <tr><td>Slab Tax + 4% Cess</td><td class="num">${formatINR(plannerStats.oldTax)}</td><td class="num">${formatINR(plannerStats.newTax)}</td></tr>
+                      <tr><td>Annual Take-Home</td><td class="num">${formatINR(plannerStats.takeHomeOld)}</td><td class="num">${formatINR(plannerStats.takeHomeNew)}</td></tr>
+                    </tbody>
+                  </table>
+                `,
+              })
+            }
+            disabled={grossSalary <= 0}
+          />
         </div>
       )}
 

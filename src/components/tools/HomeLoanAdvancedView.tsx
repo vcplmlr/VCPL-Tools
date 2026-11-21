@@ -63,7 +63,7 @@ function escapeHtml(v: string | number): string {
 }
 
 export const HomeLoanAdvancedView: React.FC = () => {
-  // Core Loan Setup (Clean Blank Defaults — use Load Sample Scenario for demo)
+  // Core Loan Setup (Clean Blank Defaults)
   const [principalInput, setPrincipalInput] = useState<string>('');
   const [annualRateInput, setAnnualRateInput] = useState<string>('');
   const [tenureUnit, setTenureUnit] = useState<'years' | 'months'>('years');
@@ -212,41 +212,6 @@ export const HomeLoanAdvancedView: React.FC = () => {
     setRateChanges([]);
     setPrepayments([]);
     setEventsOnlyFilter(false);
-  };
-
-  const loadSampleScenario = () => {
-    setPrincipalInput('5000000');
-    setAnnualRateInput('8.75');
-    setTenureUnit('years');
-    setTenureValueInput('20');
-    setStartMonth('2024-04');
-    setGlobalStrategy('reduce-tenure');
-    setAnnualEmiStepUpPct(5);
-    setExtraAnnualEmiEnabled(true);
-    setExtraAnnualEmiMonth(4);
-    setRateChanges([
-      {
-        id: uid('rc'),
-        timingMode: 'calendar',
-        emiNumber: 13,
-        calendarMonth: emiNumberToCalendarMonth('2024-04', 13),
-        newRate: 8.25,
-        impactStrategy: 'global',
-        note: 'RBI Repo Rate Cut (-0.50%)',
-      },
-    ]);
-    setPrepayments([
-      {
-        id: uid('pp'),
-        timingMode: 'emi',
-        emiNumber: 18,
-        calendarMonth: emiNumberToCalendarMonth('2024-04', 18),
-        amount: 300000,
-        penaltyPct: 0,
-        impactStrategy: 'global',
-        note: 'Annual Bonus Prepayment',
-      },
-    ]);
   };
 
   const displayedMonthlyRows = useMemo(() => {
@@ -678,14 +643,6 @@ export const HomeLoanAdvancedView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={loadSampleScenario}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#CEE5DC] hover:bg-[#bddbd0] text-xs font-bold text-[#2F3E4E] cursor-pointer whitespace-nowrap"
-          >
-            <TrendingDown className="w-3.5 h-3.5" />
-            <span>Load Sample Scenario</span>
-          </button>
           <button
             type="button"
             onClick={handleResetAll}

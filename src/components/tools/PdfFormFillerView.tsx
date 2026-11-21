@@ -48,7 +48,6 @@ import {
   buildVectorFilledPdf,
   clampVal,
   cleanPaperCanvas,
-  createSampleApplicationPdfBytes,
   drawFormItem,
   extractSignatureInkCanvas,
   fileToHtmlImage,
@@ -479,18 +478,6 @@ export const PdfFormFillerView: React.FC<PdfFormFillerViewProps> = ({ tool }) =>
       await openImageForm(file, file.name);
     } else {
       setErrorMsg('Please select a PDF document or a JPG / PNG form photo.');
-    }
-  };
-
-  const handleOpenSampleForm = async () => {
-    setIsLoading(true);
-    setLoadingLabel('Generating sample application form...');
-    try {
-      const bytes = await createSampleApplicationPdfBytes();
-      await openPdfDocument(bytes, 'sample-application-form.pdf');
-    } catch (err) {
-      setIsLoading(false);
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to build sample form.');
     }
   };
 
@@ -1484,16 +1471,6 @@ export const PdfFormFillerView: React.FC<PdfFormFillerViewProps> = ({ tool }) =>
               >
                 <FilePlus2 className="w-4 h-4" />
                 <span>{isLoading ? loadingLabel : 'Open PDF or Form Photo'}</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={handleOpenSampleForm}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#FFFDF5] hover:bg-[#F9C80E] text-[#2F3E4E] border-[1.5px] border-[#2F3E4E] text-sm font-bold shadow-[0_3px_0_#2F3E4E] transition cursor-pointer disabled:opacity-60"
-              >
-                <FileText className="w-4 h-4" />
-                <span>Try Sample Application Form</span>
               </button>
             </div>
           </div>

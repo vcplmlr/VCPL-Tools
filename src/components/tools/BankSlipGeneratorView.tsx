@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 import {
@@ -182,6 +182,7 @@ export const BankSlipGeneratorView: React.FC<BankSlipGeneratorViewProps> = ({
   initialForm,
   defaultOpenBulk = false,
 }) => {
+
   const initialLoaded = useMemo(
     () => loadInitialDraft(initialBank, initialForm),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -949,7 +950,9 @@ export const BankSlipGeneratorView: React.FC<BankSlipGeneratorViewProps> = ({
               className="inline-flex items-center gap-1.5 px-3.5 h-9 text-xs font-bold text-[#2F3E4E] bg-[#CEE5DC] hover:bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <HardDrive className="w-3.5 h-3.5" />
-              <span>Saved Profiles ({savedProfiles.length})</span>
+              <span>
+                Saved Profiles ({savedProfiles.length})
+              </span>
             </button>
 
             <button
@@ -1001,10 +1004,10 @@ export const BankSlipGeneratorView: React.FC<BankSlipGeneratorViewProps> = ({
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <HardDrive className="w-4 h-4 text-[#2F3E4E]" />
               <strong className="font-display text-sm text-[#2F3E4E]">
-                Browser Account Vault
+                Saved Slip Profiles (Browser Local)
               </strong>
               <span className="text-[#12805C] font-semibold">
-                · Auto-saved locally ({formatShortSavedTime(lastSavedIso)}) · Zero server storage
+                · Local draft auto-saved ({formatShortSavedTime(lastSavedIso)})
               </span>
             </div>
 
@@ -1050,7 +1053,7 @@ export const BankSlipGeneratorView: React.FC<BankSlipGeneratorViewProps> = ({
               className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border-[1.5px] border-[#2F3E4E] bg-[#2F3E4E] hover:bg-[#1E293B] text-[#FFFDF5] text-xs font-bold cursor-pointer whitespace-nowrap shrink-0"
             >
               <BookmarkPlus className="w-3.5 h-3.5 text-[#F9C80E]" />
-              <span>Save Current Account / Beneficiary</span>
+              <span>Save in Browser</span>
             </button>
           </div>
 

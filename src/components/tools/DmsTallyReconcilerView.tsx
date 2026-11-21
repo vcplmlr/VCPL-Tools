@@ -7,59 +7,46 @@ import {
   FileSpreadsheet,
   GitCompareArrows,
   RotateCcw,
-  Sparkles,
   Upload,
+  Wand2,
   X,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
+import {
+  CATS,
+  CategoryOverride,
+  FIELDS,
+  FieldKey,
+  ReconRow,
+  ReconStatus,
+  STATUS_ORDER,
+  SideKey,
+  SideState,
+  UploadedSheetFile,
+  VoucherCategory,
+  assessAmountColumn,
+  autoIdx,
+  buildSideEntries,
+  extractSheetHeadersAndRows,
+  formatExcelDate,
+  formatMoney,
+  parsePrefixRules,
+  reconcileEntries,
+} from '../../utils/dmsTallyEngine';
+import {
+  RecoPeriodFilter,
+  createDefaultRecoPeriodFilter,
+  excelSerialToKey,
+  extractPeriodChoicesFromKeys,
+  isDateKeyInRecoPeriod,
+  resolveRecoPeriodBounds,
+} from '../../utils/recoPeriodFilter';
+import { RecoPeriodFilterBar } from './RecoPeriodFilterBar';
 
 interface DmsTallyReconcilerViewProps {
   tool?: ToolCatalogItem;
   onBack?: () => void;
 }
-
-const CATS = ['Sales', 'Purchase', 'Debit Note', 'Credit Note', 'Other'] as const;
-type VoucherCategory = (typeof CATS)[number];
-type CategoryOverride = 'Auto' | VoucherCategory;
-type SideKey = 'dms' | 'tally';
-type FieldKey = 'vno' | 'date' | 'party' | 'amt' | 'amt2' | 'type';
-
-const FIELDS: ReadonlyArray<[FieldKey, string]> = [
-  ['vno', 'Voucher / Invoice No'],
-  ['date', 'Date'],
-  ['party', 'Party'],
-  ['amt', 'Amount'],
-  ['amt2', 'Amount 2 (e.g. Credit)'],
-  ['type', 'Type / Vch Type'],
-];
-
-const AUTO_PATTERNS: Record<FieldKey, RegExp[]> = {
-  vno: [/vch\s*no|voucher\s*no|invoice\s*#|invoice\s*no|inv\w*\s*no|bill\s*no|doc\s*no/i],
-  date: [/^(invoice\s*|vch\s*|bill\s*)?date$/i],
-  party: [/particulars/i, /billing customer/i, /party|customer|ledger/i],
-  amt: [/final amount with tax/i, /gross|invoice amount|total amount/i, /^debit/i, /amount/i],
-  amt2: [/^credit/i],
-  type: [/vch\s*type|voucher\s*type/i, /^type$/i],
-};
-
-type ReconStatus =
-  | 'Matched'
-  | 'Amount diff'
-  | 'Date diff'
-  | 'Type diff'
-  | 'Fuzzy match'
-  | 'Only in DMS'
-  | 'Only in Tally';
-
-const STATUS_ORDER: ReconStatus[] = [
-  'Matched',
-  'Amount diff',
-  'Date diff',
-  'Type diff',
-  'Fuzzy match',
-  'Only in DMS',
-  'Only in Tally',
-];
 
 const STATUS_BADGE_STYLES: Record<ReconStatus, { badge: string; border: string }> = {
   Matched: {
@@ -92,263 +79,6 @@ const STATUS_BADGE_STYLES: Record<ReconStatus, { badge: string; border: string }
   },
 };
 
-interface UploadedSheetFile {
-  id: string;
-  name: string;
-  headers: string[];
-  rows: unknown[][];
-  ov: CategoryOverride;
-}
-
-interface SideState {
-  files: UploadedSheetFile[];
-  map: Partial<Record<FieldKey, string>>;
-  inc: Set<VoucherCategory>;
-}
-
-interface NormalizedEntry {
-  side: SideKey;
-  file: string;
-  vno: string;
-  key: string;
-  date: number | null;
-  party: string;
-  amt: number;
-  cat: VoucherCategory;
-  used?: boolean;
-}
-
-interface ReconRow {
-  status: ReconStatus;
-  cat: VoucherCategory;
-  vd: string;
-  vt: string;
-  dd: number | null;
-  dt: number | null;
-  party: string;
-  a: number | null;
-  b: number | null;
-  diff: number;
-  notes: string;
-}
-
-const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-
-function formatMoney(n: number | null | undefined): string {
-  if (n == null) return '';
-  return n.toLocaleString('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatExcelDate(n: number | null | undefined): string {
-  if (n == null) return '';
-  const d = new Date(Date.UTC(1899, 11, 30) + n * 864e5);
-  return (
-    String(d.getUTCDate()).padStart(2, '0') +
-    '-' +
-    String(d.getUTCMonth() + 1).padStart(2, '0') +
-    '-' +
-    d.getUTCFullYear()
-  );
-}
-
-function parseExcelDate(v: unknown): number | null {
-  if (typeof v === 'number') {
-    return v > 20000 && v < 80000 ? Math.floor(v) : null;
-  }
-  if (!v) return null;
-  const m = String(v)
-    .trim()
-    .match(/(\d{1,2})[-/. ]([A-Za-z]{3}|\d{1,2})[-/. ](\d{2,4})/);
-  if (!m) return null;
-  const mo = Number.isNaN(Number(m[2]))
-    ? MONTHS.indexOf(m[2].toLowerCase())
-    : Number(m[2]) - 1;
-  let y = Number(m[3]);
-  if (y < 100) y += 2000;
-  if (mo < 0 || mo > 11) return null;
-  return Math.floor(Date.UTC(y, mo, Number(m[1])) / 864e5) + 25569;
-}
-
-function parseNumber(v: unknown): number {
-  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
-  const x = parseFloat(String(v ?? '').replace(/[,₹\s]/g, ''));
-  return Number.isNaN(x) ? 0 : x;
-}
-
-function autoIdx(headers: string[], field: FieldKey): number {
-  for (const rx of AUTO_PATTERNS[field]) {
-    const idx = headers.findIndex((h) => rx.test(h));
-    if (idx >= 0) return idx;
-  }
-  return -1;
-}
-
-function detectHeaderRow(rows: unknown[][]): number {
-  let bestIdx = 0;
-  let bestScore = -1;
-  for (let i = 0; i < Math.min(rows.length, 40); i++) {
-    let score = 0;
-    const row = rows[i] || [];
-    row.forEach((cell) => {
-      if (
-        typeof cell === 'string' &&
-        /date|vch|voucher|invoice|amount|debit|credit|particulars|party|customer|bill/i.test(cell)
-      ) {
-        score++;
-      }
-    });
-    if (score > bestScore) {
-      bestScore = score;
-      bestIdx = i;
-    }
-  }
-  return bestIdx;
-}
-
-function parsePrefixRules(raw: string): Array<[string, VoucherCategory]> {
-  return (raw || '')
-    .split(',')
-    .map((x) => x.split('=').map((y) => y.trim()))
-    .filter(
-      (parts): parts is [string, VoucherCategory] =>
-        Boolean(parts[0]) && (CATS as readonly string[]).includes(parts[1])
-    );
-}
-
-function catOf(
-  typeVal: unknown,
-  vno: string,
-  ov: CategoryOverride,
-  prefixRules: Array<[string, VoucherCategory]>
-): VoucherCategory {
-  if (ov && ov !== 'Auto') return ov;
-  const v = String(vno).toUpperCase();
-  for (const [prefix, cat] of prefixRules) {
-    if (v.startsWith(prefix.toUpperCase())) return cat;
-  }
-  const t = String(typeVal || '');
-  if (/credit\s*(note|memo)|^cn$/i.test(t)) return 'Credit Note';
-  if (/debit\s*(note|memo)|^dn$/i.test(t)) return 'Debit Note';
-  if (/purchase/i.test(t)) return 'Purchase';
-  if (/sale|service|invoice|parts/i.test(t)) return 'Sales';
-  return t ? 'Other' : 'Sales';
-}
-
-function normalizeVoucherKey(v: string, ignorePrefix: boolean): string {
-  let k = String(v).toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (ignorePrefix) {
-    const m = k.match(/(\d+)$/);
-    if (m) k = String(Number(m[1]));
-  }
-  return k;
-}
-
-function buildSideEntries(
-  side: SideKey,
-  sideState: SideState,
-  includeAllCategories: boolean,
-  ignorePrefix: boolean,
-  prefixRules: Array<[string, VoucherCategory]>
-): NormalizedEntry[] {
-  const out: NormalizedEntry[] = [];
-  sideState.files.forEach((f) => {
-    const ix: Record<FieldKey, number> = {
-      vno: -1,
-      date: -1,
-      party: -1,
-      amt: -1,
-      amt2: -1,
-      type: -1,
-    };
-
-    FIELDS.forEach(([k]) => {
-      const mapped = sideState.map[k] ?? '';
-      let idx = mapped ? f.headers.indexOf(mapped) : -1;
-      if (idx < 0 && mapped !== '') {
-        idx = autoIdx(f.headers, k);
-      }
-      ix[k] = idx;
-    });
-
-    if (ix.vno < 0) return;
-
-    f.rows.forEach((r) => {
-      const vno = String(r[ix.vno] ?? '').trim();
-      const dateRaw = ix.date >= 0 ? String(r[ix.date] ?? '') : '';
-      if (!vno || /^total/i.test(vno) || /^total/i.test(dateRaw)) return;
-
-      let a = ix.amt >= 0 ? parseNumber(r[ix.amt]) : 0;
-      if (!a && ix.amt2 >= 0) a = parseNumber(r[ix.amt2]);
-
-      const cat = catOf(ix.type >= 0 ? r[ix.type] : '', vno, f.ov, prefixRules);
-      if (!includeAllCategories && !sideState.inc.has(cat)) return;
-
-      out.push({
-        side,
-        file: f.name,
-        vno,
-        key: normalizeVoucherKey(vno, ignorePrefix),
-        date: ix.date >= 0 ? parseExcelDate(r[ix.date]) : null,
-        party: ix.party >= 0 ? String(r[ix.party] ?? '') : '',
-        amt: Math.abs(a),
-        cat,
-      });
-    });
-  });
-
-  return out;
-}
-
-function pairEntries(
-  a: NormalizedEntry,
-  b: NormalizedEntry,
-  tol: number,
-  dd: number,
-  dupNote: string
-): ReconRow {
-  const diff = Math.round((a.amt - b.amt) * 100) / 100;
-  const notes: string[] = [];
-  let st: ReconStatus = 'Matched';
-  const absAmtDiff = Math.abs(diff) > tol;
-  const gap = a.date != null && b.date != null ? Math.abs(a.date - b.date) : 0;
-
-  if (absAmtDiff) {
-    st = 'Amount diff';
-    notes.push('Amount differs by ' + formatMoney(diff));
-  } else if (diff) {
-    notes.push('Rounding ' + formatMoney(diff));
-  }
-
-  if (gap > dd) {
-    if (st === 'Matched') st = 'Date diff';
-    notes.push('Date gap ' + gap + 'd');
-  }
-
-  if (a.cat !== b.cat) {
-    if (st === 'Matched') st = 'Type diff';
-    notes.push('Type: DMS ' + a.cat + ' / Tally ' + b.cat);
-  }
-
-  if (dupNote) notes.push(dupNote);
-
-  return {
-    status: st,
-    cat: a.cat,
-    vd: a.vno,
-    vt: b.vno,
-    dd: a.date,
-    dt: b.date,
-    party: a.party || b.party,
-    a: a.amt,
-    b: b.amt,
-    diff,
-    notes: notes.join('; '),
-  };
-}
-
 function createInitialSideState(): SideState {
   return {
     files: [],
@@ -357,12 +87,56 @@ function createInitialSideState(): SideState {
   };
 }
 
+function detectMapFromFiles(
+  files: UploadedSheetFile[],
+  existingMap: Partial<Record<FieldKey, string>> = {},
+  forceReDetect = false
+): Partial<Record<FieldKey, string>> {
+  const nextMap: Partial<Record<FieldKey, string>> = forceReDetect ? {} : { ...existingMap };
+  const allHeaders = new Set(files.flatMap((f) => f.headers).filter(Boolean));
+  const primaryFile = files[0];
+  if (!primaryFile) return {};
+
+  FIELDS.forEach(([k]) => {
+    const current = nextMap[k];
+    const currentStillValid =
+      current === '__NONE__' || (Boolean(current) && allHeaders.has(current as string));
+
+    if (forceReDetect || current === undefined || (!currentStillValid && files.length > 0)) {
+      let picked = '';
+      for (const f of files) {
+        const idx = autoIdx(f.headers, k, f.rows);
+        if (idx >= 0 && f.headers[idx]) {
+          picked = f.headers[idx];
+          break;
+        }
+      }
+      nextMap[k] = picked;
+    } else if (current === '' && (k === 'amt' || k === 'amt2' || k === 'vno')) {
+      // If an earlier file lacked a match (e.g., File 1 had no Credit column, File 2 does), detect it now
+      for (const f of files) {
+        const idx = autoIdx(f.headers, k, f.rows);
+        if (idx >= 0 && f.headers[idx]) {
+          nextMap[k] = f.headers[idx];
+          break;
+        }
+      }
+    }
+  });
+
+  if (nextMap.amt && nextMap.amt2 && nextMap.amt === nextMap.amt2) {
+    nextMap.amt2 = '';
+  }
+
+  return nextMap;
+}
+
 export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ tool }) => {
   const [dmsState, setDmsState] = useState<SideState>(createInitialSideState);
   const [tallyState, setTallyState] = useState<SideState>(createInitialSideState);
   const [dragOverSide, setDragOverSide] = useState<SideKey | null>(null);
 
-  // Matching Rules state (exact defaults from DMS vs Tally HTML)
+  // Matching Rules state
   const [amtTol, setAmtTol] = useState<number>(1);
   const [dateTol, setDateTol] = useState<number>(0);
   const [fuzzyEnabled, setFuzzyEnabled] = useState<boolean>(true);
@@ -372,6 +146,9 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
   const [prefixRulesText, setPrefixRulesText] = useState<string>('');
 
   // Results & UI state
+  const [periodFilter, setPeriodFilter] = useState<RecoPeriodFilter>(() =>
+    createDefaultRecoPeriodFilter()
+  );
   const [results, setResults] = useState<ReconRow[] | null>(null);
   const [statusFilter, setStatusFilter] = useState<'All' | ReconStatus>('All');
   const [typeFilter, setTypeFilter] = useState<string>('All types');
@@ -380,8 +157,59 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
 
   const parsedPrefixRules = useMemo(() => parsePrefixRules(prefixRulesText), [prefixRulesText]);
 
+  const dmsAmtAssessment = useMemo(
+    () => assessAmountColumn(dmsState.map.amt, dmsState.files),
+    [dmsState.map.amt, dmsState.files]
+  );
+
+  const tallyAmtAssessment = useMemo(
+    () => assessAmountColumn(tallyState.map.amt, tallyState.files),
+    [tallyState.map.amt, tallyState.files]
+  );
+
+  const rawEntriesPreview = useMemo(() => {
+    const safeBuild = (side: SideKey, s: SideState) => {
+      if (s.files.length === 0) return [];
+      try {
+        return buildSideEntries(side, s, true, ignorePrefix, parsedPrefixRules);
+      } catch {
+        return [];
+      }
+    };
+    return {
+      dmsAll: safeBuild('dms', dmsState),
+      tallyAll: safeBuild('tally', tallyState),
+    };
+  }, [dmsState, tallyState, ignorePrefix, parsedPrefixRules]);
+
+  const availablePeriods = useMemo(() => {
+    if (rawEntriesPreview.dmsAll.length === 0 && rawEntriesPreview.tallyAll.length === 0) {
+      return undefined;
+    }
+    const keys = [
+      ...rawEntriesPreview.dmsAll.map((e) => excelSerialToKey(e.date)),
+      ...rawEntriesPreview.tallyAll.map((e) => excelSerialToKey(e.date)),
+    ];
+    return extractPeriodChoicesFromKeys(keys);
+  }, [rawEntriesPreview]);
+
+  const periodEntryCounts = useMemo(() => {
+    const dmsActive = rawEntriesPreview.dmsAll.filter((e) => dmsState.inc.has(e.cat));
+    const tallyActive = rawEntriesPreview.tallyAll.filter((e) => tallyState.inc.has(e.cat));
+    const dmsIn = dmsActive.filter((e) =>
+      isDateKeyInRecoPeriod(excelSerialToKey(e.date), periodFilter)
+    ).length;
+    const tallyIn = tallyActive.filter((e) =>
+      isDateKeyInRecoPeriod(excelSerialToKey(e.date), periodFilter)
+    ).length;
+    return {
+      matched: dmsIn + tallyIn,
+      total: dmsActive.length + tallyActive.length,
+    };
+  }, [rawEntriesPreview, dmsState.inc, tallyState.inc, periodFilter]);
+
   const sideCounts = useMemo(() => {
-    const compute = (side: SideKey, s: SideState) => {
+    const compute = (entries: typeof rawEntriesPreview.dmsAll) => {
       const counts: Record<VoucherCategory, number> = {
         Sales: 0,
         Purchase: 0,
@@ -389,23 +217,19 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
         'Credit Note': 0,
         Other: 0,
       };
-      if (s.files.length > 0) {
-        try {
-          buildSideEntries(side, s, true, ignorePrefix, parsedPrefixRules).forEach((entry) => {
-            counts[entry.cat]++;
-          });
-        } catch {
-          // Ignore invalid partial mappings during editing
+      entries.forEach((entry) => {
+        if (isDateKeyInRecoPeriod(excelSerialToKey(entry.date), periodFilter)) {
+          counts[entry.cat]++;
         }
-      }
+      });
       return counts;
     };
 
     return {
-      dms: compute('dms', dmsState),
-      tally: compute('tally', tallyState),
+      dms: compute(rawEntriesPreview.dmsAll),
+      tally: compute(rawEntriesPreview.tallyAll),
     };
-  }, [dmsState, tallyState, ignorePrefix, parsedPrefixRules]);
+  }, [rawEntriesPreview, periodFilter]);
 
   const handleLoadFiles = async (side: SideKey, fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -418,28 +242,35 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
       try {
         const buffer = await f.arrayBuffer();
         const wb = XLSX.read(buffer, { type: 'array' });
-        const firstSheetName = wb.SheetNames[0];
-        const firstSheet = firstSheetName ? wb.Sheets[firstSheetName] : undefined;
-        if (!firstSheet) {
-          failedNames.push(`${f.name} (no sheets found)`);
+
+        // Pick the first non-empty sheet (usually Sheet 0)
+        let chosenSheet: XLSX.WorkSheet | undefined;
+        let extracted: { headers: string[]; rows: unknown[][] } = { headers: [], rows: [] };
+        for (const sheetName of wb.SheetNames) {
+          const sheet = wb.Sheets[sheetName];
+          if (!sheet) continue;
+          const candidate = extractSheetHeadersAndRows(sheet);
+          if (candidate.headers.length > 0 && candidate.rows.length > 0) {
+            chosenSheet = sheet;
+            extracted = candidate;
+            break;
+          }
+          if (!chosenSheet && candidate.headers.length > 0) {
+            chosenSheet = sheet;
+            extracted = candidate;
+          }
+        }
+
+        if (!chosenSheet) {
+          failedNames.push(`${f.name} (no readable sheet data found)`);
           continue;
         }
-        const rows = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, {
-          header: 1,
-          raw: true,
-          defval: '',
-        });
-        if (rows.length === 0) {
-          failedNames.push(`${f.name} (sheet is empty)`);
-          continue;
-        }
-        const headerIdx = detectHeaderRow(rows);
-        const headers = (rows[headerIdx] || []).map((c) => String(c ?? '').trim());
+
         loadedFiles.push({
           id: `${f.name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           name: f.name,
-          headers,
-          rows: rows.slice(headerIdx + 1),
+          headers: extracted.headers,
+          rows: extracted.rows,
           ov: 'Auto',
         });
       } catch {
@@ -448,21 +279,16 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
     }
 
     if (failedNames.length > 0) {
-      setErrorMsg(`Could not read: ${failedNames.join(', ')}. Please verify it is a valid .xlsx, .xls, or .csv workbook.`);
+      setErrorMsg(
+        `Could not read: ${failedNames.join(', ')}. Please verify it is a valid .xlsx, .xls, or .csv workbook.`
+      );
     }
 
     if (loadedFiles.length === 0) return;
 
     const updater = (prev: SideState): SideState => {
       const nextFiles = [...prev.files, ...loadedFiles];
-      const nextMap = { ...prev.map };
-      const firstHeaders = nextFiles[0]?.headers || [];
-      FIELDS.forEach(([k]) => {
-        if (nextMap[k] === undefined) {
-          const idx = autoIdx(firstHeaders, k);
-          nextMap[k] = idx >= 0 ? firstHeaders[idx] : '';
-        }
-      });
+      const nextMap = detectMapFromFiles(nextFiles, prev.map, false);
       return {
         ...prev,
         files: nextFiles,
@@ -478,9 +304,22 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
   };
 
   const handleRemoveFile = (side: SideKey, fileId: string) => {
+    const updater = (prev: SideState): SideState => {
+      const nextFiles = prev.files.filter((f) => f.id !== fileId);
+      return {
+        ...prev,
+        files: nextFiles,
+        map: detectMapFromFiles(nextFiles, prev.map, false),
+      };
+    };
+    if (side === 'dms') setDmsState(updater);
+    else setTallyState(updater);
+  };
+
+  const handleAutoDetectSide = (side: SideKey) => {
     const updater = (prev: SideState): SideState => ({
       ...prev,
-      files: prev.files.filter((f) => f.id !== fileId),
+      map: detectMapFromFiles(prev.files, prev.map, true),
     });
     if (side === 'dms') setDmsState(updater);
     else setTallyState(updater);
@@ -509,87 +348,40 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
   const handleMapChange = (side: SideKey, field: FieldKey, value: string) => {
     const updater = (prev: SideState): SideState => ({
       ...prev,
-      map: { ...prev.map, [field]: value },
+      map: { ...prev.map, [field]: value || '__NONE__' },
     });
     if (side === 'dms') setDmsState(updater);
     else setTallyState(updater);
   };
 
-  const handleLoadSampleData = () => {
-    setErrorMsg('');
-    const dmsHeaders = ['Invoice No', 'Date', 'Billing Customer', 'Final Amount with Tax', 'Type'];
-    const dmsRows: unknown[][] = [
-      ['INV/25-26/001', '01-04-2025', 'Rohan Automobiles Pvt Ltd', 118000, 'Sales'],
-      ['INV/25-26/002', '02-04-2025', 'Apex Spare Parts', 54200, 'Sales'],
-      ['INV/25-26/003', '03-04-2025', 'Metro Fleet Service', 29500, 'Sales'],
-      ['VMSC-014', '04-04-2025', 'Rohan Automobiles Pvt Ltd', 4500, 'Sales'],
-      ['PUR/089', '05-04-2025', 'Bharat OEM Components', 86400, 'Purchase'],
-      ['INV/25-26/004', '06-04-2025', 'Sunrise Logistics', 33000, 'Sales'],
-      ['INV/25-26/005', '07-04-2025', 'Deccan Motors', 19800, 'Sales'],
-    ];
-
-    const tallyHeaders = ['Vch No', 'Date', 'Particulars', 'Debit', 'Credit', 'Vch Type'];
-    const tallyRows: unknown[][] = [
-      ['INV/25-26/001', '01-04-2025', 'Rohan Automobiles Pvt Ltd', 118000, 0, 'Sales'],
-      ['INV/25-26/002', '02-04-2025', 'Apex Spare Parts', 53950, 0, 'Sales'],
-      ['INV/25-26/003', '05-04-2025', 'Metro Fleet Service', 29500, 0, 'Sales'],
-      ['CN/25-26/014', '04-04-2025', 'Rohan Automobiles Pvt Ltd', 0, 4500, 'Credit Note'],
-      ['PUR/089', '05-04-2025', 'Bharat OEM Components', 0, 86400, 'Purchase'],
-      ['INV-2526-999', '07-04-2025', 'Sunrise Logistics', 33000, 0, 'Sales'],
-      ['SAL/25-26/888', '08-04-2025', 'Unrecorded Cash Customer', 12400, 0, 'Sales'],
-    ];
-
-    const dmsMap: Partial<Record<FieldKey, string>> = {};
-    FIELDS.forEach(([k]) => {
-      const idx = autoIdx(dmsHeaders, k);
-      dmsMap[k] = idx >= 0 ? dmsHeaders[idx] : '';
-    });
-
-    const tallyMap: Partial<Record<FieldKey, string>> = {};
-    FIELDS.forEach(([k]) => {
-      const idx = autoIdx(tallyHeaders, k);
-      tallyMap[k] = idx >= 0 ? tallyHeaders[idx] : '';
-    });
-
-    setPrefixRulesText('VMSC=Credit Note');
-    setDmsState({
-      files: [
-        {
-          id: 'sample-dms',
-          name: 'Sample_DMS_Register.xlsx',
-          headers: dmsHeaders,
-          rows: dmsRows,
-          ov: 'Auto',
-        },
-      ],
-      map: dmsMap,
-      inc: new Set(CATS),
-    });
-
-    setTallyState({
-      files: [
-        {
-          id: 'sample-tally',
-          name: 'Sample_Tally_Register.xlsx',
-          headers: tallyHeaders,
-          rows: tallyRows,
-          ov: 'Auto',
-        },
-      ],
-      map: tallyMap,
-      inc: new Set(CATS),
-    });
-    setResults(null);
-  };
-
   const handleResetAll = () => {
     setDmsState(createInitialSideState());
     setTallyState(createInitialSideState());
+    setPeriodFilter(createDefaultRecoPeriodFilter());
     setResults(null);
     setStatusFilter('All');
     setTypeFilter('All types');
     setSearchQuery('');
     setErrorMsg('');
+  };
+
+  const executeReconciliationWithFilter = (activePeriod: RecoPeriodFilter) => {
+    const A = buildSideEntries('dms', dmsState, false, ignorePrefix, parsedPrefixRules).filter(
+      (e) => isDateKeyInRecoPeriod(excelSerialToKey(e.date), activePeriod)
+    );
+    const B = buildSideEntries('tally', tallyState, false, ignorePrefix, parsedPrefixRules).filter(
+      (e) => isDateKeyInRecoPeriod(excelSerialToKey(e.date), activePeriod)
+    );
+
+    const res = reconcileEntries(A, B, {
+      amtTol: Number(amtTol) || 0,
+      dateTol: Number(dateTol) || 0,
+      fuzzyEnabled,
+      fuzzyDays: Number(fuzzyDays) || 0,
+      fuzzySameType,
+    });
+
+    setResults(res);
   };
 
   const runReconciliation = () => {
@@ -598,111 +390,16 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
       return;
     }
     setErrorMsg('');
-
-    const tol = Number(amtTol) || 0;
-    const dd = Number(dateTol) || 0;
-    const fdays = Number(fuzzyDays) || 0;
-
-    const A = buildSideEntries('dms', dmsState, false, ignorePrefix, parsedPrefixRules);
-    const B = buildSideEntries('tally', tallyState, false, ignorePrefix, parsedPrefixRules);
-
-    const res: ReconRow[] = [];
-    const mb = new Map<string, NormalizedEntry[]>();
-    const ca: Record<string, number> = {};
-    const cb: Record<string, number> = {};
-
-    B.forEach((b) => {
-      const list = mb.get(b.key);
-      if (list) list.push(b);
-      else mb.set(b.key, [b]);
-      cb[b.key] = (cb[b.key] || 0) + 1;
-    });
-    A.forEach((a) => {
-      ca[a.key] = (ca[a.key] || 0) + 1;
-    });
-
-    const left: NormalizedEntry[] = [];
-    A.forEach((a) => {
-      const arr = mb.get(a.key);
-      if (arr && arr.length > 0) {
-        const b = arr.shift()!;
-        b.used = true;
-        const dupNote =
-          ca[a.key] > 1 || cb[a.key] > 1 ? 'Duplicate voucher no. in file(s)' : '';
-        res.push(pairEntries(a, b, tol, dd, dupNote));
-      } else {
-        left.push(a);
-      }
-    });
-
-    const lb = B.filter((b) => !b.used);
-
-    if (fuzzyEnabled) {
-      left.slice().forEach((a) => {
-        let best: NormalizedEntry | null = null;
-        let bestGap = 1e9;
-
-        lb.forEach((b) => {
-          if (b.used || Math.abs(a.amt - b.amt) > tol) return;
-          if (fuzzySameType && a.cat !== b.cat) return;
-          const gap = a.date != null && b.date != null ? Math.abs(a.date - b.date) : 0;
-          if (gap > fdays) return;
-          if (gap < bestGap) {
-            bestGap = gap;
-            best = b;
-          }
-        });
-
-        if (best !== null) {
-          const matchedB: NormalizedEntry = best;
-          matchedB.used = true;
-          const idx = left.indexOf(a);
-          if (idx >= 0) left.splice(idx, 1);
-          const paired = pairEntries(a, matchedB, tol, 1e9, '');
-          paired.status = 'Fuzzy match';
-          paired.notes = ['Voucher no. differs']
-            .concat(bestGap ? ['date gap ' + bestGap + 'd'] : [])
-            .join(', ');
-          res.push(paired);
-        }
-      });
-    }
-
-    left.forEach((a) =>
-      res.push({
-        status: 'Only in DMS',
-        cat: a.cat,
-        vd: a.vno,
-        vt: '',
-        dd: a.date,
-        dt: null,
-        party: a.party,
-        a: a.amt,
-        b: null,
-        diff: a.amt,
-        notes: 'Missing in Tally',
-      })
-    );
-
-    B.filter((b) => !b.used).forEach((b) =>
-      res.push({
-        status: 'Only in Tally',
-        cat: b.cat,
-        vd: '',
-        vt: b.vno,
-        dd: null,
-        dt: b.date,
-        party: b.party,
-        a: null,
-        b: b.amt,
-        diff: -b.amt,
-        notes: 'Missing in DMS',
-      })
-    );
-
-    setResults(res);
+    executeReconciliationWithFilter(periodFilter);
     setStatusFilter('All');
     setTypeFilter('All types');
+  };
+
+  const handlePeriodChange = (nextPeriod: RecoPeriodFilter) => {
+    setPeriodFilter(nextPeriod);
+    if (results !== null && dmsState.files.length > 0 && tallyState.files.length > 0) {
+      executeReconciliationWithFilter(nextPeriod);
+    }
   };
 
   const summaryStats = useMemo(() => {
@@ -778,8 +475,8 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
       'DMS date',
       'Tally date',
       'Party',
-      'DMS amount',
-      'Tally amount',
+      'DMS Total amount',
+      'Tally Total amount',
       'Difference',
       'Notes',
     ];
@@ -798,7 +495,13 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
     ];
 
     const wb = XLSX.utils.book_new();
-    const summaryRows: unknown[][] = [['Status', 'Count', 'Abs difference']];
+    const pBounds = resolveRecoPeriodBounds(periodFilter);
+    const summaryRows: unknown[][] = [
+      ['Period Filter', pBounds.isFiltered ? `${pBounds.label} (${pBounds.rangeText})` : 'All dates'],
+      ['Include Undated Rows', periodFilter.includeUndated ? 'Yes' : 'No'],
+      [],
+      ['Status', 'Count', 'Abs difference'],
+    ];
     STATUS_ORDER.forEach((s) => {
       const matching = results.filter((r) => r.status === s);
       summaryRows.push([
@@ -839,16 +542,22 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
       results.filter((r) => r.status === 'Only in Tally')
     );
 
-    XLSX.writeFile(wb, 'DMS_vs_Tally_Reconciliation.xlsx');
+    XLSX.writeFile(
+      wb,
+      `DMS_vs_Tally_Reconciliation${pBounds.isFiltered ? `_${pBounds.shortLabel}` : ''}.xlsx`
+    );
   };
 
   const renderSidePanel = (side: SideKey) => {
     const state = side === 'dms' ? dmsState : tallyState;
     const counts = sideCounts[side];
+    const assessment = side === 'dms' ? dmsAmtAssessment : tallyAmtAssessment;
     const uniqueHeaders = Array.from(
       new Set(state.files.flatMap((f) => f.headers).filter(Boolean))
     );
     const isDragOver = dragOverSide === side;
+    const mappedAmt = state.map.amt && state.map.amt !== '__NONE__' ? state.map.amt : '';
+    const mappedAmt2 = state.map.amt2 && state.map.amt2 !== '__NONE__' ? state.map.amt2 : '';
 
     return (
       <div className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-5 shadow-[0_4px_0_#2F3E4E] space-y-4">
@@ -940,6 +649,50 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
           </div>
         )}
 
+        {/* Active Total Amount Column Status & Guard */}
+        {state.files.length > 0 && (
+          <div
+            className={`rounded-xl border px-3 py-2.5 text-xs space-y-1.5 ${
+              assessment?.warning || !mappedAmt
+                ? 'bg-amber-50 border-amber-700/60 text-amber-950'
+                : 'bg-[#CEE5DC]/35 border-[#12805C]/35 text-[#2F3E4E]'
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 font-semibold">
+                {assessment?.warning || !mappedAmt ? (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#12805C] shrink-0" />
+                )}
+                <span>Total Amount column:</span>
+                <span className="font-mono font-bold">
+                  {mappedAmt || 'Not detected'}
+                  {mappedAmt2 ? ` (+ ${mappedAmt2})` : ''}
+                </span>
+              </div>
+              {assessment?.suggestedTotalHeader && (
+                <button
+                  type="button"
+                  onClick={() => handleMapChange(side, 'amt', assessment.suggestedTotalHeader!)}
+                  className="px-2 py-0.5 rounded-md bg-amber-900 hover:bg-amber-950 text-white text-[11px] font-bold cursor-pointer"
+                >
+                  Switch to {assessment.suggestedTotalHeader}
+                </button>
+              )}
+            </div>
+            {assessment?.warning && (
+              <p className="text-[11px] text-amber-900 leading-snug">{assessment.warning}</p>
+            )}
+            {!mappedAmt && (
+              <p className="text-[11px] text-amber-900 leading-snug">
+                No Total Amount column was detected automatically. Select the Grand Total / Invoice
+                Total column below.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Include Voucher Types */}
         <div className="space-y-2">
           <div className="text-xs font-bold text-[#2F3E4E]">Include voucher types</div>
@@ -966,27 +719,46 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
 
         {/* Column Mapping Collapsible */}
         <details className="border-t border-[#2F3E4E]/15 pt-2.5">
-          <summary className="text-xs font-semibold text-[#475569] hover:text-[#2F3E4E] cursor-pointer select-none">
-            Column mapping (auto-detected)
+          <summary className="text-xs font-semibold text-[#475569] hover:text-[#2F3E4E] cursor-pointer select-none flex items-center justify-between">
+            <span>Column mapping (Total-to-Total auto-detected)</span>
           </summary>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3">
-            {FIELDS.map(([key, label]) => (
-              <label key={key} className="flex flex-col gap-1 text-[11px] font-semibold text-[#475569]">
-                <span>{label}</span>
-                <select
-                  value={state.map[key] ?? ''}
-                  onChange={(e) => handleMapChange(side, key, e.target.value)}
-                  className="px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/35 bg-white text-xs text-[#2F3E4E] font-medium"
-                >
-                  <option value="">— none —</option>
-                  {uniqueHeaders.map((h) => (
-                    <option key={h} value={h}>
-                      {h}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ))}
+          <div className="space-y-3 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {FIELDS.map(([key, label]) => {
+                const rawVal = state.map[key] ?? '';
+                const selectVal = rawVal === '__NONE__' ? '' : rawVal;
+                return (
+                  <label
+                    key={key}
+                    className="flex flex-col gap-1 text-[11px] font-semibold text-[#475569]"
+                  >
+                    <span>{label}</span>
+                    <select
+                      value={selectVal}
+                      onChange={(e) => handleMapChange(side, key, e.target.value)}
+                      className="px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/35 bg-white text-xs text-[#2F3E4E] font-medium"
+                    >
+                      <option value="">— none —</option>
+                      {uniqueHeaders.map((h) => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                );
+              })}
+            </div>
+            {state.files.length > 0 && (
+              <button
+                type="button"
+                onClick={() => handleAutoDetectSide(side)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#2F3E4E]/30 bg-white hover:bg-[#FEF2C8] text-[11px] font-bold text-[#2F3E4E] cursor-pointer"
+              >
+                <Wand2 className="w-3 h-3" />
+                <span>Re-auto-detect Total columns</span>
+              </button>
+            )}
           </div>
         </details>
       </div>
@@ -1008,21 +780,12 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
             {tool?.title || 'DMS vs Tally Reconciliation'}
           </h1>
           <p className="text-sm text-[#475569] max-w-2xl leading-relaxed">
-            Upload one or many Excel/CSV files on each side, pick which voucher types to include,
-            and reconcile Sales, Purchase, Debit Note &amp; Credit Note registers offline. Files
-            never leave your browser.
+            Upload one or many Excel/CSV files on each side, verify both Total Amount (incl. Tax)
+            columns, and reconcile Sales, Purchase, Debit Note &amp; Credit Note registers offline.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleLoadSampleData}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#F9C80E] hover:bg-[#FFE1B3] text-xs font-bold text-[#2F3E4E] cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Load Sample Test Data</span>
-          </button>
           {(dmsState.files.length > 0 || tallyState.files.length > 0 || results) && (
             <button
               type="button"
@@ -1065,7 +828,23 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
 
       {/* Matching Rules Card */}
       <div className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-5 sm:p-6 shadow-[0_4px_0_#2F3E4E] space-y-4">
-        <h2 className="font-display font-extrabold text-base text-[#2F3E4E]">Matching rules</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display font-extrabold text-base text-[#2F3E4E]">Matching rules</h2>
+          {dmsState.files.length > 0 && tallyState.files.length > 0 && (
+            <span className="text-[11px] font-semibold text-[#475569] bg-[#FEF2C8]/75 border border-[#2F3E4E]/20 rounded-lg px-2.5 py-1">
+              Comparing Total:{' '}
+              <strong className="font-mono text-[#2F3E4E]">
+                {dmsState.map.amt && dmsState.map.amt !== '__NONE__' ? dmsState.map.amt : 'Unmapped'}
+              </strong>{' '}
+              vs{' '}
+              <strong className="font-mono text-[#2F3E4E]">
+                {tallyState.map.amt && tallyState.map.amt !== '__NONE__'
+                  ? tallyState.map.amt
+                  : 'Unmapped'}
+              </strong>
+            </span>
+          )}
+        </div>
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-xs sm:text-sm text-[#2F3E4E] font-medium">
           <label className="inline-flex items-center gap-2">
@@ -1155,6 +934,18 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
           </button>
         </div>
       </div>
+
+      {/* Advanced Period & Date Filter */}
+      {(dmsState.files.length > 0 || tallyState.files.length > 0) && (
+        <RecoPeriodFilterBar
+          value={periodFilter}
+          onChange={handlePeriodChange}
+          available={availablePeriods}
+          matchedCount={periodEntryCounts.matched}
+          totalCount={periodEntryCounts.total}
+          scopeHint="Filters both DMS & Tally vouchers by date; auto-updates results if reconciled"
+        />
+      )}
 
       {/* Results Section */}
       {results && summaryStats && (
@@ -1385,10 +1176,11 @@ export const DmsTallyReconcilerView: React.FC<DmsTallyReconcilerViewProps> = ({ 
         <div className="bg-[#FFFDF5] border-[1.5px] border-dashed border-[#2F3E4E]/45 rounded-2xl p-8 text-center space-y-2">
           <FileSpreadsheet className="w-8 h-8 mx-auto text-[#0F766E]" />
           <p className="font-display font-bold text-sm text-[#2F3E4E]">
-            Upload both DMS &amp; Tally spreadsheets above or click Load Sample Test Data
+            Upload both DMS &amp; Tally spreadsheets above to start reconciliation
           </p>
           <p className="text-xs text-[#64748B]">
-            Supports multiple files per side, custom prefix-to-voucher rules, and 7-sheet Excel export.
+            Supports multiple files per side, Total-to-Total tax-inclusive column matching, and
+            7-sheet Excel export.
           </p>
         </div>
       )}

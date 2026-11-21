@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   CheckCircle2,
   Clock,
@@ -6,6 +6,7 @@ import {
   ExternalLink,
   Laptop,
   Layers,
+  Loader2,
   Mail,
   MapPin,
   ShieldCheck,
@@ -30,6 +31,17 @@ interface FooterProps {
 }
 
 const NEWSLETTER_STORAGE_KEY = 'vcpl_release_updates_email';
+const NEWSLETTER_COOLDOWN_KEY = 'vcpl_newsletter_last_submit_ms';
+const NEWSLETTER_COOLDOWN_MS = 30_000;
+const NEWSLETTER_APPS_SCRIPT_URL =
+  'https://script.google.com/macros/s/AKfycbyrU797dMOwvTd1Iduim7q2bGnWUKwFYrpUVFideTJXQv_YuKeQJxiBL3qLZjViPSE/exec';
+
+function isValidSubscriberEmail(value: string): boolean {
+  if (!value || value.length > 254 || value.includes('..')) return false;
+  return /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i.test(
+    value
+  ) && /\.[a-z]{2,}$/i.test(value);
+}
 
 const TOOL_DIRECTORY_LINKS: { label: string; filter: ToolFilterType }[] = [
   { label: 'All Tools', filter: 'All' },
@@ -107,7 +119,11 @@ export function Footer({
     : null;
   const [savedEmail, setSavedEmail] = useState<string>(readSavedSubscriber);
   const [emailInput, setEmailInput] = useState<string>('');
+  const [honeypotInput, setHoneypotInput] = useState<string>('');
   const [emailError, setEmailError] = useState<string>('');
+  const [statusMessage, setStatusMessage] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const submittingRef = useRef<boolean>(false);
   const [daysSinceLaunch, setDaysSinceLaunch] = useState<number>(getDaysSinceLaunchIst);
 
   useEffect(() => {
@@ -124,21 +140,108 @@ export function Footer({
       ? 'Launch Day · Day 0'
       : `0 Days After Launch (Launches in ${Math.abs(daysSinceLaunch)}d)`;
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleaned = emailInput.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleaned)) {
+    if (submittingRef.current || isSubmitting) return;
+
+    const cleaned = emailInput.trim().toLowerCase();
+    if (!isValidSubscriberEmail(cleaned)) {
       setEmailError('Please enter a valid email address.');
+      setStatusMessage('');
       return;
     }
-    try {
-      window.localStorage.setItem(NEWSLETTER_STORAGE_KEY, cleaned);
-    } catch {
-      // Ignore storage quota errors
+
+    // Silent honeypot spam guard
+    if (honeypotInput.trim()) {
+      setEmailInput('');
+      setHoneypotInput('');
+      setEmailError('');
+      setStatusMessage('Submission received.');
+      return;
     }
-    setSavedEmail(cleaned);
-    setEmailInput('');
+
+    // Rate-limit repeated submissions from the same browser
+    try {
+      const lastSubmit = Number(window.localStorage.getItem(NEWSLETTER_COOLDOWN_KEY) || '0');
+      const remainingMs = NEWSLETTER_COOLDOWN_MS - (Date.now() - lastSubmit);
+      if (Number.isFinite(lastSubmit) && remainingMs > 0) {
+        const waitSec = Math.ceil(remainingMs / 1000);
+        setEmailError(`Please wait ${waitSec}s before sending another subscription request.`);
+        setStatusMessage('');
+        return;
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+
+    submittingRef.current = true;
+    setIsSubmitting(true);
     setEmailError('');
+    setStatusMessage('');
+
+    const now = new Date();
+    let dateStr = '';
+    let timeStr = '';
+    try {
+      dateStr = new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(now);
+      timeStr = new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      }).format(now);
+    } catch {
+      dateStr = now.toISOString().slice(0, 10);
+      timeStr = now.toTimeString().slice(0, 8);
+    }
+
+    const params = new URLSearchParams();
+    params.set('email', cleaned);
+    params.set('date', dateStr);
+    params.set('time', timeStr);
+    params.set('status', 'Submitted');
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
+
+    try {
+      await fetch(NEWSLETTER_APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: params,
+        signal: controller.signal,
+      });
+
+      try {
+        window.localStorage.setItem(NEWSLETTER_STORAGE_KEY, cleaned);
+        window.localStorage.setItem(NEWSLETTER_COOLDOWN_KEY, String(Date.now()));
+      } catch {
+        // Ignore storage quota errors
+      }
+
+      setSavedEmail(cleaned);
+      setEmailInput('');
+      setStatusMessage(
+        'Request sent to Google Sheets. Browser cross-origin rules prevent verifying server-side confirmation automatically.'
+      );
+    } catch (err) {
+      const isTimeout = err instanceof DOMException && err.name === 'AbortError';
+      setEmailError(
+        isTimeout
+          ? 'Request timed out while reaching Google Sheets. Please try again.'
+          : 'Could not send your subscription request right now. Please check your network and try again.'
+      );
+    } finally {
+      window.clearTimeout(timeoutId);
+      submittingRef.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   const handleUnsubscribe = () => {
@@ -149,6 +252,7 @@ export function Footer({
     }
     setSavedEmail('');
     setEmailError('');
+    setStatusMessage('');
   };
 
   return (
@@ -221,7 +325,7 @@ export function Footer({
                   <div className="flex items-center gap-2 min-w-0">
                     <CheckCircle2 className="w-4 h-4 text-[#12805C] dark:text-emerald-400 shrink-0" aria-hidden="true" />
                     <span className="truncate font-semibold text-[#2F3E4E] dark:text-slate-100">
-                      Saved locally: {savedEmail}
+                      Request sent: {savedEmail}
                     </span>
                   </div>
                   <button
@@ -233,37 +337,63 @@ export function Footer({
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubscribe} className="flex items-stretch">
+                <form onSubmit={(e) => void handleSubscribe(e)} noValidate className="flex items-stretch">
                   <label htmlFor="vcpl-footer-updates-email" className="sr-only">
                     Email address for tool updates
                   </label>
                   <input
+                    type="text"
+                    name="company_website"
+                    value={honeypotInput}
+                    onChange={(e) => setHoneypotInput(e.target.value)}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                    className="sr-only"
+                  />
+                  <input
                     id="vcpl-footer-updates-email"
                     type="email"
+                    name="email"
+                    required
+                    disabled={isSubmitting}
                     value={emailInput}
                     onChange={(e) => {
                       setEmailInput(e.target.value);
                       if (emailError) setEmailError('');
+                      if (statusMessage) setStatusMessage('');
                     }}
                     placeholder="Enter your email address"
-                    className="flex-1 min-w-0 h-10 px-3.5 rounded-l-lg border-[1.5px] border-r-0 border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs sm:text-sm text-[#2F3E4E] dark:text-slate-100 placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#F9C80E]"
+                    className="flex-1 min-w-0 h-10 px-3.5 rounded-l-lg border-[1.5px] border-r-0 border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs sm:text-sm text-[#2F3E4E] dark:text-slate-100 placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#F9C80E] disabled:opacity-60"
                   />
                   <button
                     type="submit"
-                    className="px-4 sm:px-5 h-10 rounded-r-lg border-[1.5px] border-[#2F3E4E] dark:border-[#F9C80E] bg-[#2F3E4E] dark:bg-[#F9C80E] hover:bg-[#1E293B] dark:hover:bg-[#FDE047] text-[#FFFDF5] dark:text-[#0F172A] font-display font-bold text-xs sm:text-sm transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                    disabled={isSubmitting}
+                    aria-busy={isSubmitting}
+                    className="px-4 sm:px-5 h-10 rounded-r-lg border-[1.5px] border-[#2F3E4E] dark:border-[#F9C80E] bg-[#2F3E4E] dark:bg-[#F9C80E] hover:bg-[#1E293B] dark:hover:bg-[#FDE047] text-[#FFFDF5] dark:text-[#0F172A] font-display font-bold text-xs sm:text-sm transition-colors cursor-pointer shrink-0 whitespace-nowrap disabled:opacity-65 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5"
                   >
-                    Subscribe
+                    {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />}
+                    <span>{isSubmitting ? 'Sending...' : 'Subscribe'}</span>
                   </button>
                 </form>
               )}
 
               {emailError && (
-                <p className="text-[11px] font-semibold text-rose-700 dark:text-rose-400">{emailError}</p>
+                <p className="text-[11px] font-semibold text-rose-700 dark:text-rose-400" role="alert">
+                  {emailError}
+                </p>
+              )}
+
+              {statusMessage && !emailError && (
+                <p className="text-[11px] font-medium text-[#12805C] dark:text-emerald-400" role="status">
+                  {statusMessage}
+                </p>
               )}
 
               <p className="text-[11px] leading-relaxed text-[#64748B] dark:text-slate-400">
                 Stay updated on new SBI/HDFC slip templates, GST reconciler rules, and FY tax
-                releases—stored privately in your browser.
+                releases. Submitted requests cannot be verified in-browser due to cross-origin
+                security.
               </p>
             </div>
           </div>

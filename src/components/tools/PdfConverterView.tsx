@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
+  Check,
   CheckCircle,
+  Copy,
   Download,
   FileCode2,
   FileSpreadsheet,
   FileText,
   Presentation,
   RefreshCw,
+  RotateCcw,
   UploadCloud,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
@@ -52,9 +55,8 @@ export const PdfConverterView: React.FC<PdfConverterViewProps> = ({ tool }) => {
   const [previewText, setPreviewText] = useState<string>('');
   const [previewRows, setPreviewRows] = useState<string[][]>([]);
   const [previewHtml, setPreviewHtml] = useState<string>('');
-  const [htmlInput, setHtmlInput] = useState<string>(
-    '<h1>Quarterly Operations Report</h1>\n<p>Prepared locally inside your browser with zero server uploads.</p>\n<table>\n  <thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead>\n  <tbody>\n    <tr><td>Industrial Hardware Unit</td><td>12</td><td>₹1,44,000</td></tr>\n    <tr><td>Annual Calibration</td><td>1</td><td>₹18,500</td></tr>\n  </tbody>\n</table>'
-  );
+  const [copiedPreview, setCopiedPreview] = useState<boolean>(false);
+  const [htmlInput, setHtmlInput] = useState<string>('');
 
   const isHtmlToPdf = tool.id === 'html-to-pdf';
   const isWordToPdf = tool.id === 'word-to-pdf';
@@ -300,17 +302,19 @@ export const PdfConverterView: React.FC<PdfConverterViewProps> = ({ tool }) => {
           </div>
         </div>
 
-        {(file || outputUrl) && (
+        {(file || outputUrl || previewText || previewHtml || previewRows.length > 0 || (isHtmlToPdf && htmlInput)) && (
           <button
             type="button"
             onClick={() => {
               clearOutput();
               setFile(null);
               setStatus(null);
+              if (isHtmlToPdf) setHtmlInput('');
             }}
-            className="px-3.5 py-2 text-xs font-bold text-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] rounded-lg cursor-pointer shrink-0"
+            className="px-3.5 py-2 text-xs font-bold text-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] rounded-lg cursor-pointer shrink-0 inline-flex items-center gap-1.5"
           >
-            Reset Tool
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Tool</span>
           </button>
         )}
       </div>
@@ -378,18 +382,27 @@ export const PdfConverterView: React.FC<PdfConverterViewProps> = ({ tool }) => {
       {/* Direct HTML Editor for HTML to PDF */}
       {isHtmlToPdf && (
         <div className="p-5 bg-white border-[1.5px] border-[#2F3E4E] rounded-xl space-y-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <label htmlFor="html-source-editor" className="text-xs font-bold text-[#2F3E4E] uppercase">
               HTML Markup Input
             </label>
-            <button
-              type="button"
-              onClick={handleConvertHtmlText}
-              disabled={isProcessing}
-              className="px-4 py-2 bg-[#2F3E4E] hover:bg-[#1E293B] text-[#FFFDF5] rounded-lg text-xs font-bold cursor-pointer"
-            >
-              Convert HTML to PDF
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setHtmlInput('')}
+                className="px-2.5 py-1.5 bg-white hover:bg-[#FFE1B3] text-[#2F3E4E] border border-[#2F3E4E] rounded-lg text-[11px] font-bold cursor-pointer inline-flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" /> Clear Markup
+              </button>
+              <button
+                type="button"
+                onClick={handleConvertHtmlText}
+                disabled={isProcessing}
+                className="px-4 py-1.5 bg-[#2F3E4E] hover:bg-[#1E293B] text-[#FFFDF5] rounded-lg text-xs font-bold cursor-pointer"
+              >
+                Convert HTML to PDF
+              </button>
+            </div>
           </div>
           <textarea
             id="html-source-editor"
@@ -477,7 +490,21 @@ export const PdfConverterView: React.FC<PdfConverterViewProps> = ({ tool }) => {
 
       {previewText && (
         <div className="bg-white border-[1.5px] border-[#2F3E4E] rounded-xl p-4 space-y-2">
-          <p className="text-xs font-bold text-[#2F3E4E]">Extracted Output Preview</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-bold text-[#2F3E4E]">Extracted Output Preview</p>
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard.writeText(previewText);
+                setCopiedPreview(true);
+                setTimeout(() => setCopiedPreview(false), 1600);
+              }}
+              className="px-2.5 py-1 rounded-lg border border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-[11px] font-bold text-[#2F3E4E] inline-flex items-center gap-1 cursor-pointer"
+            >
+              {copiedPreview ? <Check className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
+              <span>{copiedPreview ? 'Copied' : 'Copy Extracted Text'}</span>
+            </button>
+          </div>
           <pre className="text-xs font-mono text-[#334155] whitespace-pre-wrap break-words bg-[#F8FAFC] p-3 rounded-lg border border-[#2F3E4E]/15">
             {previewText.slice(0, 8000)}
           </pre>

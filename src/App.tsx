@@ -78,7 +78,7 @@ const FILTER_TO_ICON_MENU: Record<ToolFilterType, IconMenuKey> = {
   'Learn Tools': 'learn-tools',
 };
 
-export default function App() {
+function AppShell() {
   const { preference: themePreference, setPreference: setThemePreference } = useTheme();
   const {
     status: adBlockStatus,
@@ -469,4 +469,8 @@ export default function App() {
       <ScrollToTopButton />
     </div>
   );
+}
+
+export default function App() {
+  return <AppShell />;
 }

@@ -15,6 +15,7 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  RotateCcw,
   ScanText,
   Sliders,
   Trash2,
@@ -252,6 +253,37 @@ export const ImageProSuiteView: React.FC<ImageProSuiteViewProps> = ({ tool }) =>
     setCollageUrls([]);
   }, [tool.id]);
 
+  const handleResetAll = () => {
+    setFiles([]);
+    setSrcUrl('');
+    setImgEl(null);
+    if (outUrl) URL.revokeObjectURL(outUrl);
+    setOutUrl('');
+    setOutBlob(null);
+    setStatus('');
+    setBlurBoxes([]);
+    setExifInfo('');
+    setOcrOutput('');
+    setInvoiceRows([]);
+    setCheckerInfo(null);
+    setIdBackUrl('');
+    setIdBackImg(null);
+    setCollageUrls([]);
+    setDeclCandidate('');
+    setMemeTop('WHEN FORM 26AS RECONCILES');
+    setMemeBottom('100% ON THE FIRST CLICK');
+    setFltBright(100);
+    setFltContrast(100);
+    setFltSat(100);
+    setFltGray(0);
+    setFltSepia(0);
+    setFltBlur(0);
+    if (sigCanvasRef.current) {
+      const ctx = sigCanvasRef.current.getContext('2d');
+      ctx?.clearRect(0, 0, sigCanvasRef.current.width, sigCanvasRef.current.height);
+    }
+  };
+
   const setResultBlob = (blob: Blob, name: string, msg?: string) => {
     if (outUrl) URL.revokeObjectURL(outUrl);
     setOutBlob(blob);
@@ -379,13 +411,22 @@ export const ImageProSuiteView: React.FC<ImageProSuiteViewProps> = ({ tool }) =>
   }, [tool.id, imgEl, blurBoxes, blurMode]);
 
   const headerBanner = (
-    <div className="pb-5 border-b border-[#2F3E4E]/15">
-      <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
-        <ImageIcon className="w-3.5 h-3.5 text-[#2F3E4E]" />
-        {tool.categoryName} · {tool.code}
-      </span>
-      <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] mt-1">{tool.title}</h1>
-      <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#2F3E4E]/15">
+      <div>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+          <ImageIcon className="w-3.5 h-3.5 text-[#2F3E4E]" />
+          {tool.categoryName} · {tool.code}
+        </span>
+        <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] mt-1">{tool.title}</h1>
+        <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
+      </div>
+      <button
+        type="button"
+        onClick={handleResetAll}
+        className="px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-xs font-bold text-[#2F3E4E] inline-flex items-center gap-1.5 cursor-pointer shrink-0 no-print"
+      >
+        <RotateCcw className="w-3.5 h-3.5" /> Clear / Reset
+      </button>
     </div>
   );
 
@@ -1138,6 +1179,65 @@ export const ImageProSuiteView: React.FC<ImageProSuiteViewProps> = ({ tool }) =>
 
           {tool.id === 'image-filters-studio' && (
             <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+                <span className="text-[#475569]">Quick Presets:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFltBright(108);
+                    setFltContrast(118);
+                    setFltSat(135);
+                    setFltGray(0);
+                    setFltSepia(0);
+                    setFltBlur(0);
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-[#2F3E4E] cursor-pointer"
+                >
+                  Vivid
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFltBright(112);
+                    setFltContrast(140);
+                    setFltSat(0);
+                    setFltGray(100);
+                    setFltSepia(0);
+                    setFltBlur(0);
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-[#2F3E4E] cursor-pointer"
+                >
+                  B&amp;W Scan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFltBright(104);
+                    setFltContrast(108);
+                    setFltSat(90);
+                    setFltGray(0);
+                    setFltSepia(65);
+                    setFltBlur(0);
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-[#2F3E4E] cursor-pointer"
+                >
+                  Warm Vintage
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFltBright(100);
+                    setFltContrast(100);
+                    setFltSat(100);
+                    setFltGray(0);
+                    setFltSepia(0);
+                    setFltBlur(0);
+                  }}
+                  className="ml-auto px-3 py-1.5 rounded-lg border border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] text-[#2F3E4E] inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Reset Sliders
+                </button>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-bold p-4 rounded-xl bg-[#FEF2C8]/65 border border-[#2F3E4E]/30">
                 <label>Brightness ({fltBright}%)<input type="range" min={40} max={180} value={fltBright} onChange={(e) => setFltBright(Number(e.target.value))} className="w-full" /></label>
                 <label>Contrast ({fltContrast}%)<input type="range" min={40} max={180} value={fltContrast} onChange={(e) => setFltContrast(Number(e.target.value))} className="w-full" /></label>
@@ -1226,6 +1326,9 @@ export const ImageProSuiteView: React.FC<ImageProSuiteViewProps> = ({ tool }) =>
                 ))}
                 <button type="button" onClick={() => setBlurBoxes((prev) => prev.slice(0, -1))} className="ml-auto px-3 py-1.5 rounded-lg border bg-white cursor-pointer">
                   Undo Last Box ({blurBoxes.length})
+                </button>
+                <button type="button" onClick={() => setBlurBoxes([])} disabled={blurBoxes.length === 0} className="px-3 py-1.5 rounded-lg border border-red-300 bg-red-50 text-red-700 cursor-pointer disabled:opacity-45">
+                  Clear Boxes
                 </button>
               </div>
               <p className="text-[11px] text-[#475569]">Click and drag across faces, Aadhaar numbers, or signatures to redact:</p>

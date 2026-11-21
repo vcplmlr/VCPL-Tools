@@ -211,10 +211,53 @@ const HERO_SPOTLIGHT_BOXES: SpotlightBoxItem[] = [
   },
   {
     step: '20',
-    id: 'upcoming-tool-20',
+    id: 'bmw-vendor-ledger-reconciler',
+    title: 'BMW Vendor Ledger Reconciliation',
+    subtitle: 'Passcode locked · SAP vendor ledger vs Tally bridge & claim check',
+    icon: GitCompareArrows,
+    isNew: true,
+    locked: true,
+  },
+  {
+    step: '21',
+    id: 'bmw-claims-reconciler',
+    title: 'BMW Claims Reconciler',
+    subtitle: 'Passcode locked · DMS invoices vs credit/debit notes & claims',
+    icon: ClipboardCheck,
+    isNew: true,
+    locked: true,
+  },
+  {
+    step: '22',
+    id: 'vcpl-rtgs-neft-form',
+    title: 'VCPL Bulk Bank Transfer Form',
+    subtitle: 'Passcode locked · Same Bank (SBI) & NEFT/RTGS bulk transfer letters',
+    icon: Landmark,
+    isNew: true,
+    locked: true,
+  },
+  {
+    step: '23',
+    id: 'tds-26as-tally-reco',
+    title: '26AS ⇄ Tally Ledger Reco',
+    subtitle: 'Open access · Form 26AS/ATS vs Tally TDS/TCS ledgers & Pro ExcelJS',
+    icon: GitCompareArrows,
+    isNew: true,
+  },
+  {
+    step: '24',
+    id: 'upcoming-tool-24',
     title: 'New Utility Coming Soon',
-    subtitle: 'Upcoming smart calculator & reporting utility coming soon',
-    icon: Calculator,
+    subtitle: 'Upcoming GST & ledger reconciliation tool coming soon',
+    icon: Receipt,
+    comingSoon: true,
+  },
+  {
+    step: '25',
+    id: 'upcoming-tool-25',
+    title: 'New Utility Coming Soon',
+    subtitle: 'Upcoming dealership productivity module coming soon',
+    icon: Sparkles,
     comingSoon: true,
   },
 ];
@@ -549,12 +592,12 @@ export function HeroSection({
 
         </div>
 
-        {/* Modern Running Release Status Line Above the 20 Spotlight Boxes */}
+        {/* Modern Running Release Status Line Above the 25 Spotlight Boxes */}
         <div className="mt-9 pt-6 border-t border-[#2F3E4E]/15 dark:border-slate-800">
           <ReleaseStatusTicker />
         </div>
 
-        {/* 20 Spotlight Boxes (5x4 Structure): 19 Live Flagship Tools + 1 Coming Soon Slot */}
+        {/* 25 Spotlight Boxes (5x5 Structure): 22 Live Flagship Tools + 3 Coming Soon Slots */}
         <div className="relative z-10 mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 max-w-[1400px] mx-auto">
           {HERO_SPOTLIGHT_BOXES.map((box) => {
             const Icon = box.icon;

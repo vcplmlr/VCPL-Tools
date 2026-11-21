@@ -169,7 +169,7 @@ export const TaxCalculatorView: React.FC<TaxCalculatorViewProps> = ({ tool, onBa
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={handleClear}

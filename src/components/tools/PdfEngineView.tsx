@@ -23,13 +23,12 @@ import {
   PenTool,
   RefreshCw,
   Scissors,
-  Sparkles,
   Stamp,
   Trash2,
   Unlock,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
-import { ConvertedPdfPage, createSamplePdfBytes, sanitizeWinAnsi } from '../../utils/pdfOperations';
+import { ConvertedPdfPage, sanitizeWinAnsi } from '../../utils/pdfOperations';
 import { FileDropZone } from './FileDropZone';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -390,37 +389,6 @@ export const PdfEngineView: React.FC<PdfEngineViewProps> = ({ tool }) => {
     const uploaded = e.target.files?.[0];
     if (uploaded) await loadSinglePdfFile(uploaded);
     e.target.value = '';
-  };
-
-  const loadSampleDocument = async () => {
-    try {
-      setIsProcessing(true);
-      const bytes = await createSamplePdfBytes();
-      const sampleBlob = new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' });
-      const sampleFile = new File([sampleBlob], 'vcpl-sample-document.pdf', { type: 'application/pdf' });
-      const buf = bytes.slice(0).buffer as ArrayBuffer;
-
-      setFile(sampleFile);
-      setFileBytes(buf);
-      setFileSizeKb(Math.max(1, Math.round(sampleFile.size / 1024)));
-      setPageCount(2);
-      setPageOrder([1, 2]);
-      setSelectedPagesToDelete([]);
-      setSelectedPagesToExtract([]);
-      setSplitRange('1');
-      setRotateTargetPage('all');
-      setSignPage(1);
-      setFormPage(1);
-      setConvertedPages([]);
-      setStatusMsg(null);
-
-      generateThumbnails(buf, 2);
-      if (isPdfToImage) convertBufferToImages(buf, 2, imageDpi);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsProcessing(false);
-    }
   };
 
   const loadMergePdfFiles = async (files: File[]) => {
@@ -1356,7 +1324,7 @@ export const PdfEngineView: React.FC<PdfEngineViewProps> = ({ tool }) => {
           )}
         </div>
       ) : !file ? (
-        /* 3. SINGLE PDF UPLOADER + SAMPLE LOADER */
+        /* 3. SINGLE PDF UPLOADER */
         <div className="space-y-5">
           <FileDropZone
             accept="application/pdf,.pdf"
@@ -1388,20 +1356,6 @@ export const PdfEngineView: React.FC<PdfEngineViewProps> = ({ tool }) => {
               </span>
             </label>
           </FileDropZone>
-
-          <div className="p-4 bg-[#CEE5DC]/55 rounded-xl border-[1.5px] border-[#2F3E4E] flex flex-wrap items-center justify-between gap-3 text-xs">
-            <span className="text-[#2F3E4E] font-semibold">
-              Want to test immediately without selecting a local file?
-            </span>
-            <button
-              type="button"
-              onClick={loadSampleDocument}
-              className="px-3.5 py-2 bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] hover:bg-[#F9C80E] rounded-lg text-[#2F3E4E] font-bold cursor-pointer flex items-center gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Load Sample 2-Page PDF
-            </button>
-          </div>
         </div>
       ) : (
         /* 4. ACTIVE STUDIO */

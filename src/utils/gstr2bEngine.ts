@@ -470,7 +470,11 @@ function styleHeaderRow(row: ExcelJS.Row, colCount: number) {
   }
 }
 
-export async function exportReconciliationExcel(result: Gstr2bReconcileResult): Promise<void> {
+export async function exportReconciliationExcel(
+  result: Gstr2bReconcileResult,
+  periodLabel?: string,
+  periodSlug?: string
+): Promise<void> {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'VCPL Tools — GSTR-2B Audit';
   wb.created = new Date();
@@ -500,6 +504,15 @@ export async function exportReconciliationExcel(result: Gstr2bReconcileResult): 
   styleHeaderRow(summarySheet.getRow(2), 3);
 
   const summaryRows: Array<{ metric: string; value: unknown; fmt?: string; note: string }> = [
+    ...(periodLabel
+      ? [
+          {
+            metric: 'Active Period / Date Filter',
+            value: periodLabel,
+            note: 'Filtered invoice date scope applied to all sheets below',
+          },
+        ]
+      : []),
     {
       metric: 'Exact Matched Invoices',
       value: { formula: `COUNTIF('${allSheetName}'!$A$2:$A$${dataEndRow},"EXACT_MATCH")`, result: result.summary.exactCount },
@@ -758,7 +771,7 @@ export async function exportReconciliationExcel(result: Gstr2bReconcileResult): 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `VCPL-GSTR2B-Tally-Reconciliation.xlsx`;
+  a.download = `VCPL-GSTR2B-Tally-Reconciliation${periodSlug ? `-${periodSlug}` : ''}.xlsx`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

@@ -31,7 +31,17 @@ async function startServer() {
   } else {
     const distDir = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distDir, { index: false }));
-    app.get('*', (_req, res) => {
+    app.get('*', (req, res) => {
+      if (
+        req.path.startsWith('/api/') ||
+        req.path.startsWith('/assets/') ||
+        /\.(?:js|mjs|cjs|css|map|json|wasm|svg|png|jpe?g|webp|gif|ico|woff2?|ttf|pdf)$/i.test(
+          req.path
+        )
+      ) {
+        res.status(404).type('text/plain').send('Not found');
+        return;
+      }
       const indexFile = path.join(distDir, 'index.html');
       if (fs.existsSync(indexFile)) {
         res.sendFile(indexFile);

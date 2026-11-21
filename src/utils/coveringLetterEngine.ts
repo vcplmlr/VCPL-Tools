@@ -33,6 +33,8 @@ export interface ParsedLedgerResult {
   rel: string;
   addrFlat: string;
   car: string;
+  carModel: string;
+  colour: string;
   hp: string;
   vin: string;
   engine: string;
@@ -48,6 +50,7 @@ export interface ParsedLedgerResult {
 
 export interface ExtractedDocInfo {
   email?: string;
+  cphone?: string;
   reg?: string;
   temp?: boolean;
   onroad?: string;
@@ -55,17 +58,25 @@ export interface ExtractedDocInfo {
   pan?: string;
   name?: string;
   addr?: string;
+  vin?: string;
+  engine?: string;
   pay?: CoveringPaymentRow;
 }
 
 export type RegType = 'perm' | 'temp' | 'none';
+export type CoveringLetterFormat = 'classic' | 'modern_box';
 
 export interface CoveringLetterFormState {
+  letterFormat: CoveringLetterFormat;
   fdate: string;
   phone: string;
+  cphone: string;
   cname: string;
   caddr: string;
   car: string;
+  colour: string;
+  vin: string;
+  engineNo: string;
   cpan: string;
   cgst: string;
   showIds: boolean;
@@ -694,13 +705,17 @@ export function parseLedger(lines: string[]): ParsedLedgerResult {
     vouchers.filter((r) => r.side === s).reduce((acc, r) => acc + r.amt, 0);
 
   let car = '';
+  let carModel = '';
+  let colour = '';
   const cm = full.match(/SALE OF NEW CAR\s+(.+?)\s*,\s*COLOU?R\s*:\s*(.+?)\s*,\s*VIN/i);
   if (cm) {
     const escapedModel = cm[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const trimMatch = full.match(
       new RegExp(escapedModel + '\\s+(M\\s*SPORT(?:\\s*PRO)?|SPORT\\s*LINE|LUXURY\\s*LINE|X\\s*LINE)', 'i')
     );
-    car = tcase(cm[1] + (trimMatch ? ' ' + trimMatch[1] : '')) + ' - (' + tcase(cm[2]) + ')';
+    carModel = tcase(cm[1] + (trimMatch ? ' ' + trimMatch[1] : ''));
+    colour = tcase(cm[2]);
+    car = `${carModel} - (${colour})`;
   }
 
   const obMatch = full.match(/(Dr|Cr)\s+Opening Balance\s+([\d,]+\.\d{2})/i);
@@ -714,6 +729,8 @@ export function parseLedger(lines: string[]): ParsedLedgerResult {
     rel,
     addrFlat,
     car,
+    carModel,
+    colour,
     hp: tcase(hp),
     vin: f(/\bVIN\s*[-:]*\s*([A-HJ-NPR-Z0-9]{17})\b/i),
     engine: f(/ENGINE NO\s*[-:.]*\s*([A-Z0-9]+)/i),
@@ -739,6 +756,15 @@ export function extractInfo(lines: string[]): ExtractedDocInfo {
   o.email = (full.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g) || []).find(
     (e) => !/varshacars/i.test(e)
   );
+
+  const mobMatch = full.match(/(?:Mobile|Contact(?:\s+Number)?|Ph(?:one)?)\s*[:.#-]?\s*(?:\+91[\s-]?)?([6-9]\d{9})\b/i);
+  if (mobMatch) o.cphone = mobMatch[1];
+
+  const vinMatch = full.match(/\bVIN\s*(?:\/?\s*CHASSIS(?:\s+NO)?)?\s*[:.-]*\s*([A-HJ-NPR-Z0-9]{17})\b/i);
+  if (vinMatch) o.vin = vinMatch[1].toUpperCase();
+
+  const engMatch = full.match(/ENGINE\s*NO\.?\s*[:.-]*\s*([A-Z0-9]{6,})/i);
+  if (engMatch) o.engine = engMatch[1].toUpperCase();
 
   const rg = full.match(/\bKA[\s-]?\d{2}[\s-]?[A-Z]{1,3}[\s-]?\d{4}\b/);
   if (rg) o.reg = rg[0].replace(/[\s-]/g, '');
@@ -919,13 +945,16 @@ export function formatModeText(p: CoveringPaymentRow, showWho: boolean): string 
     : `${modeStr} (${escHtml(p.who)})`;
 }
 
-export function buildCoveringLetterHtml(
+function buildClassicCoveringLetterHtml(
   form: CoveringLetterFormState,
   pays: CoveringPaymentRow[],
   density: LetterDensityLevel = 0
 ): string {
   const total = pays.reduce((sum, p) => sum + (Number.isFinite(p.amt) ? p.amt : 0), 0);
-  const car = form.car.trim();
+  const carDisplay =
+    form.car.trim() && form.colour.trim() && !form.car.toLowerCase().includes(form.colour.trim().toLowerCase())
+      ? `${form.car.trim()} - (${form.colour.trim()})`
+      : form.car.trim();
   const addr = form.caddr
     .split('\n')
     .map((x) => x.trim())
@@ -1003,8 +1032,14 @@ export function buildCoveringLetterHtml(
       ? Math.round(baseSigHeight * 0.9)
       : baseSigHeight;
 
-  const sigBlock = form.signatureDataUrl
-    ? `<p style="margin:4pt 0 4pt"><img src="${form.signatureDataUrl}" alt="Authorized Signature" height="${sigHeight}" style="height:${sigHeight}px;max-height:${sigHeight}px;max-width:200px;width:auto;display:block;object-fit:contain;object-position:left center;mix-blend-mode:multiply" /></p>`
+  const safeSigSrc = /^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(
+    form.signatureDataUrl.trim()
+  )
+    ? form.signatureDataUrl.trim()
+    : '';
+
+  const sigBlock = safeSigSrc
+    ? `<p style="margin:4pt 0 4pt"><img src="${safeSigSrc}" alt="Authorized Signature" height="${sigHeight}" style="height:${sigHeight}px;max-height:${sigHeight}px;max-width:200px;width:auto;display:block;object-fit:contain;object-position:left center;mix-blend-mode:multiply" /></p>`
     : `<p style="margin:0 0 ${sp.noSigGap}"></p>`;
 
   return (
@@ -1015,7 +1050,7 @@ export function buildCoveringLetterHtml(
     }${idsLine}</p>` +
     `<p style="margin:0 0 ${sp.pGap}">Dear Sir,</p>` +
     `<p style="margin:0 0 ${sp.pGap}">Thank you for purchasing a new <b>${escHtml(
-      car
+      carDisplay
     )}</b> Car from us. We have received <b>Rs. ${inr(total)}/- (${amountInWords(
       total
     )})</b> from you against the above sale.</p>` +
@@ -1044,6 +1079,223 @@ export function buildCoveringLetterHtml(
     sigBlock +
     `<p style="margin:0">Authorized Signature.</p>`
   );
+}
+
+function splitModelAndColour(rawCar: string, explicitColour: string): { model: string; colour: string } {
+  const trimmedCar = rawCar.trim();
+  const trimmedColour = explicitColour.trim();
+  if (trimmedColour) {
+    const stripped = trimmedCar.replace(/\s*-\s*\([^)]+\)\s*$/, '').trim();
+    return { model: stripped || trimmedCar, colour: trimmedColour };
+  }
+  const parenMatch = trimmedCar.match(/^(.+?)\s*-\s*\(([^)]+)\)\s*$/);
+  if (parenMatch) {
+    return { model: parenMatch[1].trim(), colour: parenMatch[2].trim() };
+  }
+  return { model: trimmedCar, colour: '' };
+}
+
+function buildModernBoxCoveringLetterHtml(
+  form: CoveringLetterFormState,
+  pays: CoveringPaymentRow[],
+  density: LetterDensityLevel = 0
+): string {
+  const total = pays.reduce((sum, p) => sum + (Number.isFinite(p.amt) ? p.amt : 0), 0);
+  const { model, colour } = splitModelAndColour(form.car, form.colour);
+  const addrLines = form.caddr
+    .split('\n')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map(escHtml)
+    .join('<br>');
+
+  const sp =
+    density === 2
+      ? { gap: '5pt', sm: '2.5pt', tblPad: '2.5px 4px', boxPad: '5px 7px', noSigGap: '16pt' }
+      : density === 1
+      ? { gap: '7pt', sm: '3.5pt', tblPad: '3px 5px', boxPad: '7px 9px', noSigGap: '20pt' }
+      : { gap: '9pt', sm: '4.5pt', tblPad: '4px 6px', boxPad: '9px 11px', noSigGap: '24pt' };
+
+  const cphone = form.cphone.trim();
+  const cgst = form.cgst.trim();
+  const cpan = form.cpan.trim();
+  const showGstPan = form.showIds || Boolean(cgst || cpan);
+  const contactGstinParts: string[] = [];
+  if (cphone) {
+    contactGstinParts.push(`Contact Number &nbsp;: &nbsp;<b>${escHtml(cphone)}</b>`);
+  } else {
+    contactGstinParts.push(`Contact Number &nbsp;: &nbsp;`);
+  }
+  if (showGstPan) {
+    if (cgst) contactGstinParts.push(`GSTIN: <b>${escHtml(cgst)}</b>`);
+    else contactGstinParts.push(`GSTIN:`);
+    if (form.showIds && cpan) contactGstinParts.push(`PAN: <b>${escHtml(cpan)}</b>`);
+  }
+
+  const taxText = form.taxChk ? ' (Lifetax Paid Receipt)' : '';
+  const rn = escHtml(form.regNo.trim());
+
+  const docLines: string[] = ['Invoice Copies'];
+  if (form.regType === 'perm') {
+    docLines.push(
+      form.taxChk && !rn
+        ? 'Vehicle Tax Paid Receipt'
+        : `Registration Certificate${taxText}${rn ? ` &ndash; <b>${rn}</b>` : ''}`
+    );
+  } else if (form.regType === 'temp') {
+    docLines.push(
+      `Temporary Registration Certificate${taxText}${rn ? ` &ndash; <b>${rn}</b>` : ''}`
+    );
+  } else if (form.taxChk) {
+    docLines.push('Vehicle Tax Paid Receipt');
+  }
+  docLines.push('Statement of Accounts Copy', 'Form 20 and Form 21', 'Insurance policy Copy');
+
+  form.extra
+    .split('\n')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .forEach((line) => docLines.push(escHtml(line)));
+
+  const em = form.email.trim();
+  const nextIdx = docLines.length + 1;
+  const docListHtml = docLines
+    .map(
+      (item, idx) =>
+        `<tr><td style="padding:1.5pt 4pt 1.5pt 0;vertical-align:top;white-space:nowrap">${idx + 1}-</td><td style="padding:1.5pt 0;vertical-align:top">${item}</td></tr>`
+    )
+    .join('');
+
+  const tcsBoxHtml = em
+    ? `<tr><td style="padding:2pt 4pt 1.5pt 0;vertical-align:top;white-space:nowrap">${nextIdx}-</td><td style="padding:2pt 0 1.5pt;vertical-align:top">The TCS certificate will be emailed to the below email address:</td></tr>` +
+      `<tr><td colspan="2" style="padding:5pt 2pt;text-align:center"><a href="mailto:${escHtml(em)}" style="color:#1D4ED8;text-decoration:underline;font-weight:bold;word-break:break-all">${escHtml(em)}</a></td></tr>` +
+      `<tr><td colspan="2" style="padding:1pt 2pt 0;text-align:center;font-size:0.9em">(after the submission of quarterly returns as per IT Act.)</td></tr>`
+    : '';
+
+  const tdBase = `border:1px solid #000;padding:${sp.tblPad};word-break:break-word;overflow-wrap:anywhere`;
+  const payRowsHtml = pays
+    .map(
+      (p, idx) =>
+        `<tr>` +
+        `<td style="${tdBase};text-align:center">${idx + 1}</td>` +
+        `<td style="${tdBase};text-align:center;white-space:nowrap">${escHtml(p.date)}</td>` +
+        `<td style="${tdBase};text-align:center">${formatModeText(p, form.showWho)}</td>` +
+        `<td style="${tdBase};text-align:center">${escHtml(p.rno)}</td>` +
+        `<td style="${tdBase};text-align:right;white-space:nowrap">${p.amt ? `${inr(p.amt)}.00`.replace(/(\.\d{2})\.00$/, '$1') : ''}</td>` +
+        `</tr>`
+    )
+    .join('');
+
+  const formatAmtFixed = (n: number) => {
+    const str = inr(n);
+    return str.includes('.') ? str : `${str}.00`;
+  };
+
+  const baseSigHeight = Math.min(96, Math.max(28, Number(form.sigHeightPx) || 52));
+  const sigHeight =
+    density === 2
+      ? Math.round(baseSigHeight * 0.8)
+      : density === 1
+      ? Math.round(baseSigHeight * 0.9)
+      : baseSigHeight;
+
+  const safeSigSrc = /^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(
+    form.signatureDataUrl.trim()
+  )
+    ? form.signatureDataUrl.trim()
+    : '';
+
+  const sigBlock = safeSigSrc
+    ? `<p style="margin:4pt 0 4pt"><img src="${safeSigSrc}" alt="Authorised Signature" height="${sigHeight}" style="height:${sigHeight}px;max-height:${sigHeight}px;max-width:200px;width:auto;display:block;object-fit:contain;object-position:left center;mix-blend-mode:multiply" /></p>`
+    : `<p style="margin:0 0 ${sp.noSigGap}"></p>`;
+
+  return (
+    `<table style="width:100%;border-collapse:collapse;margin-bottom:${sp.gap}" cellpadding="0" cellspacing="0">` +
+    `<tr>` +
+    `<td style="vertical-align:top;width:72%;padding:0">` +
+    `<p style="margin:0 0 2pt">To,</p>` +
+    `<p style="margin:0 0 2pt;font-size:1.06em"><b>${escHtml(form.cname)}</b></p>` +
+    (addrLines ? `<p style="margin:0 0 2pt;font-size:0.92em;line-height:1.25">${addrLines}</p>` : '') +
+    `<p style="margin:2pt 0 0;font-size:0.94em">${contactGstinParts.join('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;')}</p>` +
+    `</td>` +
+    `<td style="vertical-align:top;text-align:right;width:28%;padding:0;white-space:nowrap">` +
+    `<p style="margin:0">Date: &nbsp;${escHtml(form.fdate)}</p>` +
+    `</td>` +
+    `</tr>` +
+    `</table>` +
+    `<p style="margin:0 0 ${sp.sm}">Dear Sir/Madam,</p>` +
+    `<p style="margin:0 0 ${sp.sm}"><b style="font-size:1.08em">Thank you for purchasing a NEW BMW Car from us.</b> <span style="font-size:0.95em">The Details of the BMW Car are below:</span></p>` +
+    `<table style="width:100%;border-collapse:collapse;margin-bottom:${sp.gap};font-size:0.93em" cellpadding="0" cellspacing="0">` +
+    `<tr>` +
+    `<td style="width:52%;padding:1.5pt 8pt 1.5pt 0;vertical-align:top">Model/Variant &nbsp;: &nbsp;<b>${escHtml(model)}</b></td>` +
+    `<td style="width:48%;padding:1.5pt 0;vertical-align:top">Exterior Colour &nbsp;: &nbsp;<b>${escHtml(colour)}</b></td>` +
+    `</tr>` +
+    `<tr>` +
+    `<td style="width:52%;padding:1.5pt 8pt 1.5pt 0;vertical-align:top">VIN/CHASSIS NO: &nbsp;<b>${escHtml(form.vin.trim().toUpperCase())}</b></td>` +
+    `<td style="width:48%;padding:1.5pt 0;vertical-align:top">Engine Number &nbsp;: &nbsp;<b>${escHtml(form.engineNo.trim().toUpperCase())}</b></td>` +
+    `</tr>` +
+    `</table>` +
+    `<p style="margin:0 0 ${sp.sm};text-align:center">` +
+    `<span style="font-size:0.98em">We have received a total sum of &nbsp;</span>` +
+    `<b style="font-size:1.45em;letter-spacing:0.2px">Rs. &#8377; ${formatAmtFixed(total)}</b>` +
+    `</p>` +
+    `<table style="width:100%;border-collapse:collapse;margin-bottom:${sp.gap}" cellpadding="0" cellspacing="0">` +
+    `<tr>` +
+    `<td style="width:14%;vertical-align:top;font-size:0.88em;line-height:1.2;padding:2pt 6pt 2pt 0">Amount in<br>Words:</td>` +
+    `<td style="width:86%;vertical-align:middle;padding:2pt 0"><b style="font-size:1.06em">${escHtml(amountInWords(total))}</b></td>` +
+    `</tr>` +
+    `</table>` +
+    `<p style="margin:0 0 ${sp.sm};font-size:0.94em">Below are the details of payments, we have received from you:</p>` +
+    `<table style="width:100%;border-collapse:collapse;margin-bottom:${sp.gap}" cellpadding="0" cellspacing="0">` +
+    `<tr>` +
+    `<td style="width:59%;vertical-align:top;padding:0">` +
+    `<table style="border-collapse:collapse;width:100%;font-size:0.84em;border:1.5px solid #000" border="1" cellpadding="3">` +
+    `<tr style="font-weight:bold;text-align:center">` +
+    `<td style="${tdBase};width:8%">Sl No</td>` +
+    `<td style="${tdBase};width:18%">Date</td>` +
+    `<td style="${tdBase};width:28%">Payment Mode / Cheque No.</td>` +
+    `<td style="${tdBase};width:26%">Receipt Number</td>` +
+    `<td style="${tdBase};width:20%">Amount</td>` +
+    `</tr>` +
+    payRowsHtml +
+    `<tr>` +
+    `<td colspan="4" style="border:1.5px solid #000;padding:${sp.tblPad};text-align:center;font-weight:bold">TOTAL AMOUNT</td>` +
+    `<td style="border:1.5px solid #000;padding:${sp.tblPad};text-align:right;font-weight:bold;white-space:nowrap">${formatAmtFixed(total)}</td>` +
+    `</tr>` +
+    `</table>` +
+    `</td>` +
+    `<td style="width:2.5%;padding:0">&nbsp;</td>` +
+    `<td style="width:38.5%;vertical-align:top;padding:0">` +
+    `<table style="border-collapse:collapse;width:100%;border:1.5px solid #000;font-size:0.86em" cellpadding="0" cellspacing="0">` +
+    `<tr><td style="padding:${sp.boxPad};vertical-align:top">` +
+    `<p style="margin:0 0 4pt;line-height:1.25">We enclose the following documents for your records:</p>` +
+    `<table style="width:100%;border-collapse:collapse;line-height:1.28" cellpadding="0" cellspacing="0">` +
+    docListHtml +
+    tcsBoxHtml +
+    `</table>` +
+    `</td></tr>` +
+    `</table>` +
+    `</td>` +
+    `</tr>` +
+    `</table>` +
+    `<p style="margin:0 0 ${sp.sm};font-size:0.93em">We request you to kindly acknowledge the above transactions as this is the full &amp; final settlement of our sale contract.</p>` +
+    `<p style="margin:0 0 ${sp.sm};text-align:center;font-size:1.12em">Thanking you and wishing a very Happy &amp; Safe Motoring.</p>` +
+    `<p style="margin:0 0 2pt;font-size:0.95em">Regards,</p>` +
+    `<p style="margin:0 0 3pt;font-size:0.95em">For Varsha Cars Pvt Ltd</p>` +
+    sigBlock +
+    `<p style="margin:0;font-size:0.95em">Authorised Signature.</p>`
+  );
+}
+
+export function buildCoveringLetterHtml(
+  form: CoveringLetterFormState,
+  pays: CoveringPaymentRow[],
+  density: LetterDensityLevel = 0
+): string {
+  if (form.letterFormat === 'modern_box') {
+    return buildModernBoxCoveringLetterHtml(form, pays, density);
+  }
+  return buildClassicCoveringLetterHtml(form, pays, density);
 }
 
 export function downloadCoveringLetterDoc(

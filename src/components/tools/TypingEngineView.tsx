@@ -16,6 +16,7 @@ import {
   ListOrdered,
   Printer,
   RefreshCw,
+  RotateCcw,
   Timer,
   Underline,
   UploadCloud,
@@ -111,8 +112,13 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
   const langKey = selectedLang;
 
   const [passageIndex, setPassageIndex] = useState(0);
+  const [useCustomPassage, setUseCustomPassage] = useState(false);
+  const [customPassageText, setCustomPassageText] = useState('');
   const passages = SAMPLE_PASSAGES[langKey];
-  const targetText = passages[passageIndex % passages.length];
+  const targetText =
+    useCustomPassage && customPassageText.trim()
+      ? customPassageText.trim()
+      : passages[passageIndex % passages.length];
 
   const [userInput, setUserInput] = useState('');
   const [timerDuration, setTimerDuration] = useState<number>(60);
@@ -147,6 +153,10 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
   const [sorterInput, setSorterInput] = useState<string>('');
   const [linePrefix, setLinePrefix] = useState<string>('');
   const [lineSuffix, setLineSuffix] = useState<string>('');
+
+  // Case Converter Find & Replace state
+  const [findTerm, setFindTerm] = useState<string>('');
+  const [replaceTerm, setReplaceTerm] = useState<string>('');
 
   // ATS Resume / Letter Builder state
   const [resumeName, setResumeName] = useState<string>('');
@@ -209,12 +219,42 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
 
   const handleLanguageSwitch = (lang: TypingLanguage) => {
     setSelectedLang(lang);
+    setUseCustomPassage(false);
     setPassageIndex(0);
     setUserInput('');
     setTimeLeft(timerDuration);
     setIsActive(false);
     setIsFinished(false);
     if (inputRef.current) inputRef.current.focus();
+  };
+
+  const handleResetAllSubTools = () => {
+    setUserInput('');
+    setIsActive(false);
+    setIsFinished(false);
+    setTimeLeft(timerDuration);
+    setUseCustomPassage(false);
+    setCustomPassageText('');
+    setTextInput('');
+    setUnicodeOutput('');
+    setPdfTitle('');
+    setFindTerm('');
+    setReplaceTerm('');
+    setRichPlainText('');
+    if (richEditorRef.current) richEditorRef.current.innerHTML = '';
+    setDocxFileName('');
+    setDocxHtml('');
+    setDocxRawText('');
+    setDocxError('');
+    setSorterInput('');
+    setLinePrefix('');
+    setLineSuffix('');
+    setResumeName('');
+    setResumeRole('');
+    setResumeContact('');
+    setResumeSummary('');
+    setResumeExperience('');
+    setResumeSkills('');
   };
 
   const elapsedSeconds = Math.max(1, timerDuration - timeLeft);
@@ -546,18 +586,28 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
           <p className="text-xs sm:text-sm text-[#475569] mt-0.5">{tool.description}</p>
         </div>
 
-        <button
-          type="button"
-          onClick={() =>
-            copyToClipboard(
-              isUnicodeConverter ? unicodeOutput || textInput : isTypingTest ? targetText : textInput
-            )
-          }
-          className="px-3.5 py-2 border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] rounded-xl text-xs font-bold text-[#2F3E4E] flex items-center gap-1.5 cursor-pointer shrink-0"
-        >
-          {copied ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5" />}
-          {copied ? 'Copied' : 'Copy Text'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleResetAllSubTools}
+            className="px-3.5 py-2 border-[1.5px] border-[#2F3E4E] bg-[#FFE1B3] hover:bg-[#F9C80E] rounded-xl text-xs font-bold text-[#2F3E4E] flex items-center gap-1.5 cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Clear / Reset
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              copyToClipboard(
+                isUnicodeConverter ? unicodeOutput || textInput : isTypingTest ? targetText : textInput
+              )
+            }
+            className="px-3.5 py-2 border-[1.5px] border-[#2F3E4E] bg-white hover:bg-[#FEF2C8] rounded-xl text-xs font-bold text-[#2F3E4E] flex items-center gap-1.5 cursor-pointer"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? 'Copied' : 'Copy Text'}
+          </button>
+        </div>
       </div>
 
       {isTypingTest && (
@@ -595,7 +645,7 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
           <div className="flex flex-wrap items-center justify-between gap-3 bg-[#FEF2C8]/75 p-3.5 rounded-xl border-[1.5px] border-[#2F3E4E] text-xs no-print">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[#475569] font-bold">Duration:</span>
-              {[60, 120, 300].map((sec) => (
+              {[60, 120, 300, 600].map((sec) => (
                 <button
                   key={sec}
                   type="button"
@@ -612,7 +662,7 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
                       : 'bg-white text-[#2F3E4E] hover:bg-[#F9C80E]'
                   }`}
                 >
-                  {sec === 60 ? '1 Min' : sec === 120 ? '2 Min' : '5 Min'}
+                  {sec === 60 ? '1 Min' : sec === 120 ? '2 Min' : sec === 300 ? '5 Min' : '10 Min'}
                 </button>
               ))}
               <span className="text-[#64748B] mx-1">|</span>
@@ -622,11 +672,12 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
                   key={idx}
                   type="button"
                   onClick={() => {
+                    setUseCustomPassage(false);
                     setPassageIndex(idx);
                     restartTest();
                   }}
                   className={`px-2.5 py-1.5 rounded-lg font-bold cursor-pointer border border-[#2F3E4E] transition ${
-                    passageIndex === idx
+                    !useCustomPassage && passageIndex === idx
                       ? 'bg-[#F9C80E] text-[#2F3E4E]'
                       : 'bg-white text-[#2F3E4E] hover:bg-[#FEF2C8]'
                   }`}
@@ -634,6 +685,20 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
                   #{idx + 1}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setUseCustomPassage((v) => !v);
+                  restartTest();
+                }}
+                className={`px-2.5 py-1.5 rounded-lg font-bold cursor-pointer border border-[#2F3E4E] transition ${
+                  useCustomPassage
+                    ? 'bg-[#2F3E4E] text-[#F9C80E]'
+                    : 'bg-white text-[#2F3E4E] hover:bg-[#FEF2C8]'
+                }`}
+              >
+                Custom Passage
+              </button>
             </div>
 
             <div className="flex items-center gap-3">
@@ -650,6 +715,39 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
               </button>
             </div>
           </div>
+
+          {useCustomPassage && (
+            <div className="p-3.5 bg-white border-[1.5px] border-[#2F3E4E] rounded-xl space-y-2 no-print">
+              <div className="flex items-center justify-between gap-2 text-xs font-bold text-[#2F3E4E]">
+                <span>Paste Your Custom Practice Passage</span>
+                {customPassageText && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomPassageText('');
+                      restartTest();
+                    }}
+                    className="px-2.5 py-1 rounded-md border border-[#2F3E4E] bg-[#FFE1B3] text-[11px] font-bold cursor-pointer"
+                  >
+                    Clear Custom Text
+                  </button>
+                )}
+              </div>
+              <textarea
+                rows={3}
+                value={customPassageText}
+                onChange={(e) => {
+                  setCustomPassageText(e.target.value);
+                  setUserInput('');
+                  setIsActive(false);
+                  setIsFinished(false);
+                  setTimeLeft(timerDuration);
+                }}
+                placeholder="Paste any legal, editorial, or exam passage here to practice typing it cleanly..."
+                className="w-full p-2.5 rounded-lg border border-[#2F3E4E]/35 bg-[#FFFDF5] text-xs font-sans"
+              />
+            </div>
+          )}
 
           <div
             className={`p-5 bg-white border-[1.5px] border-[#2F3E4E] rounded-2xl text-sm sm:text-[15px] leading-relaxed tracking-wide select-none no-print ${
@@ -815,15 +913,6 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
                 Kannada (Nudi / Baraha → UTF-8)
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() =>
-                setTextInput(unicodeScript === 'hindi' ? 'Hkkjr egku ns\'k gS' : 'PÀ£ÁßlPÀ')
-              }
-              className="px-3 py-1 rounded-lg bg-[#F9C80E] border border-[#2F3E4E] font-bold cursor-pointer"
-            >
-              Load Sample Legacy Text
-            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -911,6 +1000,44 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
                 {btn.label}
               </button>
             ))}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center bg-[#FEF2C8]/65 p-3 rounded-xl border border-[#2F3E4E]/30 text-xs">
+            <input
+              type="text"
+              value={findTerm}
+              onChange={(e) => setFindTerm(e.target.value)}
+              placeholder="Find text..."
+              className="px-3 py-1.5 rounded-lg border border-[#2F3E4E] bg-white font-mono"
+            />
+            <input
+              type="text"
+              value={replaceTerm}
+              onChange={(e) => setReplaceTerm(e.target.value)}
+              placeholder="Replace with..."
+              className="px-3 py-1.5 rounded-lg border border-[#2F3E4E] bg-white font-mono"
+            />
+            <button
+              type="button"
+              disabled={!findTerm}
+              onClick={() => {
+                if (!findTerm) return;
+                setTextInput((prev) => prev.split(findTerm).join(replaceTerm));
+              }}
+              className="px-3 py-1.5 rounded-lg bg-[#2F3E4E] text-[#FFFDF5] font-bold cursor-pointer disabled:opacity-45"
+            >
+              Replace All
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFindTerm('');
+                setReplaceTerm('');
+              }}
+              className="px-3 py-1.5 rounded-lg border border-[#2F3E4E] bg-white text-[#2F3E4E] font-bold cursor-pointer"
+            >
+              Clear Find/Replace
+            </button>
           </div>
 
           <textarea
@@ -1148,6 +1275,18 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
                   >
                     <Printer className="w-3.5 h-3.5" /> Print Document
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDocxFileName('');
+                      setDocxHtml('');
+                      setDocxRawText('');
+                      setDocxError('');
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-[#2F3E4E] bg-[#FFE1B3] hover:bg-[#F9C80E] text-[#2F3E4E] font-bold inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Clear Word File
+                  </button>
                 </div>
               </div>
               <div
@@ -1232,20 +1371,6 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setResumeName('Rohan Kulkarni');
-                setResumeRole('Senior Accounts & GST Executive');
-                setResumeContact('Bengaluru, Karnataka · +91 98450 00000 · rohan@example.com');
-                setResumeSummary('Chartered Accountancy semi-qualified professional with 6+ years of experience in GSTR-2B reconciliation, TDS compliance, Tally Prime automation, and statutory audit finalization.');
-                setResumeExperience('• Reconciled 18,000+ monthly purchase invoices across GSTR-2B & Tally Prime with 99.8% ITC accuracy.\n• Automated dealer DMS voucher verification saving 22 hours monthly.\n• Prepared TRACES Form 26AS & Form 16A schedules cleanly ahead of quarterly deadlines.');
-                setResumeSkills('GST Filing (GSTR-1/2B/3B) · Tally Prime · Advanced Excel · TDS/TCS · MIS Reporting');
-              }}
-              className="px-3 py-1.5 rounded-lg border border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-xs font-bold cursor-pointer whitespace-nowrap"
-            >
-              Load Sample Profile
-            </button>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start print:block">
             <div className="space-y-3 bg-white p-4 rounded-xl border-[1.5px] border-[#2F3E4E] text-xs lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1.5 no-print print:max-h-none print:overflow-visible">

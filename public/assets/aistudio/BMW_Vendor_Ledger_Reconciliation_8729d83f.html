@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BMW Vendor Ledger Reconciliation</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f5f6f8;--cd:#fff;--tx:#18212d;--mu:#667085;--bd:#dde1e8;--ac:#1c69d4;--ok:#0b7a3a;--wa:#9a5b00;--bad:#c0262d;--inf:#5b3fc4}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11151b;--cd:#1a2029;--tx:#e8ecf2;--mu:#98a2b3;--bd:#2c3542;--ac:#5aa0ff;--ok:#43c077;--wa:#e6a23c;--bad:#ff6b73;--inf:#a38bff}}
+:root[data-theme="dark"]{--bg:#11151b;--cd:#1a2029;--tx:#e8ecf2;--mu:#98a2b3;--bd:#2c3542;--ac:#5aa0ff;--ok:#43c077;--wa:#e6a23c;--bad:#ff6b73;--inf:#a38bff}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.w{max-width:1200px;margin:0 auto;padding:18px 14px 60px}h1{font-size:21px;margin:0 0 2px}.sub{color:var(--mu);margin-bottom:14px}
+.g{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.c{background:var(--cd);border:1px solid var(--bd);border-radius:10px;padding:12px}
+.dz{border:2px dashed var(--bd);border-radius:10px;padding:14px;text-align:center;cursor:pointer;background:var(--cd);min-height:104px}
+.dz.on{border-color:var(--ac)}.dz b{display:block;margin-bottom:2px}.dz small{color:var(--mu)}.dz input{display:none}
+.fl{margin-top:6px;font-size:12px;color:var(--ok);word-break:break-word}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:14px 0}label{font-size:12px;color:var(--mu);display:block}
+input[type=number],select,input[type=search]{padding:6px 8px;border:1px solid var(--bd);border-radius:6px;background:var(--cd);color:var(--tx);font:inherit}
+button{padding:8px 16px;border:0;border-radius:7px;background:var(--ac);color:#fff;font:inherit;font-weight:600;cursor:pointer}button.s{background:var(--cd);color:var(--tx);border:1px solid var(--bd)}button:disabled{opacity:.45;cursor:default}
+.k{font-size:12px;color:var(--mu)}.v{font-size:19px;font-weight:650}
+.sc{overflow-x:auto;max-width:100%}table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{padding:5px 8px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}th{position:sticky;top:0;background:var(--cd);color:var(--mu);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}.b{font-weight:700}
+.tg{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11.5px;border:1px solid currentColor}.t-ok{color:var(--ok)}.t-wa{color:var(--wa)}.t-in{color:var(--inf)}.t-bd{color:var(--bad)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 8px}.tabs button{background:var(--cd);color:var(--tx);border:1px solid var(--bd)}.tabs button.a{background:var(--ac);color:#fff;border-color:var(--ac)}
+h2{font-size:15px;margin:18px 0 8px}.msg{padding:8px 10px;border-radius:7px;margin:8px 0;background:var(--cd);border:1px solid var(--bd)}.hide{display:none}
+</style></head><body><div class="w">
+<h1>BMW Vendor Ledger Reconciliation</h1>
+<div class="sub">BMW ledger ⇄ Tally ledgers, both directions, with opening and closing bridge and claim-code check. Runs fully in your browser; nothing is uploaded.</div>
+<div class="g">
+<label class="dz" id="z1"><b>1 · BMW vendor ledger</b><small>SAP export (.xlsx / .csv) — drop or click</small><input type="file" accept=".xlsx,.xls,.csv"><div class="fl"></div></label>
+<label class="dz" id="z2"><b>2 · Tally ledgers</b><small>Any number of files or sheets — each sheet is read as one ledger</small><input type="file" multiple accept=".xlsx,.xls,.csv"><div class="fl"></div></label>
+<label class="dz" id="z3"><b>3 · BMW warranty claim details</b><small>Claim code ⇄ invoice ⇄ credit note (any sheets)</small><input type="file" multiple accept=".xlsx,.xls,.csv"><div class="fl"></div></label>
+</div>
+<div class="row">
+<div><label>Amount tolerance (₹)</label><input type="number" id="tol" value="5" min="0" step="0.5" style="width:90px"></div>
+<div><label>Invoice date window (days)</label><input type="number" id="win" value="20" min="0" style="width:90px"></div>
+<div><label>Payment date window (days)</label><input type="number" id="pw" value="45" min="0" style="width:90px"></div>
+<button id="go" disabled>Run reconciliation</button><button class="s dl" id="xl" disabled>Full Excel (all sheets)</button><button class="s dl" id="xs" disabled>Reco summary Excel</button><button class="s dl" id="xe" disabled>Exceptions Excel</button><button class="s dl" id="xc" disabled>Current tab CSV</button><button class="s" id="clr">Clear</button>
+</div>
+<div id="msg"></div><div id="out" class="hide">
+<div class="g" id="cards"></div>
+<h2>Consolidated reconciliation — all Tally ledgers combined vs BMW ledger</h2><div class="c sc" id="cons"></div>
+<h2>Opening → closing bridge (BMW − Tally, receivable view)</h2><div class="c sc" id="bridge"></div>
+<h2>Tally ledger-wise</h2><div class="c sc" id="leds"></div>
+<div class="tabs" id="tabs"></div>
+<div class="row" style="margin-top:0"><div><label>Status</label><select id="sf"></select></div><div><label>Search</label><input type="search" id="q" placeholder="voucher, claim code, VIN…"></div><span class="k" id="cnt"></span></div>
+<div class="c sc" id="tbl" style="max-height:560px;overflow:auto"></div></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),S=v=>v==null?'':String(v).trim(),K=s=>S(s).toUpperCase().replace(/[^A-Z0-9]/g,''),R2=x=>Math.round(x*100)/100;
+const num=v=>{if(typeof v==='number')return v;const n=parseFloat(S(v).replace(/[,₹\s]/g,''));return isNaN(n)?0:n};
+const MON={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+function toD(v){if(v instanceof Date)return isNaN(v)?null:v;const s=S(v);let m;
+ if(m=s.match(/^(\d{4})-(\d{2})-(\d{2})/))return new Date(+m[1],m[2]-1,+m[3]);
+ if(m=s.match(/^(\d{1,2})[-\/. ]([A-Za-z]{3})[a-z]*[-\/. ](\d{2,4})$/))return new Date(m[3].length==2?2000+ +m[3]:+m[3],MON[m[2].toLowerCase()],+m[1]);
+ if(m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/))return new Date(+m[3],m[2]-1,+m[1]);return null}
+const dd=(a,b)=>a&&b?Math.round((a-b)/864e5):9999;
+const ci=(h,re)=>h.findIndex(x=>re.test(x)),F=n=>n==null||n===''?'':n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fd=d=>d?d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}):'';
+/* ---------- parsers (row arrays in) ---------- */
+function parseBmw(rows){
+ const hi=rows.findIndex(r=>r.some(c=>/^reference$/i.test(S(c)))&&r.some(c=>/amount/i.test(S(c))));if(hi<0)return null;
+ const h=rows[hi].map(S),c={ref:ci(h,/^reference$/i),as:ci(h,/^assignment/i),typ:ci(h,/^typ/i),pd:ci(h,/^(pstng|posting) date/i),dd:ci(h,/^(doc\. ?date|document date)/i),amt:ci(h,/amount/i),doc:ci(h,/^document ?no/i),tx:ci(h,/^text$/i)};
+ const o={open:0,close:null,openDate:null,closeDate:null,lines:[]};
+ for(const r of rows.slice(hi+1)){const ref=S(r[c.ref]);
+  if(/opening balance/i.test(ref)){o.open=num(r[c.amt]);o.openDate=toD(r[c.dd])||toD(r[c.pd]);continue}
+  if(/closing balance/i.test(ref)){o.close=num(r[c.amt]);o.closeDate=toD(r[c.dd])||toD(r[c.pd]);continue}
+  if(S(r[c.amt])==='')continue;const typ=S(r[c.typ]).toUpperCase();
+  o.lines.push({doc:S(r[c.doc]),ref:ref||(typ==='KZ'?'Payment':'(no reference)'),as:S(r[c.as]),typ:S(r[c.typ]).toUpperCase(),pd:toD(r[c.pd]),dd:toD(r[c.dd]),amt:num(r[c.amt]),tx:S(r[c.tx])})}
+ return o}
+function parseTally(rows,fb){
+ const hi=rows.findIndex(r=>r.some(c=>/^vch no/i.test(S(c)))&&r.some(c=>/^debit/i.test(S(c))));if(hi<0)return null;
+ const h=rows[hi].map(S),c={d:ci(h,/^date/i),p:ci(h,/^particulars/i),t:ci(h,/vch type/i),n:ci(h,/^vch no/i),dr:ci(h,/^debit/i),cr:ci(h,/^credit/i)};
+ let name=fb;for(const r of rows.slice(0,hi)){if(/BMW/i.test(S(r[0]))){name=S(r[0]);break}}
+ const L={name,open:0,closeStated:null,items:[]};
+ for(const r of rows.slice(hi+1)){const side=S(r[c.p]),acc=S(r[c.p+1]),dr=num(r[c.dr]),cr=num(r[c.cr]);
+  if(/^opening balance/i.test(acc)){L.open=dr-cr;continue}
+  if(/^closing balance/i.test(acc)){L.closeStated=(/^cr/i.test(side)?-1:1)*(dr+cr);continue}
+  const d=toD(r[c.d]),no=S(r[c.n]);if(d&&no)L.items.push({d,acc,type:S(r[c.t]),no,dr,cr,amt:dr-cr})}
+ return L}
+function parseClaims(rows){
+ const hi=rows.findIndex(r=>r.some(c=>/^claim (no|number|code)/i.test(S(c))));if(hi<0)return[];
+ const h=rows[hi].map(S),ic=ci(h,/^claim (no|number|code)/i),iv=h.map((x,i)=>/invoice no|inv no/i.test(x)?i:-1).filter(i=>i>=0);
+ const c={cr:ci(h,/^(total )?credited$/i),ca:ci(h,/^(total )?claim (amount|amt)/i),ap:ci(h,/^(total )?approved/i),cn:ci(h,/^bmw (credit note|cn)/i),cd:ci(h,/^(bmw )?(credit|cn) date/i),vin:ci(h,/^vin/i),ia:ci(h,/^(dms )?inv(oice)? amt/i),st:ci(h,/claim status|^status/i)};
+ return rows.slice(hi+1).filter(r=>S(r[ic])).map(r=>({claim:S(r[ic]),inv:iv.map(i=>S(r[i])).find(x=>x)||'',cred:num(r[c.cr]),camt:num(r[c.ca]),appr:num(r[c.ap]),cn:S(r[c.cn]),cd:toD(r[c.cd]),vin:S(r[c.vin]),ia:num(r[c.ia]),st:S(r[c.st])}))}
+/* ---------- engine ---------- */
+function subset(c,t,tol,mk){let res=null;(function go(i,k,s,p){if(res)return;if(k>1&&Math.abs(s-t)<=tol){res=p.slice();return}if(k>=mk)return;for(let j=i;j<c.length&&!res;j++){p.push(j);go(j+1,k+1,s+c[j].v,p);p.pop()}})(0,0,0,[]);return res}
+function reco(B,TL,CL,o){
+ const tol=o.tol,cm=new Map();
+ for(const x of CL){const k=K(x.claim),a=cm.get(k)||[];if(!a.some(y=>K(y.inv)==K(x.inv)&&K(y.cn)==K(x.cn)))a.push(x);cm.set(k,a)}
+ const od=B.openDate,bOpen=-B.open;
+ /* BMW groups */
+ const G=new Map(),BP=[];
+ for(const l of B.lines){const r=-l.amt;
+  if(l.typ==='KZ'||/^payment$/i.test(l.ref)){BP.push({ref:l.ref,as:l.as,pd:l.pd,r,typ:'Payment',tx:l.tx,pay:1});continue}
+  const key=K(l.ref)+(/accrual/i.test(l.ref)?'|'+K(l.as):'');let g=G.get(key);
+  if(!g)G.set(key,g={key,ref:l.ref,as:l.as,pd:l.pd,dd:l.dd,gross:0,tds:0,typ:new Set(),tx:l.tx,n:0});
+  if(l.typ==='TDS')g.tds+=r;else{g.gross+=r;g.typ.add(l.typ)}g.n++}
+ const BD=[...G.values()];BD.forEach(g=>{g.typ=[...g.typ].join('/')||'TDS';g.kind=g.dd&&od&&g.dd<od?'prior':(g.gross===0?'tdsonly':'doc')});
+ /* Tally groups */
+ const TG=new Map();
+ for(const L of TL)for(const it of L.items){const pay=/receipt|payment/i.test(it.type),key=K(it.no)+(pay?'':'');let t=TG.get(key);
+  if(!t)TG.set(key,t={key,no:it.no,type:it.type,d:it.d,amt:0,leds:new Set(),kind:pay?'pay':(/credit note/i.test(it.type)?'cn':'doc'),acc:it.acc});
+  t.amt+=it.amt;t.leds.add(L.name)}
+ const TD=[...TG.values()];
+ /* doc matching: voucher no → claim code → amount/date */
+ const grps=[],mk=(tier)=>{const g={tier,b:[],t:[]};grps.push(g);return g};
+ for(const g of BD){const t=TG.get(g.key);if(t&&t.kind!=='pay'){t.grp=t.grp||mk('Voucher no = BMW reference');t.grp.t.includes(t)||t.grp.t.push(t);t.grp.b.push(g);g.grp=t.grp}}
+ for(const g of BD){if(g.grp)continue;const cl=cm.get(K(g.ref));if(!cl)continue;
+  for(const x of cl){const t=x.inv&&TG.get(K(x.inv));if(t&&t.kind!=='pay'){t.grp=t.grp||mk('Claim code → invoice');t.grp.t.includes(t)||t.grp.t.push(t);t.grp.b.push(g);g.grp=t.grp;break}}}
+ for(const g of BD.filter(x=>!x.grp&&x.kind==='doc'&&x.gross>0).sort((a,b)=>a.pd-b.pd)){let best=null,bd=1e9;
+  for(const t of TD){if(t.grp||t.kind!=='doc'||Math.abs(t.amt-g.gross)>tol)continue;const d=Math.abs(dd(g.pd,t.d));if(d<=o.win&&d<bd){best=t;bd=d}}
+  if(best){const q=mk('Probable: amount + date');q.t.push(best);q.b.push(g);best.grp=g.grp=q}}
+ for(const q of grps){q.bg=R2(q.b.reduce((s,x)=>s+x.gross,0));q.tt=R2(q.t.reduce((s,x)=>s+x.amt,0));q.diff=R2(q.bg-q.tt);
+  q.st=Math.abs(q.diff)<=.005?'Matched':Math.abs(q.diff)<=tol?'Matched – rounding diff':'Amount difference';if(q.tier.startsWith('Prob'))q.st='Probable match'}
+ /* reversals inside Tally */
+ const un=TD.filter(t=>!t.grp&&t.kind==='doc');
+ for(const c of TD.filter(t=>!t.grp&&t.kind==='cn')){const m=un.find(t=>!t.rev&&Math.abs(t.amt+c.amt)<=.5&&t.d<=c.d);if(m){m.rev=c.rev=1}}
+ /* payments */
+ const TP=TD.filter(t=>t.kind==='pay');
+ for(const p of BP){const a=-p.r;let m=null;
+  const cand=TP.filter(t=>!t.pg&&Math.abs(dd(p.pd,t.d))<=o.pw).sort((x,y)=>Math.abs(dd(p.pd,x.d))-Math.abs(dd(p.pd,y.d)));
+  m=cand.filter(t=>Math.abs(-t.amt-a)<=tol).slice(0,1);
+  if(!m.length&&cand.length>1){const c2=cand.slice(0,16).map(t=>({t,v:-t.amt})),ix=subset(c2,a,tol,4);if(ix)m=ix.map(i=>c2[i].t)}
+  if(m.length){m.forEach(t=>t.pg=p);p.m=m;p.tt=R2(m.reduce((s,t)=>s-t.amt,0));p.diff=R2(a-p.tt)}}
+ /* claim check */
+ const cc=[],seen=new Set();
+ for(const g of BD){const cl=cm.get(K(g.ref));if(!cl&&!g.typ.includes('KW'))continue;seen.add(K(g.ref));
+  const cr=R2((cl||[]).reduce((s,x)=>s+x.cred,0)),inv=[...new Set((cl||[]).map(x=>x.inv).filter(Boolean))].join(', '),d=R2(g.gross-cr);
+  const intal=g.grp?'Yes':'No';
+  cc.push([g.ref,g.as,fd(g.pd),g.gross,cl?cr:'',cl?d:'',inv,cl?cl.reduce((s,x)=>s+x.ia,0)||'':'',cl?R2(cl.reduce((s,x)=>s+x.appr,0)):'',[...new Set((cl||[]).map(x=>x.cn).filter(Boolean))].join(', '),intal,!cl?'Claim not in claims file':Math.abs(d)<=tol?'Claim OK':'Credit differs from claims file'])}
+ const pds=B.lines.map(l=>l.pd).filter(Boolean),mn=Math.min(...pds),mx=Math.max(...pds);
+ for(const [k,a] of cm){if(seen.has(k))continue;const cr=R2(a.reduce((s,x)=>s+x.cred,0));
+  if(cr>0&&a.some(x=>x.cd&&x.cd>=mn&&x.cd<=mx))cc.push([a[0].claim,a[0].vin,'', '',cr,'',[...new Set(a.map(x=>x.inv))].join(', '),'','',[...new Set(a.map(x=>x.cn))].join(', '),'','In claims file – not in BMW ledger'])}
+ /* result rows */
+ const st=g=>g.grp?g.grp.st:g.kind==='prior'?'Prior-period / accrual item':g.kind==='tdsonly'?'TDS only – no parent doc':'Not in Tally ledgers';
+ const rowsB=[],rowsT=[];
+ const clinv=g=>{const cl=cm.get(K(g.ref));return cl?[...new Set(cl.map(x=>x.inv).filter(Boolean))].join(', '):''};
+ for(const g of BD)rowsB.push([st(g),fd(g.pd),g.ref,g.as,g.typ,g.gross,g.tds,R2(g.gross+g.tds),g.grp?g.grp.tier:'',g.grp?g.grp.t.map(t=>t.no).join(', '):'',g.grp?[...new Set(g.grp.t.flatMap(t=>[...t.leds]))].join(', '):'',g.grp?g.grp.tt:'',g.grp?g.grp.diff:'',clinv(g),g.tx]);
+ for(const p of BP)rowsB.push([p.m?(Math.abs(p.diff)<=tol?'Payment matched':'Payment amount difference'):'Payment not in Tally',fd(p.pd),p.ref,p.as,'Payment',p.r,'',p.r,p.m?(p.m.length>1?p.m.length+' receipts combined':'Receipt amount + date'):'',p.m?p.m.map(t=>t.no).join(', '):'',p.m?[...new Set(p.m.flatMap(t=>[...t.leds]))].join(', '):'',p.m?-p.tt:'',p.m?R2(p.r+p.tt):'','',p.tx]);
+ for(const t of TD){let s,bm='',br='',ba='',df='';
+  if(t.kind==='pay'){s=t.pg?(Math.abs(t.pg.diff)<=tol?'Receipt matched':'Receipt amount difference'):'Receipt not in BMW ledger';if(t.pg){bm=t.pg.ref+' '+fd(t.pg.pd);ba=t.pg.r}}
+  else if(t.grp){s=t.grp.st;bm=t.grp.b.map(x=>x.ref).join(', ');ba=t.grp.bg;df=R2(t.grp.bg-t.grp.tt)}
+  else s=t.rev?'Reversed in Tally (invoice + credit note)':'In Tally – not in BMW ledger';
+  rowsT.push([s,fd(t.d),t.no,t.type,[...t.leds].join(', '),t.amt,t.grp?t.grp.tier:t.pg?'Payment link':'',bm,ba,df])}
+ /* bridge */
+ const sum=a=>R2(a.reduce((s,x)=>s+x,0)),tClose=sum(TL.map(L=>L.open+L.items.reduce((s,i)=>s+i.amt,0))),tOpen=sum(TL.map(L=>L.open));
+ const bClose=B.close==null?bOpen+sum(B.lines.map(l=>-l.amt)):-B.close;
+ const br=[['Opening balance difference (BMW − Tally)',R2(bOpen-tOpen)],
+  ['Matched invoices: amount differences',sum(grps.map(q=>q.diff))],
+  ['TDS deducted by BMW (Tally to book separately)',sum(BD.map(g=>g.tds))],
+  ['BMW documents not in Tally',sum(BD.filter(g=>!g.grp&&g.kind==='doc').map(g=>g.gross))],
+  ['BMW prior-period / accrual items (not in Tally period)',sum(BD.filter(g=>!g.grp&&g.kind==='prior').map(g=>g.gross))],
+  ['BMW payments not in Tally',sum(BP.filter(p=>!p.m).map(p=>p.r))],
+  ['Matched payments: amount differences',sum(BP.filter(p=>p.m).map(p=>p.diff))],
+  ['Tally documents not in BMW',-sum(TD.filter(t=>!t.grp&&t.kind!=='pay').map(t=>t.amt))],
+  ['Tally receipts not in BMW',-sum(TD.filter(t=>t.kind==='pay'&&!t.pg).map(t=>t.amt))]];
+ const expl=sum(br.map(x=>x[1])),tgt=R2(bClose-tClose);
+ const ledg=TL.map(L=>{const dr=sum(L.items.map(i=>i.dr)),cr=sum(L.items.map(i=>i.cr)),cl=R2(L.open+dr-cr);
+  const its=L.items.map(i=>TG.get(K(i.no)));return[L.name,L.open,dr,cr,cl,L.closeStated==null?'':L.closeStated,L.closeStated==null?'':R2(cl-L.closeStated),L.items.length,its.filter(t=>t.grp||t.pg||t.rev).length,R2(L.items.filter(i=>{const t=TG.get(K(i.no));return!(t.grp||t.pg||t.rev)}).reduce((s,i)=>s+i.amt,0))]});
+ const bint=R2(bOpen+sum(B.lines.map(l=>-l.amt))-bClose);
+ const inc=a=>R2(a.filter(x=>x>0).reduce((s,x)=>s+x,0)),dec=a=>R2(a.filter(x=>x<0).reduce((s,x)=>s+x,0)),bm=B.lines.map(l=>-l.amt),tm=TL.flatMap(L=>L.items.map(i=>i.amt));
+ const cons=[['Opening balance',bOpen,tOpen],['Add: billed / credited / accrued (increases)',inc(bm),inc(tm)],['Less: receipts, TDS, reversals (decreases)',dec(bm),dec(tm)],['Closing balance',bClose,tClose]].map(x=>[...x,R2(x[1]-x[2])]);
+ const pri=BD.filter(g=>g.kind==='prior'),opn=[['BMW opening balance',bOpen],...TL.map(L=>['Tally opening – '+L.name,L.open]),['Tally opening – all ledgers combined',tOpen],['Opening difference (BMW − Tally)',R2(bOpen-tOpen)],['BMW prior-period / accrual documents posted in this period (gross)',sum(pri.map(g=>g.gross))],['…TDS on those documents',sum(pri.map(g=>g.tds))]];
+ const num2=i=>sum(ledg.map(x=>num(x[i])));ledg.push(['TOTAL – all ledgers',num2(1),num2(2),num2(3),num2(4),ledg.every(x=>x[5]!=='')?num2(5):'',ledg.every(x=>x[6]!=='')?num2(6):'',num2(7),num2(8),num2(9)]);
+ const mo=new Map(),mkm=d=>d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'):'n/a',gm=k=>mo.get(k)||(mo.set(k,{a:0,b:0,c:0,d:0}),mo.get(k));
+ B.lines.forEach(l=>{const r=-l.amt,m=gm(mkm(l.pd));if(r>0)m.a+=r;else m.b+=r});TL.forEach(L=>L.items.forEach(i=>{const m=gm(mkm(i.d));if(i.amt>0)m.c+=i.amt;else m.d+=i.amt}));
+ let cum=R2(bOpen-tOpen);const mon=[['Opening difference','','','','','','','',cum]];
+ [...mo.keys()].sort().forEach(k=>{const m=mo.get(k),df=R2(m.a+m.b-m.c-m.d);cum=R2(cum+df);mon.push([k,R2(m.a),R2(m.b),R2(m.a+m.b),R2(m.c),R2(m.d),R2(m.c+m.d),df,cum])});
+ const ty=new Map();B.lines.forEach(l=>{const k='BMW|'+l.typ,e=ty.get(k)||['BMW ledger',l.typ,0,0];e[2]++;e[3]=R2(e[3]-l.amt);ty.set(k,e)});
+ TL.forEach(L=>L.items.forEach(i=>{const k='T|'+i.type,e=ty.get(k)||['Tally',i.type,0,0];e[2]++;e[3]=R2(e[3]+i.amt);ty.set(k,e)}));const typ=[...ty.values()].sort((a,b)=>a[0]>b[0]?1:-1);
+ const tds=BD.filter(g=>g.tds).map(g=>[st(g),g.ref,fd(g.pd),g.gross,g.tds,R2(g.gross+g.tds),g.as]);
+ const asOf=B.closeDate||new Date(mx),BKN=['0–30 days','31–60 days','61–90 days','91–180 days','Over 180 days'],bk=d=>{const n=dd(asOf,d);return n<=30?0:n<=60?1:n<=90?2:n<=180?3:4},age=BKN.map(n=>[n,0,0,0,0,0]);
+ BD.filter(g=>!g.grp&&g.kind==='doc').forEach(g=>{const a=age[bk(g.pd)];a[1]++;a[2]=R2(a[2]+g.gross)});
+ TD.filter(t=>!t.grp&&!t.pg&&!t.rev).forEach(t=>{const a=age[bk(t.d)];a[3]++;a[4]=R2(a[4]+t.amt)});age.forEach(a=>a[5]=R2(a[2]-a[4]));
+ const dm=new Map();BD.filter(g=>g.kind==='doc'&&g.gross>0&&g.typ.includes('KW')&&g.as).forEach(g=>{const k=g.as+'|'+g.gross,a=dm.get(k)||[];a.push(g);dm.set(k,a)});
+ const dup=[...dm.values()].filter(a=>a.length>1).map(a=>['Possible duplicate credit',a[0].as,a[0].gross,a.length,a.map(g=>g.ref).join(', '),a.map(g=>fd(g.pd)).join(', ')]);
+ const pay=rowsB.filter(x=>x[4]==='Payment'),rec=rowsT.filter(x=>/^Receipt/.test(x[0]));
+ return{cons,opn,mon,typ,tds,age,dup,pay,rec,bOpen,tOpen,bClose,tClose,br,expl,tgt,unexp:R2(tgt-expl),ledg,bint,rowsB,rowsT,cc,
+  cnt:{bd:BD.length,bp:BP.length,td:TD.length,mat:rowsB.filter(r=>/^(Matched|Probable|Payment matched)/.test(r[0])).length,claimOk:cc.filter(r=>r[11]==='Claim OK').length,claimBad:cc.filter(r=>r[11]!=='Claim OK').length}}}
+/* ---------- UI ---------- */
+const files={1:[],2:[],3:[]};let RES=null,TAB='b';
+const BC=['Status','Posting date','BMW reference / claim code','Assignment / VIN','Type','BMW gross','BMW TDS','BMW net','Match method','Tally voucher(s)','Tally ledger(s)','Tally amount','Diff (BMW − Tally)','Claim-file invoice','BMW text'];
+const TC=['Status','Date','Voucher no','Vch type','Tally ledger(s)','Tally amount (Dr+/Cr−)','Match method','BMW reference','BMW gross','Diff (BMW − Tally)'];
+const CC=['Claim code','VIN','Posting date','BMW credit','Claims-file credited','Diff','Invoice no (claims file)','Invoice amount','Approved','BMW credit note','In Tally ledgers?','Claim check'];
+const MC=['Month','BMW increases','BMW decreases','BMW net','Tally increases','Tally decreases','Tally net','Month diff','Cumulative diff'],YC=['Source','Voucher type','Count','Net (receivable view)'],AC=['Age bucket','BMW-only docs','BMW-only amount','Tally-only items','Tally-only amount','Net difference'],DC=['Status','Reference','Date','BMW gross','TDS deducted','Net','Assignment'],UC=['Status','VIN','Amount','Count','BMW references','Dates'],LC=['Tally ledger','Opening','Debits','Credits','Closing (calc)','Closing (stated)','Calc − stated','Vouchers','Matched','Unmatched amount'];
+const TABS={b:['BMW ledger → Tally',BC,'rowsB',0],t:['Tally → BMW ledger',TC,'rowsT',0],c:['Claim-code check',CC,'cc',11],p:['BMW payments',BC,'pay',0],r:['Tally receipts',TC,'rec',0],m:['Monthly reco',MC,'mon',-1],y:['Type-wise movement',YC,'typ',-1],a:['Ageing of unmatched',AC,'age',-1],d:['TDS analysis',DC,'tds',0],u:['Possible duplicates',UC,'dup',0]};
+function say(t,bad){$('#msg').innerHTML=t?`<div class="msg" style="color:${bad?'var(--bad)':'var(--tx)'}">${t}</div>`:''}
+const rd=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(XLSX.read(r.result,{type:'array',cellDates:true}));r.onerror=rej;r.readAsArrayBuffer(f)});
+const rowsOf=ws=>XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+[1,2,3].forEach(n=>{const z=$('#z'+n),i=z.querySelector('input');
+ const add=fs=>{files[n]=n==1?[fs[0]]:files[n].concat([...fs]);z.querySelector('.fl').innerHTML=files[n].map(f=>'✓ '+f.name.replace(/</g,'&lt;')).join('<br>');$('#go').disabled=!(files[1].length&&files[2].length)};
+ i.onchange=()=>{if(i.files.length)add(i.files);i.value=''};
+ ['dragenter','dragover'].forEach(e=>z.addEventListener(e,ev=>{ev.preventDefault();z.classList.add('on')}));
+ ['dragleave','drop'].forEach(e=>z.addEventListener(e,ev=>{ev.preventDefault();z.classList.remove('on')}));
+ z.addEventListener('drop',ev=>{if(ev.dataTransfer.files.length)add(ev.dataTransfer.files)})});
+$('#clr').onclick=()=>{files[1]=[];files[2]=[];files[3]=[];document.querySelectorAll('.fl').forEach(e=>e.innerHTML='');$('#go').disabled=true;document.querySelectorAll('.dl').forEach(b=>b.disabled=true);$('#out').classList.add('hide');say('')};
+$('#go').onclick=async()=>{try{say('Reading files…');
+ let B=null;
+ const bw=await rd(files[1][0]);for(const n of bw.SheetNames){B=parseBmw(rowsOf(bw.Sheets[n]));if(B)break}
+ if(!B)return say('Could not find the BMW ledger table (needs “Reference” and “Amount” columns).',1);
+ const TL=[];for(const f of files[2]){const w=await rd(f);for(const n of w.SheetNames){const L=parseTally(rowsOf(w.Sheets[n]),f.name+' / '+n);if(L)TL.push(L)}}
+ if(!TL.length)return say('No Tally ledger found (needs “Vch No.”, “Debit”, “Credit” columns).',1);
+ let CL=[];for(const f of files[3]){const w=await rd(f);for(const n of w.SheetNames)CL=CL.concat(parseClaims(rowsOf(w.Sheets[n])))}
+ RES=reco(B,TL,CL,{tol:num($('#tol').value),win:num($('#win').value),pw:num($('#pw').value)});
+ RES.meta={B,TL:TL.length,CL:CL.length};render();say('')}catch(e){say('Error: '+e.message,1)}};
+const tag=s=>{const c=/^(Matched|Payment matched|Receipt matched|Claim OK|Reversed)/.test(s)?'ok':/^(Amount|Payment amount|Receipt amount|Credit differs|Probable|Prior|TDS only)/.test(s)?'wa':/^(Not in|In Tally|Payment not|Receipt not|Claim not|In claims)/.test(s)?'bd':'in';return`<span class="tg t-${c==='ok'?'ok':c==='wa'?'wa':c==='bd'?'bd':'in'}">${s}</span>`};
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function render(){const r=RES,m=r.meta;$('#out').classList.remove('hide');document.querySelectorAll('.dl').forEach(b=>b.disabled=false);
+ const card=(k,v,x)=>`<div class="c"><div class="k">${k}</div><div class="v">${v}</div><div class="k">${x||''}</div></div>`;
+ $('#cards').innerHTML=card('BMW opening (₹ receivable)',F(r.bOpen),'Tally opening: '+F(r.tOpen))+card('BMW closing',F(r.bClose),'Tally closing: '+F(r.tClose))+card('Closing difference',F(r.tgt),'Unexplained after bridge: '+F(r.unexp))+card('Documents matched',r.cnt.mat+' / '+(r.cnt.bd+r.cnt.bp),m.TL+' Tally ledger(s) · '+r.cnt.td+' Tally vouchers')+card('Claim codes OK',r.cnt.claimOk+' / '+(r.cnt.claimOk+r.cnt.claimBad),m.CL?m.CL+' claim rows read':'No claims file loaded');
+ const c=r.cons,tie=R2(c[3][3]-c[0][3]-c[1][3]-c[2][3]);$('#cons').innerHTML='<table><thead><tr><th></th><th class="n">BMW ledger</th><th class="n">Tally (all ledgers)</th><th class="n">Difference</th></tr></thead><tbody>'+c.map((x,i)=>`<tr class="${i%3==0?'b':''}"><td>${x[0]}</td>`+x.slice(1).map(v=>`<td class="n">${F(v)}</td>`).join('')+'</tr>').join('')+`<tr class="k"><td colspan="4">Opening diff + increases diff + decreases diff = closing diff: ${Math.abs(tie)<.01?'✓ ties':'✗ off by '+F(tie)}</td></tr></tbody></table>`;
+ $('#bridge').innerHTML='<table><tbody>'+r.br.map(x=>`<tr><td>${x[0]}</td><td class="n">${F(x[1])}</td></tr>`).join('')+`<tr class="b"><td>Total explained</td><td class="n">${F(r.expl)}</td></tr><tr class="b"><td>BMW closing − Tally closing</td><td class="n">${F(r.tgt)}</td></tr><tr class="b"><td>Unexplained (should be 0.00)</td><td class="n">${F(r.unexp)}</td></tr><tr><td class="k">BMW file check: opening + movement − stated closing</td><td class="n k">${F(r.bint)}</td></tr></tbody></table>`;
+ $('#leds').innerHTML='<table><thead><tr>'+['Tally ledger','Opening','Debits','Credits','Closing (calc)','Closing (stated)','Calc − stated','Vouchers','Matched','Unmatched amount'].map((h,i)=>`<th class="${i&&i!=0?'n':''}">${h}</th>`).join('')+'</tr></thead><tbody>'+r.ledg.map(x=>'<tr>'+x.map((v,i)=>i?`<td class="n">${typeof v==='number'&&i!=7&&i!=8?F(v):v}</td>`:`<td>${esc(v)}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
+ $('#tabs').innerHTML=Object.entries(TABS).map(([k,v])=>`<button data-k="${k}" class="${k==TAB?'a':''}">${v[0]}</button>`).join('');
+ $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{TAB=b.dataset.k;$('#q').value='';render()});
+ const T=TABS[TAB],sts=T[3]<0?[]:[...new Set(r[T[2]].map(x=>x[T[3]]))].sort();$('#sf').style.display=T[3]<0?'none':'';$('#sf').innerHTML='<option value="">All ('+r[T[2]].length+')</option>'+sts.map(s=>`<option>${s}</option>`).join('');tbl()}
+function tbl(){const T=TABS[TAB],r=RES[T[2]],f=$('#sf').value,q=$('#q').value.toLowerCase();
+ const rows=r.filter(x=>(!f||x[T[3]]===f)&&(!q||x.join('|').toLowerCase().includes(q)));
+ $('#cnt').textContent=rows.length+' rows'+(rows.length>400?' (first 400 shown — Excel has all)':'');
+ $('#tbl').innerHTML='<table><thead><tr>'+T[1].map(h=>`<th>${h}</th>`).join('')+'</tr></thead><tbody>'+rows.slice(0,400).map(x=>'<tr>'+x.map((v,i)=>i==T[3]?`<td>${tag(v)}</td>`:`<td class="${typeof v==='number'?'n':''}">${typeof v==='number'?F(v):esc(v)}</td>`).join('')+'</tr>').join('')+'</tbody></table>'}
+$('#sf').onchange=tbl;$('#q').oninput=tbl;
+/* ---------- Downloads ---------- */
+const NF='#,##0.00;[Red]-#,##0.00',FILL=v=>/^(Matched|Payment matched|Receipt matched|Claim OK|Reversed)/.test(v)?'FFD9F2E3':/^(Amount|Payment amount|Receipt amount|Credit differs|Probable|Prior|TDS only|Possible)/.test(v)?'FFFFF0CC':'FFFAD7D9';
+function addS(wb,name,cols,rows,stc){const ws=wb.addWorksheet(name.slice(0,31),{views:[{state:'frozen',ySplit:1}]});
+ ws.addRow(cols).eachCell(c=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF1C3F94'}}});
+ rows.forEach(x=>ws.addRow(x.map(v=>v===''?null:v)));
+ ws.columns.forEach((c,i)=>{c.width=Math.min(48,Math.max(12,S(cols[i]).length+3,i==0?34:0))});
+ ws.eachRow((row,n)=>{if(n>1){row.eachCell(c=>{if(typeof c.value==='number')c.numFmt=NF});if(stc!=null&&stc>=0){const c=row.getCell(stc+1);c.fill={type:'pattern',pattern:'solid',fgColor:{argb:FILL(S(c.value))}}}}});
+ if(cols.length>1&&rows.length)ws.autoFilter={from:{row:1,column:1},to:{row:1,column:cols.length}}}
+const SH=()=>{const r=RES;return[
+ ['Consolidated Reco',['Particulars','BMW ledger','Tally (all ledgers)','Difference (BMW − Tally)'],r.cons,null,1],
+ ['Opening Reco',['Particulars','Amount (₹)'],r.opn,null,1],
+ ['Bridge',['Particulars','Amount (₹)'],[...r.br,['Total explained',r.expl],['BMW closing − Tally closing',r.tgt],['Unexplained (should be 0.00)',r.unexp]],null,1],
+ ['Ledger-wise',LC,r.ledg,null,1],['Monthly Reco',MC,r.mon,null,1],['Type-wise movement',YC,r.typ,null,1],['Ageing of unmatched',AC,r.age,null,1],
+ ['BMW to Tally',BC,r.rowsB,0],['Tally to BMW',TC,r.rowsT,0],['BMW payments',BC,r.pay,0],['Tally receipts',TC,r.rec,0],['Claim-code check',CC,r.cc,11],['TDS analysis',DC,r.tds,0],['Possible duplicates',UC,r.dup,0],
+ ['Claim exceptions',CC,r.cc.filter(x=>x[11]!=='Claim OK'),11],
+ ['Exceptions',['Source',...BC],[...r.rowsB.filter(x=>!/^(Matched|Payment matched)/.test(x[0])).map(x=>['BMW ledger',...x]),...r.rowsT.filter(x=>!/^(Matched|Receipt matched|Reversed)/.test(x[0])).map(x=>['Tally',...x])],1]]};
+async function xlsx(mode,fn){const wb=new ExcelJS.Workbook(),keep=s=>mode=='full'||(mode=='sum'&&s[4]===1)||(mode=='exc'&&/^(Consolidated|Bridge|Exceptions|Claim exc)/.test(s[0]));
+ SH().filter(keep).forEach(s=>addS(wb,s[0],s[1],s[2],s[3]));
+ const buf=await wb.xlsx.writeBuffer(),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf]));a.download=fn;a.click()}
+$('#xl').onclick=()=>xlsx('full','BMW_Ledger_Reconciliation_Full.xlsx');$('#xs').onclick=()=>xlsx('sum','BMW_Reconciliation_Summary.xlsx');$('#xe').onclick=()=>xlsx('exc','BMW_Reconciliation_Exceptions.xlsx');
+$('#xc').onclick=()=>{const T=TABS[TAB],q=$('#q').value.toLowerCase(),f=$('#sf').value,rows=[T[1],...RES[T[2]].filter(x=>(!f||x[T[3]]===f)&&(!q||x.join('|').toLowerCase().includes(q)))],csv=rows.map(r=>r.map(v=>'"'+S(v).replace(/"/g,'""')+'"').join(',')).join('\n'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'}));a.download=T[0].replace(/\W+/g,'_')+'.csv';a.click()};
+</script></body></html>
