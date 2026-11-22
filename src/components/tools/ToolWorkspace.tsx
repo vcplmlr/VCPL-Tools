@@ -215,6 +215,7 @@ interface ToolWorkspaceProps {
   initialBank?: BankId;
   initialSubParam?: string;
   isRouteFullScreen?: boolean;
+  isVaultUnlocked?: boolean;
   onToggleRouteFullScreen?: (full: boolean) => void;
   onSyncToolSubParam?: (subParam: string | null) => void;
   backLabel?: string;
@@ -244,6 +245,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   initialBank,
   initialSubParam,
   isRouteFullScreen = false,
+  isVaultUnlocked = false,
   onToggleRouteFullScreen,
   onSyncToolSubParam,
   backLabel,
@@ -704,7 +706,12 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           )}
 
           {tool.kind === 'incentive-report-tool' && (
-            <IncentiveReportToolView key={tool.id} tool={tool} onBack={onClose} />
+            <IncentiveReportToolView
+              key={tool.id}
+              tool={tool}
+              isVaultUnlocked={isVaultUnlocked}
+              onBack={onClose}
+            />
           )}
 
           {tool.kind === 'pdf-editor-advanced' && (
@@ -720,7 +727,12 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           )}
 
           {tool.kind === 'dbs-pnl-reports' && (
-            <DbsPnlReportsView key={tool.id} tool={tool} onBack={onClose} />
+            <DbsPnlReportsView
+              key={tool.id}
+              tool={tool}
+              isVaultUnlocked={isVaultUnlocked}
+              onBack={onClose}
+            />
           )}
 
           {tool.kind === 'gstr1-return-prep' && (
@@ -728,35 +740,75 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           )}
 
           {tool.kind === 'bmw-statement-reconciler' && (
-            <BmwStatementReconcilerView key={tool.id} tool={tool} onBack={onClose} />
+            <BmwStatementReconcilerView
+              key={tool.id}
+              tool={tool}
+              isVaultUnlocked={isVaultUnlocked}
+              onBack={onClose}
+            />
           )}
 
           {tool.kind === 'bmw-vendor-ledger-reconciler' && (
-            <BmwVendorLedgerReconcilerView key={tool.id} tool={tool} onBack={onClose} />
+            <BmwVendorLedgerReconcilerView
+              key={tool.id}
+              tool={tool}
+              isVaultUnlocked={isVaultUnlocked}
+              onBack={onClose}
+            />
           )}
 
           {tool.kind === 'bmw-claims-reconciler' && (
-            <BmwClaimsReconcilerView key={tool.id} tool={tool} onBack={onClose} />
+            <BmwClaimsReconcilerView
+              key={tool.id}
+              tool={tool}
+              isVaultUnlocked={isVaultUnlocked}
+              onBack={onClose}
+            />
           )}
 
           {tool.kind === 'vcpl-rtgs-neft-form' && (
-            <VcplRtgsNeftFormView key={tool.id} tool={tool} onBack={onClose} />
+            <VcplRtgsNeftFormView
+              key={tool.id}
+              tool={tool}
+              isVaultUnlocked={isVaultUnlocked}
+              onBack={onClose}
+            />
           )}
 
           {tool.kind === 'tds-26as-tally-reco' && (
-            <Tds26asTallyRecoView key={tool.id} tool={tool} onBack={onClose} />
+            <Tds26asTallyRecoView
+              key={tool.id}
+              tool={tool}
+              isVaultUnlocked={isVaultUnlocked}
+              onBack={onClose}
+            />
           )}
 
           {tool.kind === 'bajaj-reconciliation-desk' && (
-            <BajajReconciliationView key={tool.id} tool={tool} onBack={onClose} />
+            <BajajReconciliationView
+              key={tool.id}
+              tool={tool}
+              isVaultUnlocked={isVaultUnlocked}
+              onBack={onClose}
+            />
           )}
 
           {tool.kind === 'fuel-report-generator' && (
-            <FuelReportGeneratorView key={tool.id} tool={tool} onBack={onClose} />
+            <FuelReportGeneratorView
+              key={tool.id}
+              tool={tool}
+              isVaultUnlocked={isVaultUnlocked}
+              onBack={onClose}
+            />
           )}
 
           {tool.kind === 'covering-letter-generator' && (
-            <CoveringLetterGeneratorView key={tool.id} tool={tool} onBack={onClose} />
+            <CoveringLetterGeneratorView
+              key={tool.id}
+              tool={tool}
+              isVaultUnlocked={isVaultUnlocked}
+              onBack={onClose}
+            />
           )}
 
           {tool.kind === 'letterhead-invoice-maker' && (

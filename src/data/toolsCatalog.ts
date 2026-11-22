@@ -67,7 +67,7 @@ export const TOOL_SECTION_HEADS: ToolSectionHead[] = [
     key: 'PDF Suite',
     index: '05',
     title: 'PDF Suite & Converters',
-    subtitle: 'Complete 68-tool offline PDF workshop: edit, convert, merge, split, organize, booklet, redact, OCR & sign.',
+    subtitle: 'Complete 70-tool offline PDF workshop: edit, convert, merge, split, organize, booklet, redact, OCR & sign.',
   },
   {
     key: 'Image Studio',
@@ -194,13 +194,13 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     category: 'Tax & GST',
     categoryName: 'Income Tax TRACES Parser',
     kind: 'tax-26as',
-    title: 'Form 26AS to Excel Converter',
+    title: 'PDF to Excel Convertor Form 26AS',
     description:
-      'Convert TRACES Form 26AS PDFs into clean, formula-ready multi-sheet Excel (.XLSX) workbooks with Part A/B TDS deductor summaries and audit checks.',
+      'Convert TRACES Form 26AS PDFs into advanced, formula-ready multi-sheet Excel (.XLSX) workbooks with Executive TDS vs TCS Dashboard, separate TDS Deductor & TCS Collector schedules, Month/Quarter matrix & audit checks.',
     priorityStars: 5,
     statusLabel: 'Free Offline · Stable',
     featuredPrimary: true,
-    keywords: ['26as', 'traces', 'tds', 'income tax', 'pdf to excel', 'tan'],
+    keywords: ['26as', 'traces', 'tds', 'tcs', 'pdf to excel', 'pdf to excel convertor form 26as', 'tan'],
   },
   {
     id: 'gstr2b-tally-reconciler',
@@ -2844,8 +2844,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile incentive Excel sheets with Tally ledger PDFs & deal-sheet screenshots or PDFs locally with Review, Ledger_Lines, Checks & SC_Summary tabs.',
     priorityStars: 4,
-    statusLabel: 'Locked Vault · Offline',
-    vaultOnly: true,
+    statusLabel: 'Passcode Locked · Offline',
     keywords: ['incentive', 'vin audit', 'tally ledger', 'sc summary'],
   },
   {
@@ -2860,8 +2859,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Analyze BMW dealer DBS ZIP or CSV monthly exports locally—Summary, P&L, Departmental P&L, NV Model Margins & 7-sheet .XLSX reports.',
     priorityStars: 4,
-    statusLabel: 'Locked Vault · Offline',
-    vaultOnly: true,
+    statusLabel: 'Passcode Locked · Offline',
     keywords: ['dbs', 'p&l', 'departmental profit', 'trial balance'],
   },
   {
@@ -2876,8 +2874,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Cross-check multi-quarter BMW Statements of Account against Tally ledger exports locally with 4-tier matching, open-item aging & 14-sheet XLSX export.',
     priorityStars: 4,
-    statusLabel: 'Locked Vault · Offline',
-    vaultOnly: true,
+    statusLabel: 'Passcode Locked · Offline',
     keywords: ['bmw soa', 'customer ledger', 'purchase only', 'aging'],
   },
   {
@@ -2892,8 +2889,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Transform IOCL XTRAPOWER / Easy Fuel Statement PDFs or Transaction Excel/CSV files into standardized monthly accounting reports with live SUMIF formulas.',
     priorityStars: 4,
-    statusLabel: 'Locked Vault · Offline',
-    vaultOnly: true,
+    statusLabel: 'Passcode Locked · Offline',
     keywords: ['iocl', 'xtrapower', 'easy fuel', 'fuel report', 'ccms'],
   },
   {
@@ -2924,8 +2920,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile BMW SAP vendor ledgers against multi-sheet Tally ledgers & warranty claims locally with opening-to-closing bridge, claim-code checks & ExcelJS workbooks.',
     priorityStars: 5,
-    statusLabel: 'Locked Vault · Offline',
-    vaultOnly: true,
+    statusLabel: 'Passcode Locked · Offline',
     keywords: [
       'bmw vendor ledger',
       'sap ledger reconciliation',
@@ -2947,8 +2942,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile DMS BMW Service Invoices against Credit/Debit Memos & Warranty Claim trackers with auto-mapped columns, multi-claim splits, ageing & styled ExcelJS export.',
     priorityStars: 5,
-    statusLabel: 'Locked Vault · Offline',
-    vaultOnly: true,
+    statusLabel: 'Passcode Locked · Offline',
     keywords: [
       'bmw claims reconciler',
       'warranty claims',
@@ -2970,8 +2964,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Generate print-ready A4 Same Bank (SBI intra-bank Payment Transfer Request Letter) & NEFT / RTGS remittance letters with built-in Varsha Cars letterhead, saved accounts, INR words, Excel batch upload & Word/PDF/Excel exports.',
     priorityStars: 5,
-    statusLabel: 'Locked Vault · Offline',
-    vaultOnly: true,
+    statusLabel: 'Passcode Locked · Offline',
     keywords: [
       'vcpl bulk bank transfer form',
       'same bank transfer letter',
@@ -2997,8 +2990,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile multi-sheet Tally TDS/TCS asset ledgers against Form 26AS / ATS (.pdf, .txt, .xlsx, .csv) with union-find deductor mapping, G/B reversal netting, many-to-one matching, 18 period filters, SVG dashboard & ExcelJS formulas.',
     priorityStars: 5,
-    statusLabel: 'Locked Vault · Offline',
-    vaultOnly: true,
+    statusLabel: 'Passcode Locked · Offline',
     keywords: [
       '26as to tally ledger reco',
       'form 26as tally reconciliation',
@@ -3021,8 +3013,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile Bajaj Allianz claim payment reports, cheque/NEFT reports, DMS service invoices, credit notes, Tally registers & bank statements with GST pending ageing, UTR verification, 27 automated audit checks & Excel/CSV export.',
     priorityStars: 5,
-    statusLabel: 'Locked Vault · Offline',
-    vaultOnly: true,
+    statusLabel: 'Passcode Locked · Offline',
     keywords: [
       'bajaj reconciliation desk',
       'bajaj allianz claims reconciliation',

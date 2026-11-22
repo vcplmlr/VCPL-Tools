@@ -55,9 +55,11 @@ import {
 import { filesToFileList } from '../../utils/fileDropUtils';
 import { FileDropZone } from './FileDropZone';
 import { RecoPeriodFilterBar } from './RecoPeriodFilterBar';
+import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface BmwClaimsReconcilerViewProps {
   tool?: ToolCatalogItem;
+  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -158,9 +160,21 @@ function todayISO(): string {
 
 export const BmwClaimsReconcilerView: React.FC<BmwClaimsReconcilerViewProps> = ({
   tool,
+  isVaultUnlocked = false,
   onBack,
 }) => {
-  return <BmwClaimsReconcilerWorkspace tool={tool} onBack={onBack} />;
+  return (
+    <ToolPasscodeGate
+      toolCode={`${tool?.code ?? 'VC-12'} · ${tool?.suite ?? 'VCPL Tools'}`}
+      toolTitle={tool?.title ?? 'BMW Claims Reconciler'}
+      sessionKey="vcpl_bmw_claims_unlocked_v1"
+      bypassGate={isVaultUnlocked}
+      description="Authorized dealership access required for BMW Claims Reconciler. Enter the 6-digit passcode to unlock."
+      onBack={onBack}
+    >
+      {() => <BmwClaimsReconcilerWorkspace tool={tool} onBack={onBack} />}
+    </ToolPasscodeGate>
+  );
 };
 
 const BmwClaimsReconcilerWorkspace: React.FC<{

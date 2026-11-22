@@ -22,11 +22,13 @@ import {
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
 import { useFileDrop } from './FileDropZone';
+import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 interface FuelReportGeneratorViewProps {
   tool?: ToolCatalogItem;
+  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -1190,9 +1192,21 @@ type SortKey =
 
 export const FuelReportGeneratorView: React.FC<FuelReportGeneratorViewProps> = ({
   tool,
+  isVaultUnlocked = false,
   onBack,
 }) => {
-  return <FuelReportGeneratorInner tool={tool} onBack={onBack} />;
+  return (
+    <ToolPasscodeGate
+      toolCode={`${tool?.code ?? 'VC-07'} · ${tool?.suite ?? 'VCPL Tools'}`}
+      toolTitle={tool?.title ?? 'Monthly Fuel Report Generator'}
+      sessionKey="vcpl_fuel_report_unlocked_v1"
+      bypassGate={isVaultUnlocked}
+      description="Authorized dealership access required for Monthly Fuel Report Generator. Enter the 6-digit passcode to unlock."
+      onBack={onBack}
+    >
+      {() => <FuelReportGeneratorInner tool={tool} onBack={onBack} />}
+    </ToolPasscodeGate>
+  );
 };
 
 interface FuelReportGeneratorInnerProps {

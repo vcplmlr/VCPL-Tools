@@ -257,35 +257,35 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
 
   'form-26as-to-excel': {
     toolId: 'form-26as-to-excel',
-    seoTitle: 'TRACES Form 26AS PDF to Excel Converter (.XLSX) – VCPL Tools',
+    seoTitle: 'PDF to Excel Convertor Form 26AS (.XLSX) – Bifurcated TDS & TCS | VCPL Tools',
     seoDescription:
-      'Extract TRACES Form 26AS TDS Part A, Part A1, TCS Part B, and Self-Assessment Tax details into structured Excel .XLSX audit sheets locally.',
+      'Convert TRACES Form 26AS PDFs into bifurcated Excel .XLSX audit workbooks with separate TDS Deductor & TCS Collector schedules, Executive Dashboard & Month/Quarter matrix.',
     adTopic: 'Income Tax Filing & Chartered Accountancy Software',
     focusKeywords: [
+      'PDF to Excel Convertor Form 26AS',
       'Form 26AS PDF to Excel',
-      'TRACES 26AS converter',
-      'TDS reconciliation Excel',
+      'TRACES 26AS TDS TCS bifurcated Excel',
       'client-side 26AS parser',
     ],
     overview: [
-      'Chartered accountants, tax consultants, and salaried taxpayers routinely reconcile TRACES Form 26AS PDF statements against AIS, salary slips, and tally books. Manually copying multi-page Part A deductor tables from PDF into Excel is error-prone and time consuming.',
-      'The Form 26AS PDF to Excel Converter reads your TRACES PDF locally inside your browser, extracts deductor names, TANs, section codes (such as 192, 194C, 194J, 194A), gross amounts, and TDS deposited, and builds an organized multi-sheet .XLSX workbook.',
+      'Chartered accountants, tax consultants, and finance teams routinely reconcile TRACES Form 26AS PDF statements against AIS, salary slips, TCS statements, and Tally books. Manually separating TDS deductor credits from TCS collector entries and building month/quarter schedules is error-prone and time consuming.',
+      'The PDF to Excel Convertor Form 26AS reads your TRACES PDF locally inside your browser, bifurcates every entry into dedicated TDS and TCS reports, extracts deductor/collector names, TANs, section codes, gross credits, reversals, and tax deposited, and builds a formula-ready bifurcated .XLSX workbook.',
     ],
     howToUse: [
       {
         stepTitle: 'Upload Your TRACES Form 26AS PDF',
         detail:
-          'Select or drag your downloaded Form 26AS PDF file into the drop zone. If password-protected (typically PAN or DOB), unlock it first using the PDF Unlocker or enter credentials where prompted.',
+          'Select or drag your downloaded Form 26AS PDF file into the drop zone. If password-protected (typically PAN or DOB), unlock it first using the PDF Unlocker or enter credentials directly.',
       },
       {
-        stepTitle: 'Review Parsed Summary & Deductor Tables',
+        stepTitle: 'Review Executive TDS vs TCS Bifurcation & Audit Matrix',
         detail:
-          'Inspect extracted Part A deductor totals, assessment year metadata, and section-wise TDS figures directly on screen.',
+          'Inspect separated TDS Deductor schedules, TCS Collector schedules, Apr–Mar monthly breakdowns, booking status flags (F/U/O/P), and section totals on screen.',
       },
       {
-        stepTitle: 'Download Multi-Sheet Excel Audit Workbook',
+        stepTitle: 'Download Master, TDS-Only, or TCS-Only Excel Workbooks',
         detail:
-          'Click Export to .XLSX to download clean tabular worksheets ready for ITR preparation and client TDS reconciliation.',
+          'Export the complete Bifurcated Master .XLSX, standalone TDS-Only .XLSX, standalone TCS-Only .XLSX, CSVs, PDF Audit, or Word summary directly from your browser.',
       },
     ],
     keyBenefits: [

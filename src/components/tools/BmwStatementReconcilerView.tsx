@@ -29,9 +29,11 @@ import {
 } from '../../utils/recoPeriodFilter';
 import { FileDropZone } from './FileDropZone';
 import { RecoPeriodFilterBar } from './RecoPeriodFilterBar';
+import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface BmwStatementReconcilerViewProps {
   tool?: ToolCatalogItem;
+  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -337,9 +339,21 @@ function parseBmwSheet(rows: unknown[][], name: string): BmwFileParsed | null {
 
 export const BmwStatementReconcilerView: React.FC<BmwStatementReconcilerViewProps> = ({
   tool,
+  isVaultUnlocked = false,
   onBack,
 }) => {
-  return <BmwStatementWorkspace tool={tool} onBack={onBack} />;
+  return (
+    <ToolPasscodeGate
+      toolCode={`${tool?.code ?? 'VC-06'} · ${tool?.suite ?? 'VCPL Tools'}`}
+      toolTitle={tool?.title ?? 'Customer Ledger (Purchase Only)'}
+      sessionKey="vcpl_bmw_statement_unlocked_v1"
+      bypassGate={isVaultUnlocked}
+      description="Authorized dealership access required for Customer Ledger (Purchase Only). Enter the 6-digit passcode to unlock."
+      onBack={onBack}
+    >
+      {() => <BmwStatementWorkspace tool={tool} onBack={onBack} />}
+    </ToolPasscodeGate>
+  );
 };
 
 const BmwStatementWorkspace: React.FC<{

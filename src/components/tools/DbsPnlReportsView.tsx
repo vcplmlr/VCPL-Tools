@@ -16,9 +16,11 @@ import {
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
 import { exportElementToPdf, printTargetElement } from '../../utils/printReport';
+import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface DbsPnlReportsViewProps {
   tool?: ToolCatalogItem;
+  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -475,7 +477,26 @@ const pct = (a: number, b: number): string => (b ? `${((a / b) * 100).toFixed(1)
 const lakh = (n: number): string =>
   (n / 100000).toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-export const DbsPnlReportsView: React.FC<DbsPnlReportsViewProps> = ({ tool, onBack }) => {
+export const DbsPnlReportsView: React.FC<DbsPnlReportsViewProps> = ({
+  tool,
+  isVaultUnlocked = false,
+  onBack,
+}) => {
+  return (
+    <ToolPasscodeGate
+      toolCode={`${tool?.code ?? 'VC-05'} · ${tool?.suite ?? 'VCPL Tools'}`}
+      toolTitle={tool?.title ?? 'DBS P&L & Reports Tool'}
+      sessionKey="vcpl_dbs_pnl_unlocked_v1"
+      bypassGate={isVaultUnlocked}
+      description="Authorized dealership access required for DBS P&L & Reports Tool. Enter the 6-digit passcode to unlock."
+      onBack={onBack}
+    >
+      {() => <DbsPnlReportsInner tool={tool} onBack={onBack} />}
+    </ToolPasscodeGate>
+  );
+};
+
+const DbsPnlReportsInner: React.FC<DbsPnlReportsViewProps> = ({ tool, onBack }) => {
   const [data, setData] = useState<DbsDataset | null>(null);
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');

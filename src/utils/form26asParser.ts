@@ -136,11 +136,39 @@ export function getSectionDescription(sectionCode: string): string {
   return `${meta.statutoryRef} — ${meta.description}`;
 }
 
-export function getFiscalQuarter(
-  dateStr: string
-): 'Q1 (Apr-Jun)' | 'Q2 (Jul-Sep)' | 'Q3 (Oct-Dec)' | 'Q4 (Jan-Mar)' | 'Other / Unspecified' {
+export const FISCAL_MONTH_ORDER = [
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+] as const;
+
+const FISCAL_MONTH_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+function parseDateMonthIndex(dateStr: string): number | null {
   const trimmed = (dateStr || '').trim();
-  if (!trimmed || trimmed === '-') return 'Other / Unspecified';
+  if (!trimmed || trimmed === '-') return null;
 
   let month: number | null = null;
   const alpha = trimmed.match(/^(\d{1,2})[-/\s]([A-Za-z]{3})[-/\s](\d{2,4})$/);
@@ -157,12 +185,84 @@ export function getFiscalQuarter(
       }
     }
   }
+  if (!month || month < 1 || month > 12) return null;
+  return month;
+}
 
-  if (!month || month < 1 || month > 12) return 'Other / Unspecified';
+export function getFiscalQuarter(
+  dateStr: string
+): 'Q1 (Apr-Jun)' | 'Q2 (Jul-Sep)' | 'Q3 (Oct-Dec)' | 'Q4 (Jan-Mar)' | 'Other / Unspecified' {
+  const month = parseDateMonthIndex(dateStr);
+  if (!month) return 'Other / Unspecified';
   if (month >= 4 && month <= 6) return 'Q1 (Apr-Jun)';
   if (month >= 7 && month <= 9) return 'Q2 (Jul-Sep)';
   if (month >= 10 && month <= 12) return 'Q3 (Oct-Dec)';
   return 'Q4 (Jan-Mar)';
+}
+
+export function getFiscalMonthLabel(dateStr: string): string {
+  const month = parseDateMonthIndex(dateStr);
+  if (!month) return 'Unspecified';
+  return FISCAL_MONTH_SHORT[month - 1] ?? 'Unspecified';
+}
+
+export function classify26ASTaxType(input: {
+  partyType?: string;
+  part?: string;
+  section?: string;
+}): 'TDS' | 'TCS' {
+  const pType = (input.partyType || '').trim().toLowerCase();
+  const part = (input.part || '').trim();
+  const section = (input.section || '').trim().toUpperCase();
+
+  if (pType === 'collector') return 'TCS';
+  if (/\btcs\b|collector|part\s*(?:iv\s*\(tcs\)|vi|vii)\b/i.test(part)) return 'TCS';
+  if (/^(?:206C|394\b|10(?:7[1-9]|8[0-9]|9[0-2])\b)/i.test(section)) return 'TCS';
+  return 'TDS';
+}
+
+export function sliceParsedForm26ASByScope(
+  parsed: ParsedForm26AS,
+  scope: 'all' | 'tds' | 'tcs'
+): ParsedForm26AS {
+  if (scope === 'all') return parsed;
+  const targetType = scope === 'tcs' ? 'TCS' : 'TDS';
+  const filteredTransactions = parsed.transactions
+    .filter((tx) => classify26ASTaxType(tx) === targetType)
+    .map((tx, idx) => ({ ...tx, srNo: idx + 1 }));
+
+  const filteredParties = parsed.parties
+    .filter((p) => classify26ASTaxType(p) === targetType)
+    .map((p, idx) => ({ ...p, srNo: idx + 1 }));
+
+  const filteredParts = parsed.partCoverage?.filter((pc) => {
+    const partTax = classify26ASTaxType({ part: pc.part });
+    return partTax === targetType;
+  });
+
+  const filteredOfficialSummary: Form26ASOfficialSummary | undefined = parsed.officialSummary
+    ? {
+        summaryTds: scope === 'tds' ? parsed.officialSummary.summaryTds : undefined,
+        summaryTcs: scope === 'tcs' ? parsed.officialSummary.summaryTcs : undefined,
+        summaryDemand: undefined,
+        summaryRefund: undefined,
+        partGrossTotals: Object.fromEntries(
+          Object.entries(parsed.officialSummary.partGrossTotals).filter(
+            ([part]) => classify26ASTaxType({ part }) === targetType
+          )
+        ),
+      }
+    : undefined;
+
+  return {
+    ...parsed,
+    parties: filteredParties,
+    transactions: filteredTransactions,
+    challans: [],
+    detectedParts: Array.from(new Set(filteredTransactions.map((t) => t.part))),
+    partCoverage: filteredParts,
+    officialSummary: filteredOfficialSummary,
+  };
 }
 
 export const SAMPLE_FORM_26AS: ParsedForm26AS = {
@@ -2055,7 +2155,7 @@ export async function parseForm26ASWorkbookFile(
 
   for (const sheetName of orderedSheetNames) {
     if (
-      /^(?:party summary|section & quarter audit|audit & exceptions|tax paid \(challans\))$/i.test(
+      /^(?:executive summary|tds - deductors|tds - transactions|tcs - collectors|tcs - transactions|month & quarter matrix|party summary|section & quarter audit|audit & exceptions|tax paid \(challans\))$/i.test(
         sheetName.trim()
       )
     ) {

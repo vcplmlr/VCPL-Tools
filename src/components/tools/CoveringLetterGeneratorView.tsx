@@ -53,6 +53,7 @@ import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface CoveringLetterGeneratorViewProps {
   tool?: ToolCatalogItem;
+  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -140,6 +141,7 @@ function getInitialFormState(): CoveringLetterFormState {
 
 export const CoveringLetterGeneratorView: React.FC<CoveringLetterGeneratorViewProps> = ({
   tool,
+  isVaultUnlocked = false,
   onBack,
 }) => {
   return (
@@ -147,7 +149,7 @@ export const CoveringLetterGeneratorView: React.FC<CoveringLetterGeneratorViewPr
       toolCode={`${tool?.code ?? 'VC-08'} · ${tool?.suite ?? 'VCPL Tools'}`}
       toolTitle={tool?.title ?? 'Covering Letter Generator'}
       sessionKey="vcpl_covering_letter_unlocked_v1"
-      passcode="202627"
+      bypassGate={isVaultUnlocked}
       description="Authorized dealership access required for Covering Letter Generator. Enter the 6-digit passcode to unlock."
       onBack={onBack}
     >

@@ -12,7 +12,6 @@ import {
   Keyboard,
   Landmark,
   Linkedin,
-  Lock,
   Menu,
   QrCode,
   Receipt,
@@ -35,7 +34,6 @@ export type IconMenuKey =
   | 'typing-text'
   | 'vcpl-tools'
   | 'special-tools'
-  | 'locked'
   | 'learn-tools'
   | 'calculator'
   | 'all-tools';
@@ -116,7 +114,6 @@ const ICON_MENU_ITEMS: {
   { key: 'typing-text', label: 'TYPING & TEXT', Icon: Keyboard },
   { key: 'learn-tools', label: 'LEARN', Icon: GraduationCap },
   { key: 'special-tools', label: 'SPECIAL', Icon: Sparkles },
-  { key: 'locked', label: 'LOCKED', Icon: Lock },
 ];
 
 const SOCIAL_LINKS = [
@@ -214,7 +211,6 @@ export function Navbar({
           >
             {ICON_MENU_ITEMS.map(({ key, label, Icon }) => {
               const isActive = activeIconMenu === key;
-              const isLockedBtn = key === 'locked';
               return (
                 <button
                   key={key}
@@ -225,22 +221,14 @@ export function Navbar({
                   }}
                   aria-current={isActive ? 'page' : undefined}
                   className={`inline-flex items-center gap-1 xl:gap-1.5 px-1.5 xl:px-2 py-1.5 rounded-lg text-[9.5px] xl:text-[10px] 2xl:text-[10.5px] font-display font-extrabold tracking-tight 2xl:tracking-wide transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer border ${
-                    isLockedBtn
-                      ? isActive
-                        ? 'bg-[#7D0B0B] text-[#F9C80E] border-[#7D0B0B] ring-2 ring-[#F9C80E] shadow-[0_2px_0_#450A0A]'
-                        : 'bg-[#9E2A2B] hover:bg-[#7D0B0B] text-[#FFFDF5] border-[#7D0B0B] dark:bg-[#B91C1C] dark:hover:bg-[#991B1B] dark:border-rose-400/50 shadow-[0_2px_0_#5C0909]'
-                      : isActive
+                    isActive
                       ? 'bg-[#2F3E4E] text-[#F9C80E] border-[#2F3E4E] dark:bg-[#F9C80E] dark:text-[#0F172A] dark:border-[#F9C80E] shadow-[0_2px_0_#1E293B]'
                       : 'bg-[#FFFDF5]/90 dark:bg-slate-900/90 text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/15 dark:border-slate-700 hover:bg-[#F9C80E]/55 dark:hover:bg-slate-800 hover:border-[#2F3E4E]/45 dark:hover:border-slate-500'
                   }`}
                 >
                   <Icon
                     className={`w-3 h-3 xl:w-3.5 xl:h-3.5 shrink-0 ${
-                      isLockedBtn
-                        ? isActive
-                          ? 'text-[#F9C80E]'
-                          : 'text-[#FFFDF5]'
-                        : isActive
+                      isActive
                         ? 'text-[#F9C80E] dark:text-[#0F172A]'
                         : 'text-[#2F3E4E] dark:text-slate-300'
                     }`}
@@ -281,7 +269,6 @@ export function Navbar({
             >
               {ICON_MENU_ITEMS.map(({ key, label, Icon }) => {
                 const isActive = activeIconMenu === key;
-                const isLockedBtn = key === 'locked';
                 return (
                   <button
                     key={key}
@@ -292,22 +279,14 @@ export function Navbar({
                     }}
                     aria-current={isActive ? 'page' : undefined}
                     className={`inline-flex items-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg text-xs font-display font-extrabold tracking-wide border-[1.5px] transition-colors cursor-pointer ${
-                      isLockedBtn
-                        ? isActive
-                          ? 'bg-[#7D0B0B] text-[#F9C80E] border-[#7D0B0B] ring-2 ring-[#F9C80E] shadow-[0_2px_0_#450A0A]'
-                          : 'bg-[#9E2A2B] hover:bg-[#7D0B0B] text-[#FFFDF5] border-[#7D0B0B] dark:bg-[#B91C1C] dark:hover:bg-[#991B1B] dark:border-rose-400/50 shadow-[0_2px_0_#5C0909]'
-                        : isActive
+                      isActive
                         ? 'bg-[#2F3E4E] text-[#F9C80E] border-[#2F3E4E] dark:bg-[#F9C80E] dark:text-[#0F172A] dark:border-[#F9C80E]'
                         : 'bg-[#FFFDF5] dark:bg-slate-900 text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/40 dark:border-slate-700 hover:bg-[#F9C80E]/40 dark:hover:bg-slate-800'
                     }`}
                   >
                     <Icon
                       className={`w-4 h-4 shrink-0 ${
-                        isLockedBtn
-                          ? isActive
-                            ? 'text-[#F9C80E]'
-                            : 'text-[#FFFDF5]'
-                          : isActive
+                        isActive
                           ? 'text-[#F9C80E] dark:text-[#0F172A]'
                           : 'text-[#2F3E4E] dark:text-slate-300'
                       }`}

@@ -14,27 +14,24 @@ import {
 } from '../data/toolsCatalog';
 import { ToolCatalogItem, ToolFilterType } from '../types/tools';
 import { normalizeRtoCodeInput } from './rtoSearch';
+import {
+  CATEGORY_SLUG_BY_FILTER,
+  FILTER_BY_CATEGORY_SLUG,
+  getAllToolsPath,
+  getCategoryUrlSlug,
+  getLegalPath,
+  getToolFullPath,
+  getToolPath,
+} from './seoConfig';
 
-export const CATEGORY_SLUG_BY_FILTER: Record<Exclude<ToolFilterType, 'All'>, string> = {
-  Banking: 'bank-slips',
-  'Tax & GST': 'tax-gst',
-  'GST Utilities': 'gst-utilities',
-  Calculator: 'calculator',
-  'PDF Suite': 'pdf-tools',
-  'Image Studio': 'image-tools',
-  'Typing & Text': 'typing-text',
-  Utilities: 'qr-utilities',
-  VCPL: 'vcpl-tools',
-  'Special Tools': 'special-tools',
-  'Learn Tools': 'learn-tools',
+export {
+  CATEGORY_SLUG_BY_FILTER,
+  getAllToolsPath,
+  getCategoryUrlSlug,
+  getLegalPath,
+  getToolFullPath,
+  getToolPath,
 };
-
-const FILTER_BY_CATEGORY_SLUG: Record<string, ToolFilterType> = Object.entries(
-  CATEGORY_SLUG_BY_FILTER
-).reduce<Record<string, ToolFilterType>>((acc, [filter, slug]) => {
-  acc[slug] = filter as ToolFilterType;
-  return acc;
-}, {});
 
 export type ParsedRoute =
   | { view: 'home' }
@@ -64,35 +61,6 @@ const ERROR_SLUG_ALIASES: Record<string, HttpErrorCode> = {
   'service-unavailable': 503,
   'gateway-timeout': 504,
 };
-
-export function getCategoryUrlSlug(filter: ToolFilterType): string {
-  if (filter === 'All') return 'tools';
-  return CATEGORY_SLUG_BY_FILTER[filter];
-}
-
-export function getAllToolsPath(filter: ToolFilterType = 'All'): string {
-  if (filter === 'All') return '/tools';
-  return `/${CATEGORY_SLUG_BY_FILTER[filter]}`;
-}
-
-export function getToolPath(tool: ToolCatalogItem): string {
-  if (tool.id === 'rto-code-finder') {
-    return '/tools/rto-code-finder';
-  }
-  if (tool.id === 'pin-code-finder') {
-    return '/tools/pin-code-finder';
-  }
-  const categorySlug = CATEGORY_SLUG_BY_FILTER[tool.category];
-  return `/${categorySlug}/${tool.id}`;
-}
-
-export function getToolFullPath(tool: ToolCatalogItem): string {
-  return `${getToolPath(tool)}/full`;
-}
-
-export function getLegalPath(slug: LegalPageSlug): string {
-  return `/${slug}`;
-}
 
 export function parseLocationToRoute(pathname: string, search: string): ParsedRoute {
   let initialQuery: string | undefined;
@@ -312,7 +280,7 @@ export function applySeoForRoute(route: ParsedRoute) {
   let description =
     'Generate SBI & HDFC bank slips, reconcile Form 26AS & GSTR-2B, edit PDFs, and run calculations locally. Designed by Arjun Bangera; ideas by Kaushik Bangera.';
   let keywords =
-    'VCPL Tools, Bank Deposit Slip Generator, GST Invoice Maker, PDF to Word, PDF to Excel, Image Background Remover, Form 26AS to Excel, GSTR-2B Reconciler, Arjun Bangera, Kaushik Bangera';
+    'VCPL Tools, Bank Deposit Slip Generator, GST Invoice Maker, PDF to Word, PDF to Excel, Image Background Remover, PDF to Excel Convertor Form 26AS, GSTR-2B Reconciler, Arjun Bangera, Kaushik Bangera';
   let robots =
     'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
   const breadcrumbItems: Array<{ name: string; item: string }> = [

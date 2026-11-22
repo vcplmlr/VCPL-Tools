@@ -11,8 +11,21 @@ Disallow: /api/
 Disallow: /income-tax-fy-2026-27.html
 Disallow: /locked
 Disallow: /locked-tools
+Disallow: /400
+Disallow: /401
+Disallow: /403
 Disallow: /404
+Disallow: /408
+Disallow: /410
+Disallow: /429
+Disallow: /500
+Disallow: /502
+Disallow: /503
+Disallow: /504
 Disallow: /not-found
+Disallow: /error/
+Disallow: /errors/
+Disallow: /status/
 
 # Crawl-delay not required for static client-side assets
 Sitemap: https://vcpltools.vercel.app/sitemap.xml

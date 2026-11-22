@@ -35,9 +35,11 @@ import { ToolCatalogItem } from '../../types/tools';
 import { downloadBomCsv } from '../../utils/printReport';
 import { emitGlobalProgress } from '../TopLoadingBar';
 import { FileDropZone } from './FileDropZone';
+import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface VcplRtgsNeftFormViewProps {
   tool?: ToolCatalogItem;
+  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -316,8 +318,23 @@ function VcplBuiltInLetterhead({ className = '' }: { className?: string }) {
   );
 }
 
-export const VcplRtgsNeftFormView: React.FC<VcplRtgsNeftFormViewProps> = ({ tool, onBack }) => {
-  return <VcplBulkBankTransferWorkspace tool={tool} onBack={onBack} />;
+export const VcplRtgsNeftFormView: React.FC<VcplRtgsNeftFormViewProps> = ({
+  tool,
+  isVaultUnlocked = false,
+  onBack,
+}) => {
+  return (
+    <ToolPasscodeGate
+      toolCode={`${tool?.code ?? 'VC-13'} · ${tool?.suite ?? 'VCPL Tools'}`}
+      toolTitle={tool?.title ?? 'VCPL Bulk Bank Transfer Form'}
+      sessionKey="vcpl_rtgs_neft_unlocked_v1"
+      bypassGate={isVaultUnlocked}
+      description="Authorized dealership access required for VCPL Bulk Bank Transfer Form. Enter the 6-digit passcode to unlock."
+      onBack={onBack}
+    >
+      {() => <VcplBulkBankTransferWorkspace tool={tool} onBack={onBack} />}
+    </ToolPasscodeGate>
+  );
 };
 
 const VcplBulkBankTransferWorkspace: React.FC<{

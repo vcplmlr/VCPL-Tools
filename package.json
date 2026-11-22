@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "node server.ts",
+    "sync:seo": "tsx scripts/sync-seo.ts",
+    "prebuild": "tsx scripts/sync-seo.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",

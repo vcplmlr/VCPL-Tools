@@ -166,6 +166,93 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+function getEnvVaultEmail(): string {
+  return process.env.VCPL_VAULT_EMAIL?.trim().toLowerCase() || '';
+}
+
+function getEnvVaultPassword(): string {
+  return process.env.VCPL_VAULT_PASSWORD?.trim() || '';
+}
+
+function isValidVaultEmail(email: string): boolean {
+  return (
+    email.length >= 5 &&
+    email.length <= 254 &&
+    !email.includes('..') &&
+    /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i.test(
+      email
+    ) &&
+    /\.[a-z]{2,}$/i.test(email)
+  );
+}
+
+function getStoredVaultCredentials(): { email: string; passwordHash: string } | null {
+  try {
+    const db = getDb();
+    const row = db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get('vault_credentials') as { value?: string } | undefined;
+    if (!row?.value) return null;
+    const parsed = JSON.parse(row.value) as { email?: string; passwordHash?: string };
+    if (typeof parsed.email === 'string' && typeof parsed.passwordHash === 'string') {
+      return { email: parsed.email.toLowerCase(), passwordHash: parsed.passwordHash };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function signVaultToken(email: string): string {
+  const exp = Date.now() + 12 * 60 * 60 * 1000;
+  const payload = Buffer.from(JSON.stringify({ role: 'vault', email, exp })).toString('base64url');
+  const sig = crypto
+    .createHmac('sha256', getAdminSigningKey())
+    .update(payload)
+    .digest('base64url');
+  return `${payload}.${sig}`;
+}
+
+function verifyVaultToken(token: string): { valid: boolean; email?: string } {
+  const parts = token.split('.');
+  if (parts.length !== 2) return { valid: false };
+  const [payload, sig] = parts;
+  const expectedSig = crypto
+    .createHmac('sha256', getAdminSigningKey())
+    .update(payload)
+    .digest('base64url');
+  if (!safeEqualStrings(sig, expectedSig)) return { valid: false };
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      role?: string;
+      email?: string;
+      exp?: number;
+    };
+    if (parsed.role === 'vault' && typeof parsed.exp === 'number' && Date.now() < parsed.exp) {
+      return { valid: true, email: parsed.email };
+    }
+    return { valid: false };
+  } catch {
+    return { valid: false };
+  }
+}
+
+function getEnvToolPasscode(): string {
+  return process.env.VCPL_TOOL_PASSCODE?.trim() || '';
+}
+
+function getStoredToolPasscodeHash(): string {
+  try {
+    const db = getDb();
+    const row = db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get('tool_passcode_hash') as { value?: string } | undefined;
+    return row?.value || '';
+  } catch {
+    return '';
+  }
+}
+
 function escapeCsvCell(val: unknown): string {
   const str = val === null || val === undefined ? '' : String(val);
   if (/[",\r\n]/.test(str)) {
@@ -1636,6 +1723,170 @@ export function createApiRouter(): Router {
       return;
     }
     res.json({ token: signAdminToken(), expiresInSeconds: 12 * 3600 });
+  });
+
+  // =========================================================================
+  // LOCKED VAULT EMAIL + PASSWORD AUTH & TOOL PASSCODE VERIFICATION
+  // =========================================================================
+  router.get('/vault/status', (_req, res) => {
+    const envConfigured = Boolean(getEnvVaultEmail() && getEnvVaultPassword());
+    const dbConfigured = Boolean(getStoredVaultCredentials());
+    res.json({ configured: envConfigured || dbConfigured });
+  });
+
+  router.post('/vault/claim', adminAuthLimiter, (req, res) => {
+    const envConfigured = Boolean(getEnvVaultEmail() && getEnvVaultPassword());
+    if (envConfigured || getStoredVaultCredentials()) {
+      res.status(409).json({ error: 'Vault login credentials are already configured on the server.' });
+      return;
+    }
+    const body = (req.body || {}) as { email?: string; password?: string };
+    const email = String(body.email ?? '').trim().toLowerCase();
+    const password = String(body.password ?? '').trim();
+
+    if (!isValidVaultEmail(email)) {
+      res.status(400).json({ error: 'Please enter a valid email address.' });
+      return;
+    }
+    if (password.length < 6 || password.length > 128) {
+      res.status(400).json({ error: 'Vault password must be between 6 and 128 characters.' });
+      return;
+    }
+
+    try {
+      const db = getDb();
+      const record = JSON.stringify({
+        email,
+        passwordHash: hashPasscodeScrypt(password),
+      });
+      const inserted = db
+        .prepare('INSERT OR IGNORE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)')
+        .run('vault_credentials', record, new Date().toISOString());
+      if (Number(inserted.changes || 0) === 0) {
+        res.status(409).json({ error: 'Vault login credentials have already been claimed.' });
+        return;
+      }
+      res.status(201).json({
+        token: signVaultToken(email),
+        email,
+        expiresInSeconds: 12 * 3600,
+      });
+    } catch (err) {
+      console.error('Vault claim error:', err);
+      res.status(500).json({ error: 'Unable to configure Vault login credentials.' });
+    }
+  });
+
+  router.post('/vault/auth', adminAuthLimiter, (req, res) => {
+    const body = (req.body || {}) as { email?: string; password?: string };
+    const email = String(body.email ?? '').trim().toLowerCase();
+    const password = String(body.password ?? '').trim();
+
+    if (!email || !password) {
+      res.status(400).json({ error: 'Email ID and password are both required.' });
+      return;
+    }
+
+    const envEmail = getEnvVaultEmail();
+    const envPassword = getEnvVaultPassword();
+    const envConfigured = Boolean(envEmail && envPassword);
+    const stored = getStoredVaultCredentials();
+
+    if (!envConfigured && !stored) {
+      res.status(409).json({
+        code: 'VAULT_SETUP_REQUIRED',
+        error: 'Vault credentials are not configured yet. Activate with your authorized Email ID & Password.',
+      });
+      return;
+    }
+
+    const valid = envConfigured
+      ? safeEqualStrings(email, envEmail) && safeEqualStrings(password, envPassword)
+      : Boolean(
+          stored &&
+            safeEqualStrings(email, stored.email) &&
+            verifyPasscodeScrypt(password, stored.passwordHash)
+        );
+
+    if (!valid) {
+      res.status(401).json({ error: 'Invalid email ID or password. Access to the Locked Vault is denied.' });
+      return;
+    }
+
+    res.json({
+      token: signVaultToken(email),
+      email,
+      expiresInSeconds: 12 * 3600,
+    });
+  });
+
+  router.get('/vault/verify', (req, res) => {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+    const verified = token ? verifyVaultToken(token) : { valid: false };
+    if (!verified.valid) {
+      res.status(401).json({ ok: false, error: 'Vault session expired or unauthorized.' });
+      return;
+    }
+    res.json({ ok: true, email: verified.email || '' });
+  });
+
+  router.get('/tool-passcode/status', (_req, res) => {
+    const configured = Boolean(getEnvToolPasscode() || getStoredToolPasscodeHash());
+    res.json({ configured });
+  });
+
+  router.post('/tool-passcode/claim', adminAuthLimiter, (req, res) => {
+    if (getEnvToolPasscode() || getStoredToolPasscodeHash()) {
+      res.status(409).json({ error: 'Tool passcode is already configured on the server.' });
+      return;
+    }
+    const passcode = String((req.body as { passcode?: string })?.passcode ?? '').trim();
+    if (!/^\d{6}$/.test(passcode)) {
+      res.status(400).json({ error: 'Tool passcode must be exactly 6 numeric digits.' });
+      return;
+    }
+    try {
+      const db = getDb();
+      const hash = hashPasscodeScrypt(passcode);
+      const inserted = db
+        .prepare('INSERT OR IGNORE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)')
+        .run('tool_passcode_hash', hash, new Date().toISOString());
+      if (Number(inserted.changes || 0) === 0) {
+        res.status(409).json({ error: 'Tool passcode has already been claimed.' });
+        return;
+      }
+      res.status(201).json({ ok: true });
+    } catch (err) {
+      console.error('Tool passcode claim error:', err);
+      res.status(500).json({ error: 'Unable to configure tool passcode.' });
+    }
+  });
+
+  router.post('/tool-passcode/verify', adminAuthLimiter, (req, res) => {
+    const passcode = String((req.body as { passcode?: string })?.passcode ?? '').trim();
+    if (!/^\d{6}$/.test(passcode)) {
+      res.status(400).json({ error: 'Please enter a valid 6-digit numeric passcode.' });
+      return;
+    }
+    const envPass = getEnvToolPasscode();
+    const storedHash = getStoredToolPasscodeHash();
+    if (!envPass && !storedHash) {
+      res.status(409).json({
+        code: 'TOOL_PASSCODE_SETUP_REQUIRED',
+        error: 'Set your initial 6-digit tool passcode (or configure VCPL_TOOL_PASSCODE) to unlock.',
+      });
+      return;
+    }
+
+    const valid = envPass
+      ? safeEqualStrings(passcode, envPass)
+      : verifyPasscodeScrypt(passcode, storedHash);
+    if (!valid) {
+      res.status(401).json({ error: 'Incorrect 6-digit passcode. Please check and try again.' });
+      return;
+    }
+    res.json({ ok: true });
   });
 
   router.get('/admin/overview', requireAdmin, (_req, res) => {

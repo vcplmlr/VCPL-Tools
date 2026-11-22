@@ -42,9 +42,11 @@ import {
 } from '../../utils/bajajReconEngine';
 import { emitGlobalProgress } from '../TopLoadingBar';
 import { FileDropZone } from './FileDropZone';
+import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface BajajReconciliationViewProps {
   tool?: ToolCatalogItem;
+  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -99,8 +101,21 @@ const ZONE_META: Array<{
 
 export const BajajReconciliationView: React.FC<BajajReconciliationViewProps> = ({
   tool,
+  isVaultUnlocked = false,
+  onBack,
 }) => {
-  return <BajajReconciliationWorkspace tool={tool} />;
+  return (
+    <ToolPasscodeGate
+      toolCode={`${tool?.code ?? 'VC-15'} · ${tool?.suite ?? 'VCPL Tools'}`}
+      toolTitle={tool?.title ?? 'Bajaj Reconciliation Desk'}
+      sessionKey="vcpl_bajaj_recon_unlocked_v1"
+      bypassGate={isVaultUnlocked}
+      description="Authorized dealership access required for Bajaj Reconciliation Desk. Enter the 6-digit passcode to unlock."
+      onBack={onBack}
+    >
+      {() => <BajajReconciliationWorkspace tool={tool} />}
+    </ToolPasscodeGate>
+  );
 };
 
 const BajajReconciliationWorkspace: React.FC<{

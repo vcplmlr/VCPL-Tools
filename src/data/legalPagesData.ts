@@ -1,3 +1,5 @@
+import { PUBLIC_TOOLS_CATALOG, TOOL_SECTION_HEADS } from './toolsCatalog';
+
 export type LegalPageSlug =
   | 'about-us'
   | 'contact-us'
@@ -39,7 +41,7 @@ export const SITE_CONTACT = {
   whatsappDisplay: '+91 7795836605',
   whatsappUrl: 'https://wa.me/917795836605',
   location: 'Mangalore, Coastal Karnataka, India',
-  lastUpdated: '18 November 2026',
+  lastUpdated: '22 November 2026',
 };
 
 export const LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
@@ -49,7 +51,7 @@ export const LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
     navTitle: 'About Us',
     title: 'About VCPL Tools',
     subtitle: 'Practical Browser Tools for Everyday Work',
-    effectiveLabel: 'Last Updated: 16 November 2026',
+    effectiveLabel: 'Last Updated: 22 November 2026',
     sections: [
       {
         heading: 'Who We Are',
@@ -61,14 +63,21 @@ export const LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
       },
       {
         heading: 'What We Offer',
-        paragraphs: ['Our platform currently provides tools across six major categories:'],
+        paragraphs: [
+          `Our platform currently provides ${PUBLIC_TOOLS_CATALOG.length} browser-based tools across ${TOOL_SECTION_HEADS.length} integrated suites:`,
+        ],
         bullets: [
-          '1. Banking & Deposit Slips — SBI and HDFC bank deposit slip generator, Bulk Excel bank slip generator, and Indian Bank IFSC and MICR directory.',
-          '2. Tax & GST Utilities — Form 26AS PDF to Excel converter, GSTR-2B vs Tally ITC reconciler, and Invoice to Excel converter.',
-          '3. Calculator Hub — Standard and scientific calculator, Loan and home EMI calculator, SIP and investment calculator, FD and PPF calculations, Income tax calculations, plus exam, marks, CGPA, age and date calculations.',
-          '4. PDF & Document Tools — PDF merger, PDF splitter, PDF compressor, Image to PDF converter, PDF to JPG and PNG converter, and other PDF utilities available in the workspace.',
-          '5. Typing & Text Utilities — English, Hindi and Kannada typing tests, Word and character counter, and Text case converter.',
-          '6. QR & Daily Utilities — QR code and UPI QR generator, Barcode generator, INR number-to-words converter, and Password generator.',
+          '1. Banking & Deposit Slips — SBI and HDFC bank deposit slip generator, Bulk Excel bank slip generator, Indian Bank IFSC & MICR directory, and Bank Statement Analyzer.',
+          '2. Tax & GST Utilities — PDF to Excel Convertor Form 26AS (with bifurcated TDS & TCS schedules), GSTR-2B vs Tally ITC reconciler, PDF Invoice to Excel (HSN Summary Maker), GST Invoice & Quotation Maker, TDS/TCS Toolkit & FY 2026-27 Income Tax Calculator.',
+          '3. GST Utilities & Return Prep — GSTR-1 return preparation and JSON validation directly from Excel and CSV workbooks.',
+          '4. Calculator Hub — Scientific calculator, Loan & Home EMI prepayment planner, SIP/FD/PPF investment calculator, Income tax, exam marks, CGPA, age and date calculations.',
+          '5. PDF & Document Tools — PDF Editor Advanced, PDF merger, splitter, compressor, Smart PDF Form Filler, Image to PDF, PDF to Word/Excel/PPT/JPG/PNG/WEBP, and 60+ offline PDF utilities.',
+          '6. Image Studio & Govt Exam Lab — JPG/PNG/WEBP crop, background remover, passport photo sheets, govt exam photo/signature resizers, EXIF cleaner, and OCR text extraction.',
+          '7. Typing, Text & Resume Suite — English, Hindi and Kannada typing speed tests, Kruti/Nudi Unicode converter, DOCX viewer, word counter, and ATS Resume Builder.',
+          '8. QR, Excel/CSV & Daily Utilities — Verified NPCI UPI QR generator, Barcode generator, INR number-to-words converter, Spreadsheet studio, developer formatters, RTO/PIN finders, and Password generator.',
+          '9. VCPL Enterprise Suite — Dealership DMS vs Tally reconcilers, DBS P&L reports, BMW/Bajaj claim audits, Bulk Bank Transfer Form, Rent Payment Letter Maker, Covering Letter Generator, and Textlift OCR Pro.',
+          '10. Special Tools — Tulusiri Pro (Tulu Lipi / Baravu studio, phonetic typing, decoder, and learning suite).',
+          '11. Learn Tools — Side-by-side Windows/Laptop/MacBook keyboard shortcuts and TallyPrime / Tally.ERP 9 shortcuts reference.',
         ],
       },
       {
@@ -406,7 +415,7 @@ export const LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
         heading: '3. Tax and GST Disclaimer',
         paragraphs: [
           'Generating a slip does not mean that a transaction has been initiated, approved or completed.',
-          'Tools such as Form 26AS PDF to Excel, GSTR-2B reconciliation and Invoice to Excel are designed to assist with data extraction, conversion and comparison.',
+          'Tools such as PDF to Excel Convertor Form 26AS, GSTR-2B reconciliation and PDF Invoice to Excel are designed to assist with data extraction, conversion and comparison.',
           'They do not replace official tax records, GST portal information, professional accounting review or statutory filing requirements. Always verify extracted figures and reconciliation results against original documents and official records.',
         ],
       },
@@ -498,12 +507,12 @@ export const LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
     navTitle: 'Advertising Policy',
     title: 'Advertising & Sponsorship Policy',
     subtitle: 'AdSense compliance, clear Advertisement labeling, and separation from VCPL utilities.',
-    effectiveLabel: 'Last Updated: 18 November 2026',
+    effectiveLabel: 'Last Updated: 22 November 2026',
     sections: [
       {
         heading: 'Overview',
         paragraphs: [
-          'VCPL Tools displays clearly labeled advertisements and sponsored placements to keep all 179+ banking, GST, PDF, image, and calculator utilities 100% free with zero paywalls. Advertising placements remain strictly separated from interactive tool controls.',
+          `VCPL Tools displays clearly labeled advertisements and sponsored placements to keep all ${PUBLIC_TOOLS_CATALOG.length}+ banking, GST, PDF, image, and calculator utilities 100% free with zero paywalls. Advertising placements remain strictly separated from interactive tool controls.`,
         ],
       },
       {
@@ -565,7 +574,7 @@ export const LEGAL_PAGES: Record<LegalPageSlug, LegalPageContent> = {
         heading: '3. Banking Deposit Slips & Reconcilers',
         bullets: [
           'Banking Slips: Dedicated A4 printable cash, cheque, and DD deposit slips plus Bulk Excel batch generation for State Bank of India (SBI) and HDFC Bank.',
-          'Tax & GST: Form 26AS PDF to Excel workbook converter, GSTR-2B vs Tally ITC audit matcher, PDF Invoice to Excel register extractor, GST Invoice & Quotation Maker, and DMS vs Tally Reconciliation.',
+          'Tax & GST: PDF to Excel Convertor Form 26AS (bifurcated TDS & TCS workbook), GSTR-2B vs Tally ITC audit matcher, PDF Invoice to Excel register extractor, GST Invoice & Quotation Maker, and DMS vs Tally Reconciliation.',
         ],
       },
       {

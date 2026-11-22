@@ -21,6 +21,11 @@ import {
 } from '../data/toolsCatalog';
 import { ToolCatalogItem, ToolFilterType } from '../types/tools';
 import {
+  DEFAULT_SITE_ORIGIN,
+  buildSitemapXmlString,
+  getAllCanonicalSitemapUrls,
+} from '../utils/seoConfig';
+import {
   getAllToolsPath,
   getLegalPath,
   getToolPath,
@@ -34,42 +39,6 @@ interface SitemapPageProps {
   onOpenLegalPage: (slug: LegalPageSlug) => void;
 }
 
-function buildDynamicXmlSitemap(origin: string): string {
-  const today = new Date().toISOString().slice(0, 10);
-  const urls: Array<{ loc: string; changefreq: string; priority: string }> = [
-    { loc: `${origin}/`, changefreq: 'weekly', priority: '1.0' },
-    { loc: `${origin}/tools`, changefreq: 'weekly', priority: '0.95' },
-    { loc: `${origin}/sitemap`, changefreq: 'weekly', priority: '0.75' },
-    ...TOOL_SECTION_HEADS.map((head) => ({
-      loc: `${origin}${getAllToolsPath(head.key)}`,
-      changefreq: 'weekly',
-      priority: '0.9',
-    })),
-    ...PUBLIC_TOOLS_CATALOG.map((tool) => ({
-      loc: `${origin}${getToolPath(tool)}`,
-      changefreq: 'monthly',
-      priority: tool.featuredPrimary ? '0.85' : '0.8',
-    })),
-    ...(Object.keys(LEGAL_PAGES) as LegalPageSlug[]).map((slug) => ({
-      loc: `${origin}${getLegalPath(slug)}`,
-      changefreq: slug === 'faq' ? 'monthly' : 'yearly',
-      priority: slug === 'faq' ? '0.6' : '0.5',
-    })),
-  ];
-
-  const entries = urls
-    .map((u) => {
-      const safeLoc = u.loc
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      return `  <url>\n    <loc>${safeLoc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`;
-    })
-    .join('\n');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
-}
-
 export function SitemapPage({
   onBackHome,
   onOpenAllTools,
@@ -79,7 +48,7 @@ export function SitemapPage({
   const [copiedXml, setCopiedXml] = useState(false);
 
   const origin =
-    typeof window !== 'undefined' ? window.location.origin : 'https://vcpltools.vercel.app';
+    typeof window !== 'undefined' ? window.location.origin : DEFAULT_SITE_ORIGIN;
 
   const legalEntries = useMemo(
     () =>
@@ -92,11 +61,10 @@ export function SitemapPage({
     []
   );
 
-  const totalUrls =
-    3 + TOOL_SECTION_HEADS.length + PUBLIC_TOOLS_CATALOG.length + legalEntries.length;
+  const totalUrls = useMemo(() => getAllCanonicalSitemapUrls(origin).length, [origin]);
 
   const handleDownloadXml = () => {
-    const xml = buildDynamicXmlSitemap(origin);
+    const xml = buildSitemapXmlString(origin);
     const blob = new Blob([xml], { type: 'application/xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -110,7 +78,7 @@ export function SitemapPage({
 
   const handleCopyXml = async () => {
     try {
-      const xml = buildDynamicXmlSitemap(origin);
+      const xml = buildSitemapXmlString(origin);
       await navigator.clipboard.writeText(xml);
       setCopiedXml(true);
       window.setTimeout(() => setCopiedXml(false), 2500);

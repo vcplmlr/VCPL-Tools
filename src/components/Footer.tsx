@@ -7,7 +7,6 @@ import {
   Laptop,
   Layers,
   Loader2,
-  Lock,
   Mail,
   MapPin,
   ShieldCheck,
@@ -462,18 +461,6 @@ export function Footer({
                     </button>
                   </li>
                 ))}
-                {onOpenLockedVault && (
-                  <li className="min-w-0">
-                    <button
-                      type="button"
-                      onClick={onOpenLockedVault}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#9E2A2B] hover:bg-[#7D0B0B] text-[#FFFDF5] text-xs font-display font-bold border border-[#7D0B0B] transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
-                      <span>Locked Vault</span>
-                    </button>
-                  </li>
-                )}
               </ul>
             </div>
 

@@ -1,9 +1,15 @@
 import ExcelJS from 'exceljs';
 import {
+  FISCAL_MONTH_ORDER,
+  Form26ASPartySummary,
+  Form26ASTransaction,
   ParsedForm26AS,
+  classify26ASTaxType,
+  getFiscalMonthLabel,
   getFiscalQuarter,
   getSectionDescription,
   lookupSectionMeta,
+  sliceParsedForm26ASByScope,
 } from './form26asParser';
 
 export interface Form26ASExcelOptions {
@@ -11,6 +17,9 @@ export interface Form26ASExcelOptions {
   includePartySheets: boolean;
   includeSectionQuarterSummary?: boolean;
   includeAuditSheet?: boolean;
+  includeExecutiveSummary?: boolean;
+  includeSeparateTdsTcsSheets?: boolean;
+  taxScope?: 'all' | 'tds' | 'tcs';
   onProgress?: (pct: number, stage: string) => void;
 }
 
@@ -126,24 +135,923 @@ function normalizeRateDecimal(pct: number | null): number | string {
 const isFinalBookingStatus = (status: string): boolean =>
   /^(?:F|M|Final|Matched)$/i.test((status || '').trim());
 
-export async function buildForm26ASWorkbook(
+const classifyBookingStatusLabel = (status: string): string => {
+  const s = (status || '').trim().toUpperCase();
+  if (s === 'F' || s === 'FINAL' || s === 'M' || s === 'MATCHED') return 'Final (F)';
+  if (s === 'U' || s === 'UNMATCHED') return 'Unmatched (U)';
+  if (s === 'O' || s === 'OVERBOOKED') return 'Overbooked (O)';
+  if (s === 'P' || s === 'PROVISIONAL') return 'Provisional (P)';
+  return s || 'Other';
+};
+
+function buildTaxRoleSheets(
+  wb: ExcelJS.Workbook,
   parsed: ParsedForm26AS,
+  role: 'TDS' | 'TCS',
+  summarySheetName: string,
+  txSheetName: string,
+  yearBannerTag: string,
+  yearMetaTag: string
+) {
+  const roleParties: Form26ASPartySummary[] = parsed.parties.filter(
+    (p) => classify26ASTaxType(p) === role
+  );
+  const roleTxs: Form26ASTransaction[] = parsed.transactions.filter(
+    (tx) => classify26ASTaxType(tx) === role
+  );
+  if (roleParties.length === 0 && roleTxs.length === 0) return;
+
+  const isTcs = role === 'TCS';
+  const accentHeaderFill = isTcs ? 'FF0F4C5C' : 'FF1E3A5F';
+  const roleEntityPlural = isTcs ? 'COLLECTORS' : 'DEDUCTORS';
+  const roleEntitySingle = isTcs ? 'Collector' : 'Deductor';
+  const basisLabel = isTcs ? 'Amount Received / Collected Basis' : 'Amount Paid / Credited';
+  const taxLabel = isTcs ? 'TCS Collected' : 'TDS Deducted';
+  const depLabel = isTcs ? 'TCS Deposited' : 'TDS Deposited';
+
+  // 1. Role Transactions Sheet (21 Cols A..U)
+  const txWs = wb.addWorksheet(txSheetName, {
+    views: [{ state: 'frozen', ySplit: 6 }],
+  });
+  txWs.columns = [
+    { key: 'sr', width: 7 }, // A
+    { key: 'txRef', width: 10 }, // B
+    { key: 'part', width: 17 }, // C
+    { key: 'partyName', width: 34 }, // D
+    { key: 'tan', width: 14 }, // E
+    { key: 'partyPan', width: 14 }, // F
+    { key: 'section', width: 11 }, // G
+    { key: 'oldSec', width: 11 }, // H
+    { key: 'secDesc', width: 32 }, // I
+    { key: 'txDate', width: 14 }, // J
+    { key: 'month', width: 10 }, // K
+    { key: 'quarter', width: 14 }, // L
+    { key: 'status', width: 13 }, // M
+    { key: 'bookDate', width: 14 }, // N
+    { key: 'remarks', width: 10 }, // O
+    { key: 'nature', width: 11 }, // P
+    { key: 'basisAmt', width: 19 }, // Q
+    { key: 'taxAmt', width: 19 }, // R
+    { key: 'depAmt', width: 19 }, // S
+    { key: 'shortDiff', width: 16 }, // T
+    { key: 'effRate', width: 12 }, // U
+  ];
+
+  txWs.mergeCells('A1:U1');
+  const titleCell = txWs.getCell('A1');
+  titleCell.value = `FORM 26AS ${role} (${roleEntityPlural}) TRANSACTION SCHEDULE — ${parsed.assesseeName} (${parsed.pan} · ${yearBannerTag})`;
+  titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: STYLE_COLORS.headerText } };
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: accentHeaderFill } };
+  titleCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  txWs.getRow(1).height = 28;
+
+  txWs.mergeCells('A2:U2');
+  const subCell = txWs.getCell('A2');
+  subCell.value = `${yearMetaTag} | Role: ${role} (${roleEntityPlural}) | Parties: ${roleParties.length} | Txns: ${roleTxs.length}`;
+  subCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+  subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.subHeaderFill } };
+  subCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  txWs.getRow(2).height = 20;
+
+  const rStart = 7;
+  const rEnd = roleTxs.length > 0 ? rStart + roleTxs.length - 1 : rStart;
+  const netBasis = round2(roleTxs.reduce((s, t) => s + t.amountPaid, 0));
+  const netTax = round2(roleTxs.reduce((s, t) => s + t.taxDeducted, 0));
+  const netDep = round2(roleTxs.reduce((s, t) => s + t.tdsDeposited, 0));
+  const netShort = round2(netTax - netDep);
+  const grossBasis = round2(
+    roleTxs.filter((t) => t.entryNature !== 'Reversal').reduce((s, t) => s + t.amountPaid, 0)
+  );
+  const revBasis = round2(
+    roleTxs.filter((t) => t.entryNature === 'Reversal').reduce((s, t) => s + t.amountPaid, 0)
+  );
+  const revCount = roleTxs.filter((t) => t.entryNature === 'Reversal').length;
+
+  txWs.mergeCells('A4:U4');
+  const noteCell = txWs.getCell('A4');
+  noteCell.value = `AutoFilter Totals (Row 5 uses SUBTOTAL(9,...) — updates dynamically when filtering ${role} sections, months, quarters, or ${roleEntitySingle.toLowerCase()}s).`;
+  noteCell.font = { name: 'Calibri', size: 9, italic: true, color: { argb: 'FF475569' } };
+  txWs.getRow(4).height = 17;
+
+  const subRow = txWs.getRow(5);
+  subRow.values = [
+    'TOTAL',
+    roleTxs.length > 0 ? { formula: `SUBTOTAL(3,A${rStart}:A${rEnd})`, result: roleTxs.length } : 0,
+    `${roleParties.length} ${roleEntitySingle}(s)`,
+    `${role} Filtered Subtotals`,
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    roleTxs.length > 0 ? { formula: `SUBTOTAL(9,Q${rStart}:Q${rEnd})`, result: netBasis } : 0,
+    roleTxs.length > 0 ? { formula: `SUBTOTAL(9,R${rStart}:R${rEnd})`, result: netTax } : 0,
+    roleTxs.length > 0 ? { formula: `SUBTOTAL(9,S${rStart}:S${rEnd})`, result: netDep } : 0,
+    roleTxs.length > 0 ? { formula: `SUBTOTAL(9,T${rStart}:T${rEnd})`, result: netShort } : 0,
+    { formula: 'IF(Q5=0,0,ROUND(R5/Q5,4))', result: calcRateDecimal(netTax, netBasis) },
+  ];
+  styleTotalRow(subRow, 21, [17, 18, 19, 20], [21]);
+  subRow.getCell(2).numFmt = '#,##0';
+  subRow.getCell(2).alignment = { horizontal: 'right', vertical: 'middle' };
+
+  const hdrRow = txWs.getRow(6);
+  hdrRow.values = [
+    'Sr No',
+    '26AS Ref',
+    'Part',
+    `${roleEntitySingle} Name`,
+    'TAN',
+    `${roleEntitySingle} PAN`,
+    'Section',
+    '1961 Eq.',
+    'Section Description',
+    'Txn Date',
+    'Month',
+    'Quarter',
+    'Booking Status',
+    'Booking Date',
+    'Remarks',
+    'Nature',
+    basisLabel,
+    taxLabel,
+    depLabel,
+    'Short Deposit',
+    'Eff Rate %',
+  ];
+  styleTableHeader(hdrRow, 21);
+  for (let c = 1; c <= 21; c++) {
+    hdrRow.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: accentHeaderFill } };
+  }
+
+  roleTxs.forEach((tx, idx) => {
+    const rNum = rStart + idx;
+    const r = txWs.getRow(rNum);
+    const meta = lookupSectionMeta(tx.section);
+    const shortDiff = round2(tx.taxDeducted - tx.tdsDeposited);
+    const effRate = calcRateDecimal(tx.taxDeducted, tx.amountPaid);
+
+    r.values = [
+      idx + 1,
+      tx.txSrNo || `${tx.srNo}`,
+      tx.part,
+      tx.partyName,
+      tx.tan,
+      tx.partyPan || '-',
+      tx.section,
+      meta.oldActEq,
+      meta.description,
+      tx.transactionDate,
+      getFiscalMonthLabel(tx.transactionDate),
+      tx.fiscalQuarter || getFiscalQuarter(tx.transactionDate),
+      tx.bookingStatus,
+      tx.bookingDate,
+      tx.remarks,
+      tx.entryNature || (tx.amountPaid < 0 ? 'Reversal' : 'Credit'),
+      tx.amountPaid,
+      tx.taxDeducted,
+      tx.tdsDeposited,
+      { formula: `ROUND(R${rNum}-S${rNum},2)`, result: shortDiff },
+      { formula: `IF(Q${rNum}=0,0,ROUND(R${rNum}/Q${rNum},4))`, result: effRate },
+    ];
+    r.height = 20;
+    r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+    r.getCell(2).numFmt = '@';
+    r.getCell(5).numFmt = '@';
+    r.getCell(6).numFmt = '@';
+    r.getCell(7).numFmt = '@';
+    r.getCell(8).numFmt = '@';
+    for (let c = 17; c <= 20; c++) {
+      r.getCell(c).numFmt = INR_FMT;
+      r.getCell(c).alignment = { horizontal: 'right', vertical: 'middle' };
+    }
+    r.getCell(21).numFmt = PCT_FMT;
+    r.getCell(21).alignment = { horizontal: 'right', vertical: 'middle' };
+    if (tx.entryNature === 'Reversal' || tx.amountPaid < 0) {
+      for (let c = 1; c <= 21; c++) {
+        r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF1F2' } };
+      }
+    } else if (idx % 2 === 1) {
+      for (let c = 1; c <= 21; c++) {
+        r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.zebraFill } };
+      }
+    }
+    applyThinBorders(r, 21);
+  });
+
+  if (roleTxs.length > 0) {
+    txWs.autoFilter = {
+      from: { row: 6, column: 1 },
+      to: { row: rEnd, column: 21 },
+    };
+  }
+
+  // 2. Role Party Summary Sheet (17 Cols A..Q, live SUMIFS against txSheetName)
+  const pWs = wb.addWorksheet(summarySheetName, {
+    views: [{ state: 'frozen', ySplit: 4 }],
+  });
+  pWs.columns = [
+    { key: 'sr', width: 7 }, // A
+    { key: 'txns', width: 8 }, // B
+    { key: 'part', width: 17 }, // C
+    { key: 'name', width: 34 }, // D
+    { key: 'tan', width: 14 }, // E
+    { key: 'pan', width: 14 }, // F
+    { key: 'rev', width: 9 }, // G
+    { key: 'gross', width: 18 }, // H
+    { key: 'revAmt', width: 17 }, // I
+    { key: 'pdfPaid', width: 18 }, // J
+    { key: 'netPaid', width: 18 }, // K
+    { key: 'pdfTax', width: 18 }, // L
+    { key: 'netTax', width: 18 }, // M
+    { key: 'netDep', width: 18 }, // N
+    { key: 'shortDiff', width: 16 }, // O
+    { key: 'effRate', width: 12 }, // P
+    { key: 'check', width: 16 }, // Q
+  ];
+
+  pWs.mergeCells('A1:Q1');
+  const pTitle = pWs.getCell('A1');
+  pTitle.value = `FORM 26AS ${role} — ${roleEntitySingle.toUpperCase()} WISE SUMMARY (${parsed.assesseeName} · ${parsed.pan} · ${yearBannerTag})`;
+  pTitle.font = { name: 'Calibri', size: 13, bold: true, color: { argb: STYLE_COLORS.headerText } };
+  pTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: accentHeaderFill } };
+  pTitle.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  pWs.getRow(1).height = 28;
+
+  pWs.mergeCells('A2:Q2');
+  const pSub = pWs.getCell('A2');
+  pSub.value = `Live SUMIFS / COUNTIFS formulas linked to '${txSheetName}'. Gross Basis: ₹${grossBasis.toLocaleString('en-IN')} | Reversals: ${revCount} (₹${revBasis.toLocaleString('en-IN')}) | Net ${taxLabel}: ₹${netTax.toLocaleString('en-IN')}.`;
+  pSub.font = { name: 'Calibri', size: 10, color: { argb: 'FF334155' } };
+  pSub.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.subHeaderFill } };
+  pWs.getRow(2).height = 20;
+
+  const pHdr = pWs.getRow(4);
+  pHdr.values = [
+    'Sr No',
+    'Txns',
+    'Part',
+    `${roleEntitySingle} Name`,
+    'TAN',
+    `${roleEntitySingle} PAN`,
+    'Reversals',
+    'Gross Credit',
+    'Reversal Amt',
+    'PDF Subtotal (Basis)',
+    `Live SUMIFS (${role} Basis)`,
+    'PDF Subtotal (Tax)',
+    `Live SUMIFS (${taxLabel})`,
+    `Live SUMIFS (${depLabel})`,
+    'Short Deposit',
+    'Eff Rate %',
+    'Check',
+  ];
+  styleTableHeader(pHdr, 17);
+  for (let c = 1; c <= 17; c++) {
+    pHdr.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: accentHeaderFill } };
+  }
+
+  const pStartRow = 5;
+  const hasRoleTxs = roleTxs.length > 0;
+  roleParties.forEach((party, idx) => {
+    const rNum = pStartRow + idx;
+    const r = pWs.getRow(rNum);
+    const shortDiff = round2(party.extractedTaxDeducted - party.extractedTdsDeposited);
+    r.values = [
+      idx + 1,
+      hasRoleTxs
+        ? {
+            formula: `COUNTIFS('${txSheetName}'!$E$${rStart}:$E$${rEnd},E${rNum},'${txSheetName}'!$C$${rStart}:$C$${rEnd},C${rNum})`,
+            result: party.transactionCount,
+          }
+        : party.transactionCount,
+      party.part,
+      party.partyName,
+      party.tan,
+      party.partyPan || '-',
+      hasRoleTxs
+        ? {
+            formula: `COUNTIFS('${txSheetName}'!$E$${rStart}:$E$${rEnd},E${rNum},'${txSheetName}'!$C$${rStart}:$C$${rEnd},C${rNum},'${txSheetName}'!$P$${rStart}:$P$${rEnd},"Reversal")`,
+            result: party.reversalCount,
+          }
+        : party.reversalCount,
+      hasRoleTxs
+        ? {
+            formula: `SUMIFS('${txSheetName}'!$Q$${rStart}:$Q$${rEnd},'${txSheetName}'!$E$${rStart}:$E$${rEnd},E${rNum},'${txSheetName}'!$C$${rStart}:$C$${rEnd},C${rNum},'${txSheetName}'!$P$${rStart}:$P$${rEnd},"Credit")`,
+            result: party.grossAmountPaid,
+          }
+        : party.grossAmountPaid,
+      hasRoleTxs
+        ? {
+            formula: `SUMIFS('${txSheetName}'!$Q$${rStart}:$Q$${rEnd},'${txSheetName}'!$E$${rStart}:$E$${rEnd},E${rNum},'${txSheetName}'!$C$${rStart}:$C$${rEnd},C${rNum},'${txSheetName}'!$P$${rStart}:$P$${rEnd},"Reversal")`,
+            result: party.reversalAmountPaid,
+          }
+        : party.reversalAmountPaid,
+      party.reportedAmountPaid,
+      hasRoleTxs
+        ? {
+            formula: `SUMIFS('${txSheetName}'!$Q$${rStart}:$Q$${rEnd},'${txSheetName}'!$E$${rStart}:$E$${rEnd},E${rNum},'${txSheetName}'!$C$${rStart}:$C$${rEnd},C${rNum})`,
+            result: party.extractedAmountPaid,
+          }
+        : party.extractedAmountPaid,
+      party.reportedTaxDeducted,
+      hasRoleTxs
+        ? {
+            formula: `SUMIFS('${txSheetName}'!$R$${rStart}:$R$${rEnd},'${txSheetName}'!$E$${rStart}:$E$${rEnd},E${rNum},'${txSheetName}'!$C$${rStart}:$C$${rEnd},C${rNum})`,
+            result: party.extractedTaxDeducted,
+          }
+        : party.extractedTaxDeducted,
+      hasRoleTxs
+        ? {
+            formula: `SUMIFS('${txSheetName}'!$S$${rStart}:$S$${rEnd},'${txSheetName}'!$E$${rStart}:$E$${rEnd},E${rNum},'${txSheetName}'!$C$${rStart}:$C$${rEnd},C${rNum})`,
+            result: party.extractedTdsDeposited,
+          }
+        : party.extractedTdsDeposited,
+      { formula: `ROUND(M${rNum}-N${rNum},2)`, result: shortDiff },
+      { formula: `IF(K${rNum}=0,0,ROUND(M${rNum}/K${rNum},4))`, result: calcRateDecimal(party.extractedTaxDeducted, party.extractedAmountPaid) },
+      party.verificationStatus,
+    ];
+    r.height = 20;
+    r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+    r.getCell(2).numFmt = '#,##0';
+    r.getCell(5).numFmt = '@';
+    r.getCell(6).numFmt = '@';
+    r.getCell(7).numFmt = '#,##0';
+    for (let c = 8; c <= 15; c++) {
+      r.getCell(c).numFmt = INR_FMT;
+      r.getCell(c).alignment = { horizontal: 'right', vertical: 'middle' };
+    }
+    r.getCell(16).numFmt = PCT_FMT;
+    r.getCell(16).alignment = { horizontal: 'right', vertical: 'middle' };
+    r.getCell(17).alignment = { horizontal: 'center', vertical: 'middle' };
+    applyThinBorders(r, 17);
+  });
+
+  if (roleParties.length > 0) {
+    const pEndRow = pStartRow + roleParties.length - 1;
+    const totRow = pWs.getRow(pEndRow + 1);
+    totRow.values = [
+      'TOTAL',
+      { formula: `SUM(B${pStartRow}:B${pEndRow})`, result: roleTxs.length },
+      '',
+      `${roleParties.length} ${roleEntitySingle}(s)`,
+      '',
+      '',
+      { formula: `SUM(G${pStartRow}:G${pEndRow})`, result: revCount },
+      { formula: `SUM(H${pStartRow}:H${pEndRow})`, result: grossBasis },
+      { formula: `SUM(I${pStartRow}:I${pEndRow})`, result: revBasis },
+      { formula: `SUM(J${pStartRow}:J${pEndRow})`, result: round2(roleParties.reduce((s, p) => s + p.reportedAmountPaid, 0)) },
+      { formula: `SUM(K${pStartRow}:K${pEndRow})`, result: netBasis },
+      { formula: `SUM(L${pStartRow}:L${pEndRow})`, result: round2(roleParties.reduce((s, p) => s + p.reportedTaxDeducted, 0)) },
+      { formula: `SUM(M${pStartRow}:M${pEndRow})`, result: netTax },
+      { formula: `SUM(N${pStartRow}:N${pEndRow})`, result: netDep },
+      { formula: `SUM(O${pStartRow}:O${pEndRow})`, result: netShort },
+      { formula: `IF(K${pEndRow + 1}=0,0,ROUND(M${pEndRow + 1}/K${pEndRow + 1},4))`, result: calcRateDecimal(netTax, netBasis) },
+      roleParties.every((p) => p.verificationStatus === 'Verified') ? 'All Verified' : 'Check Variance',
+    ];
+    styleTotalRow(totRow, 17, [8, 9, 10, 11, 12, 13, 14, 15], [16]);
+    totRow.getCell(2).numFmt = '#,##0';
+    totRow.getCell(7).numFmt = '#,##0';
+  }
+}
+
+function buildExecutiveDashboardSheet(
+  wb: ExcelJS.Workbook,
+  parsed: ParsedForm26AS,
+  yearBannerTag: string,
+  yearMetaTag: string
+) {
+  const ws = wb.addWorksheet('Executive Summary', {
+    views: [{ state: 'frozen', ySplit: 3 }],
+  });
+  ws.columns = [
+    { key: 'c1', width: 30 }, // A
+    { key: 'c2', width: 20 }, // B
+    { key: 'c3', width: 20 }, // C
+    { key: 'c4', width: 20 }, // D
+    { key: 'c5', width: 20 }, // E
+    { key: 'c6', width: 20 }, // F
+    { key: 'c7', width: 20 }, // G
+    { key: 'c8', width: 20 }, // H
+    { key: 'c9', width: 20 }, // I
+    { key: 'c10', width: 22 }, // J
+  ];
+
+  ws.mergeCells('A1:J1');
+  const title = ws.getCell('A1');
+  title.value = `FORM 26AS EXECUTIVE AUDIT DASHBOARD (TDS & TCS BIFURCATION) — ${parsed.assesseeName} (PAN: ${parsed.pan})`;
+  title.font = { name: 'Calibri', size: 13, bold: true, color: { argb: STYLE_COLORS.headerText } };
+  title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.headerFill } };
+  title.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  ws.getRow(1).height = 30;
+
+  ws.mergeCells('A2:J2');
+  const meta = ws.getCell('A2');
+  meta.value = `${yearMetaTag} | PAN Status: ${parsed.panStatus} | Data Updated: ${parsed.dataUpdatedTill || '-'} | Parts: ${parsed.detectedParts.join(', ') || '-'}`;
+  meta.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+  meta.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.subHeaderFill } };
+  meta.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  ws.getRow(2).height = 20;
+
+  const tdsTxs = parsed.transactions.filter((t) => classify26ASTaxType(t) === 'TDS');
+  const tcsTxs = parsed.transactions.filter((t) => classify26ASTaxType(t) === 'TCS');
+  const tdsParties = parsed.parties.filter((p) => classify26ASTaxType(p) === 'TDS');
+  const tcsParties = parsed.parties.filter((p) => classify26ASTaxType(p) === 'TCS');
+
+  const calcBucket = (txs: Form26ASTransaction[], parties: Form26ASPartySummary[]) => {
+    const revTxs = txs.filter((t) => t.entryNature === 'Reversal' || t.amountPaid < 0 || t.taxDeducted < 0);
+    const credTxs = txs.filter((t) => !revTxs.includes(t));
+    const grossPaid = round2(credTxs.reduce((s, t) => s + t.amountPaid, 0));
+    const revPaid = round2(revTxs.reduce((s, t) => s + t.amountPaid, 0));
+    const netPaid = round2(txs.reduce((s, t) => s + t.amountPaid, 0));
+    const grossTax = round2(credTxs.reduce((s, t) => s + t.taxDeducted, 0));
+    const revTax = round2(revTxs.reduce((s, t) => s + t.taxDeducted, 0));
+    const netTax = round2(txs.reduce((s, t) => s + t.taxDeducted, 0));
+    const dep = round2(txs.reduce((s, t) => s + t.tdsDeposited, 0));
+    const short = round2(netTax - dep);
+    const effRate = calcRateDecimal(netTax, netPaid);
+    return {
+      parties: parties.length,
+      txns: txs.length,
+      revs: revTxs.length,
+      grossPaid,
+      revPaid,
+      netPaid,
+      grossTax,
+      revTax,
+      netTax,
+      dep,
+      short,
+      effRate,
+    };
+  };
+
+  const tdsM = calcBucket(tdsTxs, tdsParties);
+  const tcsM = calcBucket(tcsTxs, tcsParties);
+  const allM = calcBucket(parsed.transactions, parsed.parties);
+
+  // Block 1: Side-by-Side TDS vs TCS Comparison Matrix
+  ws.mergeCells('A4:J4');
+  const b1 = ws.getCell('A4');
+  b1.value = `1. TDS vs TCS EXECUTIVE BIFURCATION (${yearBannerTag})`;
+  b1.font = { name: 'Calibri', size: 11, bold: true, color: { argb: STYLE_COLORS.headerText } };
+  b1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.headerFill } };
+  b1.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  ws.getRow(4).height = 24;
+
+  const h1 = ws.getRow(5);
+  h1.values = [
+    'Metric / KPI',
+    'TDS (Deductors)',
+    'TCS (Collectors)',
+    'Consolidated Total',
+    'TDS Share %',
+    'TCS Share %',
+    'Official Header Summary',
+    'Recon Variance',
+    'Audit Status',
+    'Statutory Notes',
+  ];
+  styleTableHeader(h1, 10);
+
+  const offTds = parsed.officialSummary?.summaryTds ?? tdsM.netTax;
+  const offTcs = parsed.officialSummary?.summaryTcs ?? tcsM.netTax;
+  const offTotal = round2(offTds + offTcs);
+  const varTds = round2(offTds - tdsM.netTax);
+  const varTcs = round2(offTcs - tcsM.netTax);
+  const varAll = round2(offTotal - allM.netTax);
+
+  const compRows: Array<{
+    label: string;
+    tdsVal: number | { formula: string; result: number };
+    tcsVal: number | { formula: string; result: number };
+    allVal: number | { formula: string; result: number };
+    fmt: 'int' | 'inr' | 'pct';
+    offVal: number | string;
+    varVal: number | string;
+    status: string;
+    note: string;
+  }> = [
+    {
+      label: 'Party Accounts (TANs)',
+      tdsVal: tdsM.parties,
+      tcsVal: tcsM.parties,
+      allVal: { formula: 'B6+C6', result: allM.parties },
+      fmt: 'int',
+      offVal: '-',
+      varVal: '-',
+      status: `${parsed.parties.filter((p) => p.verificationStatus === 'Verified').length}/${parsed.parties.length} Verified`,
+      note: 'Unique TAN + Part combinations',
+    },
+    {
+      label: 'Total Line Transactions',
+      tdsVal: tdsM.txns,
+      tcsVal: tcsM.txns,
+      allVal: { formula: 'B7+C7', result: allM.txns },
+      fmt: 'int',
+      offVal: '-',
+      varVal: '-',
+      status: allM.revs > 0 ? `${allM.revs} Reversals` : 'No Reversals',
+      note: 'Includes Credits & G/B Reversals',
+    },
+    {
+      label: 'Gross Positive Credits / Basis',
+      tdsVal: tdsM.grossPaid,
+      tcsVal: tcsM.grossPaid,
+      allVal: { formula: 'B8+C8', result: allM.grossPaid },
+      fmt: 'inr',
+      offVal: '-',
+      varVal: '-',
+      status: 'Positive',
+      note: 'Excluding G/B negative reversals',
+    },
+    {
+      label: 'Reversals / Negative Basis (G/B)',
+      tdsVal: tdsM.revPaid,
+      tcsVal: tcsM.revPaid,
+      allVal: { formula: 'B9+C9', result: allM.revPaid },
+      fmt: 'inr',
+      offVal: '-',
+      varVal: '-',
+      status: allM.revs > 0 ? 'Adjusted' : 'Clean',
+      note: 'TRACES Reprocessing / Rectification',
+    },
+    {
+      label: 'Net Amount Paid / Received Basis',
+      tdsVal: tdsM.netPaid,
+      tcsVal: tcsM.netPaid,
+      allVal: { formula: 'B10+C10', result: allM.netPaid },
+      fmt: 'inr',
+      offVal: '-',
+      varVal: '-',
+      status: 'Net Basis',
+      note: 'Taxable / Principal base across year',
+    },
+    {
+      label: 'Gross Tax (Before Reversals)',
+      tdsVal: tdsM.grossTax,
+      tcsVal: tcsM.grossTax,
+      allVal: { formula: 'B11+C11', result: allM.grossTax },
+      fmt: 'inr',
+      offVal: '-',
+      varVal: '-',
+      status: 'Gross Tax',
+      note: 'Total tax before G/B adjustments',
+    },
+    {
+      label: 'Reversal Tax Adjustment',
+      tdsVal: tdsM.revTax,
+      tcsVal: tcsM.revTax,
+      allVal: { formula: 'B12+C12', result: allM.revTax },
+      fmt: 'inr',
+      offVal: '-',
+      varVal: '-',
+      status: allM.revTax !== 0 ? 'Adjusted' : 'Zero',
+      note: 'Tax reversed in reprocessing',
+    },
+    {
+      label: 'Net Tax Deducted / Collected',
+      tdsVal: tdsM.netTax,
+      tcsVal: tcsM.netTax,
+      allVal: { formula: 'B13+C13', result: allM.netTax },
+      fmt: 'inr',
+      offVal: offTotal,
+      varVal: varAll,
+      status: Math.abs(varAll) <= 1 ? 'Exact Match' : 'Check Diff',
+      note: `TDS Var: ₹${varTds.toFixed(2)} | TCS Var: ₹${varTcs.toFixed(2)}`,
+    },
+    {
+      label: 'Net Tax Deposited to Govt',
+      tdsVal: tdsM.dep,
+      tcsVal: tcsM.dep,
+      allVal: { formula: 'B14+C14', result: allM.dep },
+      fmt: 'inr',
+      offVal: '-',
+      varVal: allM.short,
+      status: Math.abs(allM.short) <= 1 ? 'Fully Deposited' : 'Short Deposit',
+      note: 'Eligible for ITR 26AS claim check',
+    },
+    {
+      label: 'Short / Excess Deposit Diff',
+      tdsVal: { formula: 'ROUND(B13-B14,2)', result: tdsM.short },
+      tcsVal: { formula: 'ROUND(C13-C14,2)', result: tcsM.short },
+      allVal: { formula: 'ROUND(D13-D14,2)', result: allM.short },
+      fmt: 'inr',
+      offVal: '-',
+      varVal: '-',
+      status: Math.abs(allM.short) <= 1 ? 'Balanced' : 'Follow Up Deductor',
+      note: 'Tax Deducted minus Tax Deposited',
+    },
+    {
+      label: 'Effective Blended Rate %',
+      tdsVal: { formula: 'IF(B10=0,0,ROUND(B13/B10,4))', result: tdsM.effRate },
+      tcsVal: { formula: 'IF(C10=0,0,ROUND(C13/C10,4))', result: tcsM.effRate },
+      allVal: { formula: 'IF(D10=0,0,ROUND(D13/D10,4))', result: allM.effRate },
+      fmt: 'pct',
+      offVal: '-',
+      varVal: '-',
+      status: 'Analytical',
+      note: 'Weighted average effective rate',
+    },
+  ];
+
+  compRows.forEach((cr, idx) => {
+    const rNum = 6 + idx;
+    const r = ws.getRow(rNum);
+    const tdsNumVal = typeof cr.tdsVal === 'number' ? cr.tdsVal : cr.tdsVal.result;
+    const tcsNumVal = typeof cr.tcsVal === 'number' ? cr.tcsVal : cr.tcsVal.result;
+    const allNumVal = typeof cr.allVal === 'number' ? cr.allVal : cr.allVal.result;
+
+    const tdsShare = cr.fmt === 'pct' ? '-' : { formula: `IF(D${rNum}=0,0,ROUND(B${rNum}/D${rNum},4))`, result: allNumVal ? Number((tdsNumVal / allNumVal).toFixed(4)) : 0 };
+    const tcsShare = cr.fmt === 'pct' ? '-' : { formula: `IF(D${rNum}=0,0,ROUND(C${rNum}/D${rNum},4))`, result: allNumVal ? Number((tcsNumVal / allNumVal).toFixed(4)) : 0 };
+
+    r.values = [
+      cr.label,
+      cr.tdsVal,
+      cr.tcsVal,
+      cr.allVal,
+      tdsShare,
+      tcsShare,
+      cr.offVal,
+      cr.varVal,
+      cr.status,
+      cr.note,
+    ];
+    r.height = 20;
+    r.getCell(1).font = { bold: true };
+    const numFmt = cr.fmt === 'int' ? '#,##0' : cr.fmt === 'pct' ? PCT_FMT : INR_FMT;
+    for (let c = 2; c <= 4; c++) {
+      r.getCell(c).numFmt = numFmt;
+      r.getCell(c).alignment = { horizontal: 'right', vertical: 'middle' };
+    }
+    if (cr.fmt !== 'pct') {
+      r.getCell(5).numFmt = PCT_FMT;
+      r.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' };
+      r.getCell(6).numFmt = PCT_FMT;
+      r.getCell(6).alignment = { horizontal: 'right', vertical: 'middle' };
+    } else {
+      r.getCell(5).alignment = { horizontal: 'center', vertical: 'middle' };
+      r.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    if (typeof cr.offVal === 'number') {
+      r.getCell(7).numFmt = INR_FMT;
+      r.getCell(7).alignment = { horizontal: 'right', vertical: 'middle' };
+    } else {
+      r.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    if (typeof cr.varVal === 'number') {
+      r.getCell(8).numFmt = INR_FMT;
+      r.getCell(8).alignment = { horizontal: 'right', vertical: 'middle' };
+    } else {
+      r.getCell(8).alignment = { horizontal: 'center', vertical: 'middle' };
+    }
+    r.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
+    if (rNum === 13 || rNum === 14) {
+      for (let c = 1; c <= 10; c++) {
+        r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.totalFill } };
+        r.getCell(c).font = { bold: true };
+      }
+    } else if (idx % 2 === 1) {
+      for (let c = 1; c <= 10; c++) {
+        r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.zebraFill } };
+      }
+    }
+    applyThinBorders(r, 10);
+  });
+
+  // Block 2: Booking Status Split (F / U / O / P) across TDS vs TCS
+  const bkTitleRow = 19;
+  ws.mergeCells(`A${bkTitleRow}:J${bkTitleRow}`);
+  const b2 = ws.getCell(`A${bkTitleRow}`);
+  b2.value = '2. TRACES BOOKING STATUS AUDIT (FINAL [F] vs UNMATCHED [U] vs OVERBOOKED [O] vs PROVISIONAL [P])';
+  b2.font = { name: 'Calibri', size: 11, bold: true, color: { argb: STYLE_COLORS.headerText } };
+  b2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.headerFill } };
+  b2.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  ws.getRow(bkTitleRow).height = 24;
+
+  const h2 = ws.getRow(bkTitleRow + 1);
+  h2.values = [
+    'Booking Status',
+    'TDS Txns',
+    'TDS Amount Paid',
+    'TDS Deducted',
+    'TCS Txns',
+    'TCS Basis Amt',
+    'TCS Collected',
+    'Combined Tax',
+    'Combined Deposited',
+    'Audit Action',
+  ];
+  styleTableHeader(h2, 10);
+
+  const bkOrder = ['Final (F)', 'Unmatched (U)', 'Overbooked (O)', 'Provisional (P)', 'Other'];
+  const bkMap = new Map<string, { tdsTx: number; tdsPaid: number; tdsTax: number; tcsTx: number; tcsPaid: number; tcsTax: number; dep: number }>();
+  bkOrder.forEach((k) => bkMap.set(k, { tdsTx: 0, tdsPaid: 0, tdsTax: 0, tcsTx: 0, tcsPaid: 0, tcsTax: 0, dep: 0 }));
+
+  parsed.transactions.forEach((tx) => {
+    const label = classifyBookingStatusLabel(tx.bookingStatus);
+    const key = bkMap.has(label) ? label : 'Other';
+    const b = bkMap.get(key)!;
+    if (classify26ASTaxType(tx) === 'TCS') {
+      b.tcsTx += 1;
+      b.tcsPaid = round2(b.tcsPaid + tx.amountPaid);
+      b.tcsTax = round2(b.tcsTax + tx.taxDeducted);
+    } else {
+      b.tdsTx += 1;
+      b.tdsPaid = round2(b.tdsPaid + tx.amountPaid);
+      b.tdsTax = round2(b.tdsTax + tx.taxDeducted);
+    }
+    b.dep = round2(b.dep + tx.tdsDeposited);
+  });
+
+  const activeBk = bkOrder.filter((k) => {
+    const b = bkMap.get(k)!;
+    return k === 'Final (F)' || b.tdsTx + b.tcsTx > 0;
+  });
+
+  let execCursor = bkTitleRow + 2;
+  activeBk.forEach((label) => {
+    const b = bkMap.get(label)!;
+    const r = ws.getRow(execCursor);
+    const isFinal = label === 'Final (F)';
+    r.values = [
+      label,
+      b.tdsTx,
+      b.tdsPaid,
+      b.tdsTax,
+      b.tcsTx,
+      b.tcsPaid,
+      b.tcsTax,
+      { formula: `D${execCursor}+G${execCursor}`, result: round2(b.tdsTax + b.tcsTax) },
+      b.dep,
+      isFinal ? 'Matched / Claimable in ITR' : 'Unmatched / Check with Deductor',
+    ];
+    r.height = 20;
+    r.getCell(1).font = { bold: true };
+    r.getCell(2).numFmt = '#,##0';
+    r.getCell(5).numFmt = '#,##0';
+    for (const c of [3, 4, 6, 7, 8, 9]) {
+      r.getCell(c).numFmt = INR_FMT;
+      r.getCell(c).alignment = { horizontal: 'right', vertical: 'middle' };
+    }
+    if (!isFinal && b.tdsTx + b.tcsTx > 0) {
+      r.getCell(10).font = { bold: true, color: { argb: STYLE_COLORS.alertText } };
+      r.getCell(10).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.alertFill } };
+    }
+    applyThinBorders(r, 10);
+    execCursor += 1;
+  });
+
+  // Block 3: Monthly Apr-Mar TDS vs TCS Bifurcation Matrix
+  execCursor += 1;
+  ws.mergeCells(`A${execCursor}:J${execCursor}`);
+  const b3 = ws.getCell(`A${execCursor}`);
+  b3.value = '3. MONTH-BY-MONTH (APRIL TO MARCH) TDS vs TCS CASHFLOW & TAX MATRIX';
+  b3.font = { name: 'Calibri', size: 11, bold: true, color: { argb: STYLE_COLORS.headerText } };
+  b3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.headerFill } };
+  b3.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  ws.getRow(execCursor).height = 24;
+  execCursor += 1;
+
+  const h3 = ws.getRow(execCursor);
+  h3.values = [
+    'Fiscal Month',
+    'TDS Txns',
+    'TDS Amount Paid',
+    'TDS Deducted',
+    'TCS Txns',
+    'TCS Basis Amt',
+    'TCS Collected',
+    'Combined Tax',
+    'Combined Deposited',
+    'Quarter Split',
+  ];
+  styleTableHeader(h3, 10);
+  execCursor += 1;
+
+  const monthMap = new Map<string, { tdsTx: number; tdsPaid: number; tdsTax: number; tcsTx: number; tcsPaid: number; tcsTax: number; dep: number }>();
+  [...FISCAL_MONTH_ORDER, 'Unspecified'].forEach((m) =>
+    monthMap.set(m, { tdsTx: 0, tdsPaid: 0, tdsTax: 0, tcsTx: 0, tcsPaid: 0, tcsTax: 0, dep: 0 })
+  );
+  parsed.transactions.forEach((tx) => {
+    const m = getFiscalMonthLabel(tx.transactionDate);
+    const b = monthMap.get(m) ?? monthMap.get('Unspecified')!;
+    if (classify26ASTaxType(tx) === 'TCS') {
+      b.tcsTx += 1;
+      b.tcsPaid = round2(b.tcsPaid + tx.amountPaid);
+      b.tcsTax = round2(b.tcsTax + tx.taxDeducted);
+    } else {
+      b.tdsTx += 1;
+      b.tdsPaid = round2(b.tdsPaid + tx.amountPaid);
+      b.tdsTax = round2(b.tdsTax + tx.taxDeducted);
+    }
+    b.dep = round2(b.dep + tx.tdsDeposited);
+  });
+
+  const mStart = execCursor;
+  const activeMonths = [
+    ...FISCAL_MONTH_ORDER,
+    ...((monthMap.get('Unspecified')?.tdsTx ?? 0) + (monthMap.get('Unspecified')?.tcsTx ?? 0) > 0 ? ['Unspecified'] : []),
+  ];
+  const monthQuarterTag = (m: string) => {
+    if (['Apr', 'May', 'Jun'].includes(m)) return 'Q1 (Apr-Jun)';
+    if (['Jul', 'Aug', 'Sep'].includes(m)) return 'Q2 (Jul-Sep)';
+    if (['Oct', 'Nov', 'Dec'].includes(m)) return 'Q3 (Oct-Dec)';
+    if (['Jan', 'Feb', 'Mar'].includes(m)) return 'Q4 (Jan-Mar)';
+    return 'Unspecified';
+  };
+
+  activeMonths.forEach((m) => {
+    const b = monthMap.get(m)!;
+    const r = ws.getRow(execCursor);
+    r.values = [
+      m,
+      b.tdsTx,
+      b.tdsPaid,
+      b.tdsTax,
+      b.tcsTx,
+      b.tcsPaid,
+      b.tcsTax,
+      { formula: `D${execCursor}+G${execCursor}`, result: round2(b.tdsTax + b.tcsTax) },
+      b.dep,
+      monthQuarterTag(m),
+    ];
+    r.height = 19;
+    r.getCell(1).font = { bold: true };
+    r.getCell(2).numFmt = '#,##0';
+    r.getCell(5).numFmt = '#,##0';
+    for (const c of [3, 4, 6, 7, 8, 9]) {
+      r.getCell(c).numFmt = INR_FMT;
+      r.getCell(c).alignment = { horizontal: 'right', vertical: 'middle' };
+    }
+    r.getCell(10).alignment = { horizontal: 'center', vertical: 'middle' };
+    applyThinBorders(r, 10);
+    execCursor += 1;
+  });
+  const mEnd = execCursor - 1;
+  const mTot = ws.getRow(execCursor);
+  mTot.values = [
+    'TOTAL (FY Apr-Mar)',
+    { formula: `SUM(B${mStart}:B${mEnd})`, result: tdsM.txns },
+    { formula: `SUM(C${mStart}:C${mEnd})`, result: tdsM.netPaid },
+    { formula: `SUM(D${mStart}:D${mEnd})`, result: tdsM.netTax },
+    { formula: `SUM(E${mStart}:E${mEnd})`, result: tcsM.txns },
+    { formula: `SUM(F${mStart}:F${mEnd})`, result: tcsM.netPaid },
+    { formula: `SUM(G${mStart}:G${mEnd})`, result: tcsM.netTax },
+    { formula: `SUM(H${mStart}:H${mEnd})`, result: allM.netTax },
+    { formula: `SUM(I${mStart}:I${mEnd})`, result: allM.dep },
+    yearBannerTag,
+  ];
+  styleTotalRow(mTot, 10, [3, 4, 6, 7, 8, 9]);
+  mTot.getCell(2).numFmt = '#,##0';
+  mTot.getCell(5).numFmt = '#,##0';
+}
+
+export async function buildForm26ASWorkbook(
+  rawParsed: ParsedForm26AS,
   options: Form26ASExcelOptions
 ): Promise<ArrayBuffer> {
+  const taxScope = options.taxScope ?? 'all';
+  const parsed = sliceParsedForm26ASByScope(rawParsed, taxScope);
   const includeSectionQuarter = options.includeSectionQuarterSummary ?? true;
   const includeAudit = options.includeAuditSheet ?? true;
+  const includeExecutiveSummary = options.includeExecutiveSummary ?? true;
+  const includeSeparateTdsTcsSheets = options.includeSeparateTdsTcsSheets ?? true;
   const emitProgress = (pct: number, stage: string) => options.onProgress?.(pct, stage);
 
-  emitProgress(8, 'Initializing workbook structure...');
+  emitProgress(8, 'Initializing bifurcated Form 26AS workbook...');
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'VCPL Tools — Form 26AS Engine';
+  wb.creator = 'VCPL Tools — PDF to Excel Convertor Form 26AS';
   wb.created = new Date();
   wb.calcProperties.fullCalcOnLoad = true;
+
+  const hasTdsData =
+    taxScope !== 'tcs' &&
+    (parsed.parties.some((p) => classify26ASTaxType(p) === 'TDS') ||
+      parsed.transactions.some((t) => classify26ASTaxType(t) === 'TDS'));
+  const hasTcsData =
+    taxScope !== 'tds' &&
+    (parsed.parties.some((p) => classify26ASTaxType(p) === 'TCS') ||
+      parsed.transactions.some((t) => classify26ASTaxType(t) === 'TCS'));
 
   const usedSheetNames = new Set<string>();
   const partySheetMap = new Map<string, string>();
 
+  if (includeExecutiveSummary) usedSheetNames.add('executive summary');
+  if (includeSeparateTdsTcsSheets && hasTdsData) {
+    usedSheetNames.add('tds - deductors');
+    usedSheetNames.add('tds - transactions');
+  }
+  if (includeSeparateTdsTcsSheets && hasTcsData) {
+    usedSheetNames.add('tcs - collectors');
+    usedSheetNames.add('tcs - transactions');
+  }
   if (options.includeCombinedSheet) usedSheetNames.add('26as');
   if (options.includePartySheets) usedSheetNames.add('party summary');
   if (includeSectionQuarter) usedSheetNames.add('section & quarter audit');
@@ -195,6 +1103,41 @@ export async function buildForm26ASWorkbook(
   const txStartRow = 7;
   const hasTransactions = parsed.transactions.length > 0;
   const txEndRow = hasTransactions ? txStartRow + parsed.transactions.length - 1 : txStartRow;
+
+  // =========================================================================
+  // 0. EXECUTIVE DASHBOARD & SEPARATE TDS / TCS BIFURCATED SCHEDULES
+  // =========================================================================
+  if (includeExecutiveSummary) {
+    emitProgress(12, 'Building Executive TDS vs TCS Dashboard & Apr–Mar Matrix...');
+    buildExecutiveDashboardSheet(wb, parsed, yearBannerTag, yearMetaTag);
+  }
+
+  if (includeSeparateTdsTcsSheets) {
+    if (hasTdsData) {
+      emitProgress(16, 'Building dedicated TDS Deductors & TDS Transactions sheets...');
+      buildTaxRoleSheets(
+        wb,
+        parsed,
+        'TDS',
+        'TDS - Deductors',
+        'TDS - Transactions',
+        yearBannerTag,
+        yearMetaTag
+      );
+    }
+    if (hasTcsData) {
+      emitProgress(19, 'Building dedicated TCS Collectors & TCS Transactions sheets...');
+      buildTaxRoleSheets(
+        wb,
+        parsed,
+        'TCS',
+        'TCS - Collectors',
+        'TCS - Transactions',
+        yearBannerTag,
+        yearMetaTag
+      );
+    }
+  }
 
   // =========================================================================
   // 1. COMBINED SINGLE SHEET ("26AS") — 19 COLUMNS (A..S) WITH LIVE FORMULAS
@@ -1843,6 +2786,178 @@ export async function buildForm26ASWorkbook(
       r.getCell(16).alignment = { horizontal: 'center', vertical: 'middle' };
       applyThinBorders(r, 16);
     });
+
+    // Table 4: Month-by-Month (Apr–Mar) Bifurcated TDS vs TCS Matrix
+    const lastSqRow = sqWs.lastRow ? sqWs.lastRow.number : rTitleRowNum + 3;
+    const mTitleRowNum = lastSqRow + 3;
+    sqWs.mergeCells(`A${mTitleRowNum}:P${mTitleRowNum}`);
+    const mTitle = sqWs.getCell(`A${mTitleRowNum}`);
+    mTitle.value = 'MONTH-WISE TDS vs TCS BIFURCATION MATRIX (APRIL TO MARCH)';
+    mTitle.font = { name: 'Calibri', size: 11, bold: true, color: { argb: STYLE_COLORS.headerText } };
+    mTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STYLE_COLORS.headerFill } };
+    mTitle.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    sqWs.getRow(mTitleRowNum).height = 24;
+
+    const mHdr = sqWs.getRow(mTitleRowNum + 1);
+    mHdr.values = [
+      'Sr',
+      'Fiscal Month',
+      'Quarter',
+      'Scope Mix',
+      'TDS Parties',
+      'TCS Parties',
+      'TDS Txns',
+      'TCS Txns',
+      'TDS Basis Paid',
+      'TCS Basis Amt',
+      'Total Basis Paid',
+      'TDS Deducted',
+      'TCS Collected',
+      'Total Deposited',
+      'Eff Rate %',
+      'Status',
+    ];
+    styleTableHeader(mHdr, 16);
+
+    const monthAgg = new Map<
+      string,
+      {
+        tdsParties: Set<string>;
+        tcsParties: Set<string>;
+        tdsTxns: number;
+        tcsTxns: number;
+        tdsPaid: number;
+        tcsPaid: number;
+        tdsTax: number;
+        tcsTax: number;
+        dep: number;
+      }
+    >();
+    [...FISCAL_MONTH_ORDER, 'Unspecified'].forEach((m) =>
+      monthAgg.set(m, {
+        tdsParties: new Set(),
+        tcsParties: new Set(),
+        tdsTxns: 0,
+        tcsTxns: 0,
+        tdsPaid: 0,
+        tcsPaid: 0,
+        tdsTax: 0,
+        tcsTax: 0,
+        dep: 0,
+      })
+    );
+
+    parsed.transactions.forEach((tx) => {
+      const m = getFiscalMonthLabel(tx.transactionDate);
+      const st = monthAgg.get(m) ?? monthAgg.get('Unspecified')!;
+      if (classify26ASTaxType(tx) === 'TCS') {
+        st.tcsParties.add(tx.tan);
+        st.tcsTxns += 1;
+        st.tcsPaid = round2(st.tcsPaid + tx.amountPaid);
+        st.tcsTax = round2(st.tcsTax + tx.taxDeducted);
+      } else {
+        st.tdsParties.add(tx.tan);
+        st.tdsTxns += 1;
+        st.tdsPaid = round2(st.tdsPaid + tx.amountPaid);
+        st.tdsTax = round2(st.tdsTax + tx.taxDeducted);
+      }
+      st.dep = round2(st.dep + tx.tdsDeposited);
+    });
+
+    const mStartRow = mTitleRowNum + 2;
+    const monthsToRender = [
+      ...FISCAL_MONTH_ORDER,
+      ...((monthAgg.get('Unspecified')?.tdsTxns ?? 0) + (monthAgg.get('Unspecified')?.tcsTxns ?? 0) > 0
+        ? ['Unspecified']
+        : []),
+    ];
+    const qLookup = (m: string) =>
+      ['Apr', 'May', 'Jun'].includes(m)
+        ? 'Q1'
+        : ['Jul', 'Aug', 'Sep'].includes(m)
+          ? 'Q2'
+          : ['Oct', 'Nov', 'Dec'].includes(m)
+            ? 'Q3'
+            : ['Jan', 'Feb', 'Mar'].includes(m)
+              ? 'Q4'
+              : '-';
+
+    monthsToRender.forEach((m, idx) => {
+      const st = monthAgg.get(m)!;
+      const rNum = mStartRow + idx;
+      const r = sqWs.getRow(rNum);
+      const combPaid = round2(st.tdsPaid + st.tcsPaid);
+      const combTax = round2(st.tdsTax + st.tcsTax);
+      const mix =
+        st.tdsTxns > 0 && st.tcsTxns > 0
+          ? 'TDS + TCS'
+          : st.tcsTxns > 0
+            ? 'TCS Only'
+            : st.tdsTxns > 0
+              ? 'TDS Only'
+              : 'Nil';
+
+      r.values = [
+        idx + 1,
+        m,
+        qLookup(m),
+        mix,
+        st.tdsParties.size,
+        st.tcsParties.size,
+        st.tdsTxns,
+        st.tcsTxns,
+        st.tdsPaid,
+        st.tcsPaid,
+        { formula: `I${rNum}+J${rNum}`, result: combPaid },
+        st.tdsTax,
+        st.tcsTax,
+        st.dep,
+        { formula: `IF(K${rNum}=0,0,ROUND((L${rNum}+M${rNum})/K${rNum},4))`, result: calcRateDecimal(combTax, combPaid) },
+        st.tdsTxns + st.tcsTxns > 0 ? 'Active' : 'No Entries',
+      ];
+      r.height = 19;
+      r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+      r.getCell(2).font = { bold: true };
+      r.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+      r.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
+      for (const c of [5, 6, 7, 8]) {
+        r.getCell(c).numFmt = '#,##0';
+        r.getCell(c).alignment = { horizontal: 'right', vertical: 'middle' };
+      }
+      for (let c = 9; c <= 14; c++) {
+        r.getCell(c).numFmt = INR_FMT;
+        r.getCell(c).alignment = { horizontal: 'right', vertical: 'middle' };
+      }
+      r.getCell(15).numFmt = PCT_FMT;
+      r.getCell(15).alignment = { horizontal: 'right', vertical: 'middle' };
+      r.getCell(16).alignment = { horizontal: 'center', vertical: 'middle' };
+      applyThinBorders(r, 16);
+    });
+
+    const mEndRow = mStartRow + monthsToRender.length - 1;
+    const mTotRowNum = mEndRow + 1;
+    const mTotRow = sqWs.getRow(mTotRowNum);
+    mTotRow.values = [
+      'TOTAL',
+      'Full FY (Apr-Mar)',
+      'Q1–Q4',
+      '',
+      '',
+      '',
+      { formula: `SUM(G${mStartRow}:G${mEndRow})`, result: parsed.transactions.filter((t) => classify26ASTaxType(t) === 'TDS').length },
+      { formula: `SUM(H${mStartRow}:H${mEndRow})`, result: parsed.transactions.filter((t) => classify26ASTaxType(t) === 'TCS').length },
+      { formula: `SUM(I${mStartRow}:I${mEndRow})`, result: round2(parsed.transactions.filter((t) => classify26ASTaxType(t) === 'TDS').reduce((s, t) => s + t.amountPaid, 0)) },
+      { formula: `SUM(J${mStartRow}:J${mEndRow})`, result: round2(parsed.transactions.filter((t) => classify26ASTaxType(t) === 'TCS').reduce((s, t) => s + t.amountPaid, 0)) },
+      { formula: `SUM(K${mStartRow}:K${mEndRow})`, result: totalAmount },
+      { formula: `SUM(L${mStartRow}:L${mEndRow})`, result: totalTdsOnly },
+      { formula: `SUM(M${mStartRow}:M${mEndRow})`, result: totalTcsOnly },
+      { formula: `SUM(N${mStartRow}:N${mEndRow})`, result: totalDeposited },
+      { formula: `IF(K${mTotRowNum}=0,0,ROUND((L${mTotRowNum}+M${mTotRowNum})/K${mTotRowNum},4))`, result: calcRateDecimal(totalDeducted, totalAmount) },
+      '',
+    ];
+    styleTotalRow(mTotRow, 16, [9, 10, 11, 12, 13, 14], [15]);
+    mTotRow.getCell(7).numFmt = '#,##0';
+    mTotRow.getCell(8).numFmt = '#,##0';
   }
 
   // =========================================================================
@@ -2064,10 +3179,11 @@ export async function buildForm26ASWorkbook(
     });
 
     reversalTxs.forEach((tx) => {
+      const txRole = classify26ASTaxType(tx);
       appendAuditRow(
         [
           srCounter,
-          `Reversal Entry (Remark ${tx.remarks})`,
+          `[${txRole}] Reversal Entry (Remark ${tx.remarks})`,
           tx.txSrNo || `${tx.srNo}`,
           tx.part,
           tx.partyName,
@@ -2082,6 +3198,39 @@ export async function buildForm26ASWorkbook(
           round2(tx.taxDeducted - tx.tdsDeposited),
         ],
         'warn'
+      );
+    });
+
+    // Statutory Rate Deviation check (>2.5% diff vs fixed statutory rate on positive rows)
+    const rateDeviationTxs = parsed.transactions.filter((tx) => {
+      if (tx.entryNature === 'Reversal' || tx.amountPaid <= 0) return false;
+      const meta = lookupSectionMeta(tx.section);
+      if (meta.standardRatePct === null) return false;
+      const effPct = (tx.taxDeducted / tx.amountPaid) * 100;
+      return Math.abs(effPct - meta.standardRatePct) > 2.5;
+    });
+    rateDeviationTxs.slice(0, 150).forEach((tx) => {
+      const meta = lookupSectionMeta(tx.section);
+      const txRole = classify26ASTaxType(tx);
+      const effPct = ((tx.taxDeducted / tx.amountPaid) * 100).toFixed(2);
+      appendAuditRow(
+        [
+          srCounter,
+          `[${txRole}] Rate Variance (${effPct}% vs Std ${meta.standardRatePct}%)`,
+          tx.txSrNo || `${tx.srNo}`,
+          tx.part,
+          tx.partyName,
+          tx.tan,
+          tx.partyPan || '-',
+          `${tx.section} (${meta.oldActEq})`,
+          tx.transactionDate,
+          tx.remarks,
+          tx.amountPaid,
+          tx.taxDeducted,
+          tx.tdsDeposited,
+          round2(tx.taxDeducted - (tx.amountPaid * (meta.standardRatePct ?? 0)) / 100),
+        ],
+        'info'
       );
     });
 

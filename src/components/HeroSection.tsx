@@ -67,8 +67,8 @@ const HERO_SPOTLIGHT_BOXES: SpotlightBoxItem[] = [
   {
     step: '02',
     id: 'form-26as-to-excel',
-    title: 'Form 26AS',
-    subtitle: 'TRACES 26AS PDF to Excel workbook',
+    title: 'PDF to Excel Convertor Form 26AS',
+    subtitle: 'TRACES 26AS PDF to bifurcated TDS/TCS Excel',
     icon: FileText,
   },
   {

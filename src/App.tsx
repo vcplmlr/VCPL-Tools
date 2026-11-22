@@ -130,7 +130,8 @@ function AppShell() {
     parseLocationToRoute(window.location.pathname, window.location.search)
   );
   const [navTriggerKey, setNavTriggerKey] = useState(0);
-  const [isVaultUnlocked, setIsVaultUnlocked] = useState(false);
+  const [vaultSession, setVaultSession] = useState<{ token: string; email: string } | null>(null);
+  const isVaultUnlocked = Boolean(vaultSession?.token);
   const [selectedBankForSlip, setSelectedBankForSlip] = useState<BankId | undefined>(undefined);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [cookieOpen, setCookieOpen] = useState(() => {
@@ -150,7 +151,7 @@ function AppShell() {
 
   useEffect(() => {
     const handlePageExit = () => {
-      setIsVaultUnlocked(false);
+      setVaultSession(null);
     };
     window.addEventListener('pagehide', handlePageExit);
     window.addEventListener('beforeunload', handlePageExit);
@@ -281,14 +282,10 @@ function AppShell() {
         handleGoHome();
         return;
       }
-      if (key === 'locked') {
-        handleOpenLockedVault();
-        return;
-      }
       const mapped = ICON_MENU_TO_FILTER[key] || 'All';
       handleOpenAllTools(mapped);
     },
-    [handleGoHome, handleOpenAllTools, handleOpenLockedVault]
+    [handleGoHome, handleOpenAllTools]
   );
 
   const activeFilter: ToolFilterType =
@@ -301,15 +298,12 @@ function AppShell() {
   const activeTool =
     route.view === 'tool' ? getToolById(route.toolId) : undefined;
 
-  const isBlockedVaultTool =
-    route.view === 'tool' && Boolean(activeTool?.vaultOnly) && !isVaultUnlocked;
+  const isBlockedVaultTool = false;
 
   const activeIconMenu: IconMenuKey | null = useMemo(() => {
     if (route.view === 'home') return 'home';
-    if (route.view === 'locked') return 'locked';
     if (route.view === 'all-tools') return FILTER_TO_ICON_MENU[route.filter];
     if (route.view === 'tool' && activeTool) {
-      if (activeTool.vaultOnly) return 'locked';
       return FILTER_TO_ICON_MENU[activeTool.category];
     }
     return null;
@@ -406,8 +400,9 @@ function AppShell() {
           {(route.view === 'locked' || isBlockedVaultTool) && (
             <LockedToolsPage
               isUnlocked={isVaultUnlocked}
-              onUnlock={() => setIsVaultUnlocked(true)}
-              onLock={() => setIsVaultUnlocked(false)}
+              vaultEmail={vaultSession?.email || ''}
+              onUnlock={(token, email) => setVaultSession({ token, email })}
+              onLock={() => setVaultSession(null)}
               onBackHome={handleGoHome}
               onOpenTool={(tool, fullScreen) => handleOpenTool(tool, fullScreen)}
             />
@@ -419,6 +414,7 @@ function AppShell() {
               initialBank={selectedBankForSlip}
               initialSubParam={route.subParam}
               isRouteFullScreen={Boolean(route.fullScreen)}
+              isVaultUnlocked={isVaultUnlocked}
               onToggleRouteFullScreen={(full) => handleOpenTool(activeTool, full)}
               onSyncToolSubParam={(subParam) => {
                 if (activeTool.id === 'rto-code-finder') {
@@ -438,12 +434,7 @@ function AppShell() {
                   window.history.replaceState(null, '', nextPath);
                 }
               }}
-              backLabel={activeTool.vaultOnly ? 'Back to Locked Vault' : undefined}
-              onClose={() =>
-                activeTool.vaultOnly
-                  ? handleOpenLockedVault()
-                  : handleOpenAllTools(activeTool.category)
-              }
+              onClose={() => handleOpenAllTools(activeTool.category)}
               onOpenCategory={(cat) => handleOpenAllTools(cat)}
               onSelectTool={(id) => handleOpenTool(id)}
               onOpenBankSlipWithBank={(bankId) => {

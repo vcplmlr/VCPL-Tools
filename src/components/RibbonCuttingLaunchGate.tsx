@@ -9,6 +9,7 @@ import {
   VolumeX,
   XCircle,
 } from 'lucide-react';
+import { PUBLIC_TOOLS_CATALOG } from '../data/toolsCatalog';
 import { VcplBrandLogo } from './VcplBrandLogo';
 
 export type CuttingToolId = 'knife' | 'scissors' | 'cutter';
@@ -521,7 +522,7 @@ export function RibbonCuttingLaunchGate({ onLaunchComplete }: RibbonCuttingLaunc
               Official Inauguration of VCPL Tools
             </h1>
             <p className="text-sm sm:text-base text-[#475569] dark:text-slate-300 leading-relaxed max-w-xl mx-auto">
-              179+ private browser-based banking, GST, Form 26AS, PDF &amp; calculation tools.
+              {PUBLIC_TOOLS_CATALOG.length}+ private browser-based banking, GST, Form 26AS, PDF &amp; calculation tools.
               Verify the 6-digit launch code, select your blade, and click the tied ribbon to
               officially open the website.
             </p>
@@ -842,7 +843,7 @@ export function RibbonCuttingLaunchGate({ onLaunchComplete }: RibbonCuttingLaunc
                   Ribbon Cut — VCPL Tools Officially Launched!
                 </p>
                 <p className="text-xs font-mono text-[#475569] dark:text-slate-300">
-                  Opening all 179+ utilities...
+                  Opening all {PUBLIC_TOOLS_CATALOG.length}+ utilities...
                 </p>
               </div>
             )}

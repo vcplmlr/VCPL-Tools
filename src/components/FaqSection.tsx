@@ -32,7 +32,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'free-no-signup',
     topic: 'General',
     question: `Are all ${PUBLIC_TOOLS_CATALOG.length} tools completely free without signup or watermarks?`,
-    answer: `Yes. Every one of our ${PUBLIC_TOOLS_CATALOG.length} browser utilities across Banking, Tax & GST, GST Utilities, Calculator Hub, PDF Suite, Image Studio, Typing & Text, QR Utilities, and VCPL Enterprise tools works immediately without login, paywalls, daily caps, or forced VCPL watermarks.`,
+    answer: `Yes. Every one of our ${PUBLIC_TOOLS_CATALOG.length} browser utilities across Banking, Tax & GST, GST Utilities, Calculator Hub, PDF Suite, Image Studio, Typing & Text, QR Utilities, VCPL Enterprise, Special Tools, and Learn Tools works immediately without login, paywalls, daily caps, or forced VCPL watermarks.`,
   },
   {
     id: 'official-affiliation',
@@ -53,7 +53,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'tax-gst-excel',
     topic: 'Banking & Tax',
     question:
-      'How do Form 26AS to Excel, GSTR-1 Return Prep, GSTR-2B vs Tally Reconciler, Invoice to Excel, and DMS vs Tally work?',
+      'How do PDF to Excel Convertor Form 26AS, GSTR-1 Return Prep, GSTR-2B vs Tally Reconciler, Invoice to Excel, and DMS vs Tally work?',
     answer:
       'Each tax and audit engine parses your PDF, JSON, CSV, or Excel files right inside your browser tab, normalizes GSTINs, invoice dates, taxable values, and TDS/ITC columns, and exports clean multi-sheet .xlsx audit workbooks or GST portal GSTR-1 JSON ready for Tally Prime or CA review—with zero cloud exposure.',
   },

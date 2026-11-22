@@ -18,7 +18,7 @@ function TickerSequence({ copyIndex }: { copyIndex: number }) {
         </span>
         <span>
           <strong className="text-white font-bold">Main Spotlight Tools (Boxes 01–08, 11–12, 18–24):</strong>{' '}
-          Bank Deposit Slip Generator, Form 26AS, GSTR-2B, PDF Invoice to Excel (HSN Summary Maker),
+          Bank Deposit Slip Generator, PDF to Excel Convertor Form 26AS, GSTR-2B, PDF Invoice to Excel (HSN Summary Maker),
           All-in-One Calculator, GST Invoice &amp; Quotation Maker, DMS vs Tally, Parts Billing
           vs Tally Reconciliation, TCS &amp; Tax Calculator, Rent Payment Letter Maker, Letterhead Invoice Maker, Textlift OCR Pro, BMW Vendor Ledger Reconciliation, BMW Claims Reconciler, VCPL Bulk Bank Transfer Form, 26AS ⇄ Tally Ledger Reco &amp; Bajaj Reconciliation Desk are{' '}
           <strong className="text-[#CEE5DC] font-semibold">

@@ -40,9 +40,11 @@ import {
 } from '../../utils/recoPeriodFilter';
 import { FileDropZone } from './FileDropZone';
 import { RecoPeriodFilterBar } from './RecoPeriodFilterBar';
+import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface BmwVendorLedgerReconcilerViewProps {
   tool?: ToolCatalogItem;
+  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -72,9 +74,21 @@ function statusPillClasses(s: string): string {
 
 export const BmwVendorLedgerReconcilerView: React.FC<BmwVendorLedgerReconcilerViewProps> = ({
   tool,
+  isVaultUnlocked = false,
   onBack,
 }) => {
-  return <BmwVendorLedgerWorkspace tool={tool} onBack={onBack} />;
+  return (
+    <ToolPasscodeGate
+      toolCode={`${tool?.code ?? 'VC-11'} · ${tool?.suite ?? 'VCPL Tools'}`}
+      toolTitle={tool?.title ?? 'BMW Vendor Ledger Reconciliation'}
+      sessionKey="vcpl_bmw_vendor_ledger_unlocked_v1"
+      bypassGate={isVaultUnlocked}
+      description="Authorized dealership access required for BMW Vendor Ledger Reconciliation. Enter the 6-digit passcode to unlock."
+      onBack={onBack}
+    >
+      {() => <BmwVendorLedgerWorkspace tool={tool} onBack={onBack} />}
+    </ToolPasscodeGate>
+  );
 };
 
 const BmwVendorLedgerWorkspace: React.FC<{

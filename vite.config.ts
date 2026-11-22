@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import {defineConfig, Plugin} from 'vite';
+import {syncAllSeoArtifacts} from './scripts/sync-seo';
 
 const VIRTUAL_BUILD_META_ID = 'virtual:vcpl-build-meta';
 const RESOLVED_VIRTUAL_BUILD_META_ID = '\0' + VIRTUAL_BUILD_META_ID;
@@ -37,7 +38,7 @@ const TOOL_KIND_FILES: Record<string, string[]> = {
   'unified-calculator': ['src/components/tools/UnifiedCalculatorView.tsx'],
   'financial-calc': ['src/components/tools/FinancialCalculatorView.tsx', 'src/data/financialCalculators.ts'],
   'exam-utility-calc': ['src/components/tools/ExamUtilityCalculatorView.tsx'],
-  'tax-26as': ['src/components/tools/Form26ASToExcelView.tsx'],
+  'tax-26as': ['src/components/tools/Form26ASToExcelView.tsx', 'src/utils/form26asExcelBuilder.ts', 'src/utils/form26asParser.ts'],
   'tax-gstr2b': ['src/components/tools/Gstr2bReconcilerView.tsx'],
   'tax-invoice': ['src/components/tools/InvoiceToExcelView.tsx'],
   'tax-invoice-maker': ['src/components/tools/InvoiceQuotationMakerView.tsx'],
@@ -46,7 +47,7 @@ const TOOL_KIND_FILES: Record<string, string[]> = {
   'pdf-converter': ['src/components/tools/PdfConverterView.tsx'],
   'pdf-form-filler': ['src/components/tools/PdfFormFillerView.tsx'],
   'image-studio': ['src/components/tools/ImageStudioView.tsx'],
-  'utility-engine': ['src/components/tools/UtilityEngineView.tsx'],
+  'utility-engine': ['src/components/tools/UtilityEngineView.tsx', 'src/components/tools/QrUpiStudioView.tsx'],
   'number-to-words': ['src/components/tools/NumberToWordsView.tsx'],
   'typing-engine': ['src/components/tools/TypingEngineView.tsx'],
   'dms-tally-reconciler': ['src/components/tools/DmsTallyReconcilerView.tsx'],
@@ -61,6 +62,11 @@ const TOOL_KIND_FILES: Record<string, string[]> = {
   'dbs-pnl-reports': ['src/components/tools/DbsPnlReportsView.tsx'],
   'gstr1-return-prep': ['src/components/tools/Gstr1ReturnPrepView.tsx'],
   'bmw-statement-reconciler': ['src/components/tools/BmwStatementReconcilerView.tsx'],
+  'bmw-vendor-ledger-reconciler': ['src/components/tools/BmwVendorLedgerReconcilerView.tsx'],
+  'bmw-claims-reconciler': ['src/components/tools/BmwClaimsReconcilerView.tsx'],
+  'vcpl-rtgs-neft-form': ['src/components/tools/VcplRtgsNeftFormView.tsx'],
+  'tds-26as-tally-reco': ['src/components/tools/Tds26asTallyRecoView.tsx'],
+  'bajaj-reconciliation-desk': ['src/components/tools/BajajReconciliationView.tsx'],
   'fuel-report-generator': ['src/components/tools/FuelReportGeneratorView.tsx'],
   'covering-letter-generator': ['src/components/tools/CoveringLetterGeneratorView.tsx'],
   'letterhead-invoice-maker': ['src/components/tools/EmbeddedHtmlToolView.tsx'],
@@ -74,6 +80,9 @@ const TOOL_KIND_FILES: Record<string, string[]> = {
   'rto-code-finder': ['src/components/tools/RtoCodeFinderView.tsx'],
   'pin-code-finder': ['src/components/tools/PinCodeFinderView.tsx'],
   'database-file-compressor': ['src/components/tools/DatabaseFileCompressorView.tsx'],
+  'tulusiri-pro': ['src/components/tools/TulusiriProView.tsx'],
+  'keyboard-shortcuts': ['src/components/tools/KeyboardShortcutsView.tsx'],
+  'tally-shortcuts': ['src/components/tools/TallyShortcutsView.tsx'],
 };
 
 function formatIstStamp(ms: number) {
@@ -262,9 +271,25 @@ function spa404FallbackPlugin() {
   };
 }
 
+function vcplSeoSyncPlugin(): Plugin {
+  const rootDir = import.meta.dirname;
+  let isBuildCommand = false;
+  return {
+    name: 'vcpl-seo-sync',
+    configResolved(config) {
+      isBuildCommand = config.command === 'build';
+    },
+    buildStart() {
+      if (isBuildCommand) {
+        syncAllSeoArtifacts(rootDir);
+      }
+    },
+  };
+}
+
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss(), vcplBuildMetadataPlugin(), spa404FallbackPlugin()],
+    plugins: [react(), tailwindcss(), vcplBuildMetadataPlugin(), vcplSeoSyncPlugin(), spa404FallbackPlugin()],
     resolve: {
       dedupe: ['react', 'react-dom'],
       alias: {
