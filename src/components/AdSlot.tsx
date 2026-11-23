@@ -709,6 +709,70 @@ export function AdSlot({
     );
   }
 
+  /* 5b. Editorial Text-Based In-Content Ad (Anchor Link + Subtle Left Rule) */
+  if (variant === 'text-inline') {
+    const isBharath = creative.brand === 'bharathtools';
+    const altBrand: PartnerBrand = isBharath ? 'tulusiri' : 'bharathtools';
+    const altCreative = getBrandCreative(altBrand, `${slotId}-alt`, 2);
+    return (
+      <aside
+        aria-label={`Sponsored Text Recommendation — ${creative.brandName}`}
+        data-ad-slot={slotId}
+        data-ad-format="text-link"
+        data-ad-context={contentContext || creative.badge}
+        className={`w-full no-print my-2 ${className}`}
+      >
+        <div
+          className={`border-l-[3px] pl-4 pr-3 py-2.5 rounded-r-xl bg-[#FEF2C8]/55 dark:bg-[#0B1120]/80 ${
+            isBharath
+              ? 'border-[#12805C] dark:border-emerald-400'
+              : 'border-[#7D0B0B] dark:border-[#F9C80E]'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-[#64748B] dark:text-slate-400">
+            <span
+              className={`font-bold ${
+                isBharath ? 'text-[#12805C] dark:text-emerald-300' : 'text-[#7D0B0B] dark:text-[#F9C80E]'
+              }`}
+            >
+              Sponsored Resource · {creative.domain}
+            </span>
+            <button
+              type="button"
+              onClick={openCookiePreferences}
+              className="underline underline-offset-2 hover:text-[#2F3E4E] dark:hover:text-[#F9C80E] cursor-pointer"
+            >
+              Ad Choices
+            </button>
+          </div>
+          <p className="mt-1 text-xs sm:text-sm leading-relaxed text-[#334155] dark:text-slate-200">
+            <a
+              href={creative.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`font-display font-extrabold underline decoration-2 underline-offset-3 transition-colors ${
+                isBharath
+                  ? 'text-[#12805C] dark:text-emerald-300 hover:text-[#0B4F38] dark:hover:text-[#F9C80E]'
+                  : 'text-[#7D0B0B] dark:text-[#F9C80E] hover:text-[#4C0606] dark:hover:text-white'
+              }`}
+            >
+              {creative.headline}
+            </a>{' '}
+            — {creative.subcopy}{' '}
+            <a
+              href={altCreative.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold underline underline-offset-2 text-[#2F3E4E] dark:text-slate-100 hover:text-[#12805C] dark:hover:text-[#F9C80E]"
+            >
+              Also explore {altCreative.brandName} ({altCreative.domain}) ↗
+            </a>
+          </p>
+        </div>
+      </aside>
+    );
+  }
+
   /* 6. Compact Strip, Leaderboard, Inline, In-Article & Workspace Text Banners */
   const isBharath = creative.brand === 'bharathtools';
   const isCompact = variant === 'compact-strip';

@@ -32,7 +32,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'free-no-signup',
     topic: 'General',
     question: `Are all ${PUBLIC_TOOLS_CATALOG.length} tools completely free without signup or watermarks?`,
-    answer: `Yes. Every one of our ${PUBLIC_TOOLS_CATALOG.length} browser utilities across Banking, Tax & GST, GST Utilities, Calculator Hub, PDF Suite, Image Studio, Typing & Text, QR Utilities, VCPL Enterprise, Special Tools, and Learn Tools works immediately without login, paywalls, daily caps, or forced VCPL watermarks.`,
+    answer: `Yes. Every one of our ${PUBLIC_TOOLS_CATALOG.length} browser utilities across Banking, Tax & GST, Calculator Hub, PDF Suite, Image Studio, Typing & Text, QR Utilities, VCPL Enterprise, Special Tools, and Learn Tools works immediately without login, paywalls, daily caps, or forced VCPL watermarks.`,
   },
   {
     id: 'official-affiliation',

@@ -1,3 +1,4 @@
+import { BLOG_POSTS } from '../data/blogPostsData';
 import { LEGAL_PAGES, LegalPageSlug } from '../data/legalPagesData';
 import { PUBLIC_TOOLS_CATALOG, TOOL_SECTION_HEADS } from '../data/toolsCatalog';
 import { ToolCatalogItem, ToolFilterType } from '../types/tools';
@@ -7,7 +8,6 @@ export const DEFAULT_SITE_ORIGIN = 'https://vcpltools.vercel.app';
 export const CATEGORY_SLUG_BY_FILTER: Record<Exclude<ToolFilterType, 'All'>, string> = {
   Banking: 'bank-slips',
   'Tax & GST': 'tax-gst',
-  'GST Utilities': 'gst-utilities',
   Calculator: 'calculator',
   'PDF Suite': 'pdf-tools',
   'Image Studio': 'image-tools',
@@ -77,10 +77,16 @@ export function getLegalPath(slug: LegalPageSlug): string {
   return `/${slug}`;
 }
 
+export function getBlogPath(slug?: string): string {
+  return slug ? `/blog/${slug}` : '/blog';
+}
+
 export interface SitemapUrlEntry {
   loc: string;
   changefreq: 'daily' | 'weekly' | 'monthly' | 'yearly';
   priority: string;
+  lastmod?: string;
+  image?: { loc: string; title: string };
 }
 
 export function getAllCanonicalSitemapUrls(origin: string = DEFAULT_SITE_ORIGIN): SitemapUrlEntry[] {
@@ -89,6 +95,7 @@ export function getAllCanonicalSitemapUrls(origin: string = DEFAULT_SITE_ORIGIN)
   const rawEntries: SitemapUrlEntry[] = [
     { loc: `${cleanOrigin}/`, changefreq: 'weekly', priority: '1.0' },
     { loc: `${cleanOrigin}/tools`, changefreq: 'weekly', priority: '0.95' },
+    { loc: `${cleanOrigin}/blog`, changefreq: 'weekly', priority: '0.9' },
     { loc: `${cleanOrigin}/sitemap`, changefreq: 'weekly', priority: '0.75' },
     ...TOOL_SECTION_HEADS.map((head) => ({
       loc: `${cleanOrigin}${getAllToolsPath(head.key)}`,
@@ -99,6 +106,16 @@ export function getAllCanonicalSitemapUrls(origin: string = DEFAULT_SITE_ORIGIN)
       loc: `${cleanOrigin}${getToolPath(tool)}`,
       changefreq: 'monthly' as const,
       priority: tool.featuredPrimary ? '0.85' : '0.8',
+    })),
+    ...BLOG_POSTS.map((post) => ({
+      loc: `${cleanOrigin}${getBlogPath(post.slug)}`,
+      changefreq: 'weekly' as const,
+      priority: '0.85',
+      lastmod: post.updatedIso,
+      image: {
+        loc: `${cleanOrigin}${post.coverImage}`,
+        title: post.title,
+      },
     })),
     ...(Object.keys(LEGAL_PAGES) as LegalPageSlug[]).map((slug) => ({
       loc: `${cleanOrigin}${getLegalPath(slug)}`,
@@ -129,13 +146,20 @@ export function buildSitemapXmlString(
 ): string {
   const entries = getAllCanonicalSitemapUrls(origin);
   const xmlRows = entries
-    .map(
-      (entry) =>
-        `  <url>\n    <loc>${escapeXml(entry.loc)}</loc>\n    <lastmod>${escapeXml(lastmod)}</lastmod>\n    <changefreq>${entry.changefreq}</changefreq>\n    <priority>${entry.priority}</priority>\n  </url>`
-    )
+    .map((entry) => {
+      const rowLastmod = entry.lastmod ?? lastmod;
+      const imageXml = entry.image
+        ? `\n    <image:image>\n      <image:loc>${escapeXml(entry.image.loc)}</image:loc>\n      <image:title>${escapeXml(entry.image.title)}</image:title>\n    </image:image>`
+        : '';
+      return `  <url>\n    <loc>${escapeXml(entry.loc)}</loc>\n    <lastmod>${escapeXml(
+        rowLastmod
+      )}</lastmod>\n    <changefreq>${entry.changefreq}</changefreq>\n    <priority>${
+        entry.priority
+      }</priority>${imageXml}\n  </url>`;
+    })
     .join('\n');
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${xmlRows}\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${xmlRows}\n</urlset>\n`;
 }
 
 export function buildRobotsTxtString(origin: string = DEFAULT_SITE_ORIGIN): string {

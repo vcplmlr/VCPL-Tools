@@ -786,7 +786,7 @@ export const TaxBankingExtraView: React.FC<TaxBankingExtraViewProps> = ({ tool }
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-7 space-y-4 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1.5">
+          <div className="lg:col-span-7 space-y-4">
             <div>
               <label className="block text-xs font-bold text-[#2F3E4E] mb-1">Transaction Scenario (IGST Act Rule)</label>
               <select

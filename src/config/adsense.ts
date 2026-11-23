@@ -5,6 +5,7 @@ export type AdSlotVariant =
   | 'billboard'
   | 'inline'
   | 'in-article'
+  | 'text-inline'
   | 'workspace'
   | 'compact-strip'
   | 'dual'

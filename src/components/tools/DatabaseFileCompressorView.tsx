@@ -795,7 +795,7 @@ export const DatabaseFileCompressorView: React.FC<DatabaseFileCompressorViewProp
           </div>
 
           {/* RIGHT COLUMN: Compression Engine Controls */}
-          <div className="xl:col-span-5 xl:sticky xl:top-20 xl:max-h-[calc(100dvh-5.5rem)] xl:overflow-y-auto xl:pr-1 space-y-5">
+          <div className="xl:col-span-5 xl:sticky xl:top-20 xl:max-h-[calc(100dvh-5.5rem)] xl:overflow-y-auto xl:pr-2 xl:pb-2 vcpl-slim-scroll space-y-5">
             <div className="rounded-2xl bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] p-5 shadow-[0_4px_0_#2F3E4E] space-y-5">
               <h3 className="font-display font-extrabold text-sm uppercase tracking-wider text-[#2F3E4E] flex items-center gap-2">
                 <Cpu className="w-4 h-4 text-[#2F3E4E]" />

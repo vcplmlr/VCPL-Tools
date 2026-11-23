@@ -8,8 +8,32 @@ interface ToolArticleSectionProps {
   tool: ToolCatalogItem;
 }
 
+const TECHNICAL_TOOL_IDS = new Set([
+  'pdf-unlocker',
+  'pdf-redact',
+  'pdf-protector',
+  'ocr-scanned-pdf',
+  'pdf-editor-advanced',
+  'pdf-merger-splitter',
+  'pdf-compressor',
+]);
+
 export function ToolArticleSection({ tool }: ToolArticleSectionProps) {
   const article = getToolArticle(tool);
+  const isTechnicalTool = TECHNICAL_TOOL_IDS.has(tool.id);
+  const authorName = isTechnicalTool ? 'Arjun Bangera' : 'Kaushik Bangera';
+
+  const wordCount = [
+    ...article.overview,
+    ...article.howToUse.flatMap((s) => [s.stepTitle, s.detail]),
+    ...article.keyBenefits.flatMap((b) => [b.title, b.detail]),
+    ...article.faqs.flatMap((f) => [f.question, f.answer]),
+  ]
+    .join(' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+  const readMinutes = Math.max(2, Math.ceil(wordCount / 210));
 
   // Inject tool-specific HowTo + FAQPage structured JSON-LD cleanly on tool view
   useEffect(() => {
@@ -71,6 +95,12 @@ export function ToolArticleSection({ tool }: ToolArticleSectionProps) {
           <span className="font-mono font-bold text-[#2F3E4E] dark:text-[#F9C80E]">{tool.code}</span>
           <span aria-hidden="true">·</span>
           <span>{tool.categoryName}</span>
+          <span aria-hidden="true">·</span>
+          <span className="font-mono tabular-nums text-[#12805C] dark:text-emerald-400">
+            {readMinutes} min read ({wordCount.toLocaleString()} words)
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>By {authorName}</span>
         </div>
 
         <h2

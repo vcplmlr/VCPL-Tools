@@ -2,7 +2,6 @@ export type ToolFilterType =
   | 'All'
   | 'Banking'
   | 'Tax & GST'
-  | 'GST Utilities'
   | 'Calculator'
   | 'PDF Suite'
   | 'Image Studio'

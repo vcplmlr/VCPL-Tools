@@ -437,7 +437,7 @@ export const FinancialCalculatorView: React.FC<FinancialCalculatorViewProps> = (
       {/* Main Interactive Calculator Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start print:block">
         {/* Left Column: Parameter Inputs */}
-        <div className="lg:col-span-5 bg-[#FFFDF5] rounded-2xl p-6 border-[1.5px] border-[#2F3E4E] shadow-[0_4px_0_#2F3E4E] space-y-6 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1.5 no-print print:max-h-none print:overflow-visible">
+        <div className="lg:col-span-5 bg-[#FFFDF5] rounded-2xl p-6 border-[1.5px] border-[#2F3E4E] shadow-[0_4px_0_#2F3E4E] space-y-6 no-print">
           <div className="flex items-center justify-between pb-3.5 border-b border-[#2F3E4E]/15">
             <h2 className="font-display text-sm font-extrabold text-[#2F3E4E] uppercase tracking-wider">
               Input Parameters

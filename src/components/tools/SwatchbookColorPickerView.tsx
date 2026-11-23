@@ -609,7 +609,7 @@ export const SwatchbookColorPickerView: React.FC<SwatchbookColorPickerViewProps>
           </div>
         </div>
 
-        <div className="lg:col-span-7 bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-5 shadow-[0_4px_0_#2F3E4E] space-y-3 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1">
+        <div className="lg:col-span-7 bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-5 shadow-[0_4px_0_#2F3E4E] space-y-3">
           <div>
             <h2 className="font-display font-extrabold text-lg text-[#2F3E4E]">
               Formats &amp; Code

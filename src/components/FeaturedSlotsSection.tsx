@@ -3,7 +3,6 @@ import {
   ArrowRight,
   Building2,
   Calculator,
-  FileSpreadsheet,
   FileText,
   GraduationCap,
   Image as ImageIcon,
@@ -39,7 +38,6 @@ const HOMEPAGE_VCPL_MAX = 10;
 const SUITE_KEYS: { key: Exclude<ToolFilterType, 'All'>; label: string }[] = [
   { key: 'Banking', label: 'Banking' },
   { key: 'Tax & GST', label: 'Tax & GST' },
-  { key: 'GST Utilities', label: 'GST' },
   { key: 'Calculator', label: 'Calculator' },
   { key: 'PDF Suite', label: 'PDF' },
   { key: 'Image Studio', label: 'Image' },
@@ -51,11 +49,11 @@ const SUITE_KEYS: { key: Exclude<ToolFilterType, 'All'>; label: string }[] = [
 ];
 
 const FILTER_TABS: { key: ToolFilterType; label: string; count: number }[] = [
-  { key: 'All', label: 'All', count: PUBLIC_TOOLS_CATALOG.filter((t) => t.id !== 'gstr1-return-prep').length },
+  { key: 'All', label: 'All', count: PUBLIC_TOOLS_CATALOG.length },
   ...SUITE_KEYS.map(({ key, label }) => ({
     key,
     label,
-    count: getToolsForCategory(key).filter((t) => t.id !== 'gstr1-return-prep').length,
+    count: getToolsForCategory(key).length,
   })),
 ];
 
@@ -74,8 +72,6 @@ function getSuiteIcon(key: Exclude<ToolFilterType, 'All'>) {
       return Landmark;
     case 'Tax & GST':
       return Receipt;
-    case 'GST Utilities':
-      return FileSpreadsheet;
     case 'Calculator':
       return Calculator;
     case 'PDF Suite':
@@ -113,7 +109,6 @@ export function FeaturedSlotsSection({
     )
       .map((head) => {
         const filteredSectionTools = PUBLIC_TOOLS_CATALOG.filter((tool) => {
-          if (tool.id === 'gstr1-return-prep') return false;
           const matchesSuite =
             activeFilter === 'All' && q
               ? tool.category === head.key
@@ -153,7 +148,7 @@ export function FeaturedSlotsSection({
   );
 
   const activeFilterTotalCount = useMemo(
-    () => getToolsForCategory(activeFilter).filter((t) => t.id !== 'gstr1-return-prep').length,
+    () => getToolsForCategory(activeFilter).length,
     [activeFilter]
   );
 

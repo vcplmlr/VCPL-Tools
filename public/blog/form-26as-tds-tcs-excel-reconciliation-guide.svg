@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <pattern id="vcpl-blog-dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="4" r="1.4" fill="#2F3E4E" fill-opacity="0.11" />
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="#FEF2C8" />
+  <rect width="1200" height="630" fill="url(#vcpl-blog-dots)" />
+
+  <rect x="0" y="0" width="1200" height="14" fill="#2F3E4E" />
+  <rect x="0" y="14" width="1200" height="6" fill="#12805C" />
+
+  <rect x="44" y="48" width="1112" height="534" rx="28" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="4" />
+
+  <rect x="96" y="96" width="174" height="40" rx="10" fill="#2F3E4E" />
+  <rect x="108" y="106" width="10" height="10" rx="2" fill="#F9C80E" />
+  <rect x="120" y="106" width="10" height="10" rx="2" fill="#CEE5DC" />
+  <rect x="108" y="118" width="10" height="10" rx="2" fill="#CEE5DC" />
+  <rect x="120" y="118" width="10" height="10" rx="2" fill="#F9C80E" />
+  <text x="142" y="122" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="16" letter-spacing="0.8">VCPL BLOG</text>
+
+  <rect x="284" y="96" width="256" height="40" rx="10" fill="#CEE5DC" stroke="#2F3E4E" stroke-width="2" />
+  <text x="412" y="121" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="15">TAX AUDIT &amp; TRACES 26AS</text>
+
+  <text x="96" y="236" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="36" letter-spacing="-0.8">How to Bifurcate Form 26AS TDS</text>
+  <text x="96" y="284" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="36" letter-spacing="-0.8">&amp; TCS Schedules in Excel for</text>
+  <text x="96" y="332" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="36" letter-spacing="-0.8">Faster Tax Audit</text>
+
+  <text x="96" y="402" fill="#475569" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="18">By Arjun Bangera · 6 min read · 23 Nov 2026</text>
+
+
+  <!-- Tax / Form 26AS Excel Ledger Artwork -->
+  <g transform="translate(736, 98)">
+    <rect x="0" y="0" width="380" height="390" rx="22" fill="#FEF2C8" stroke="#2F3E4E" stroke-width="3.5" />
+    <rect x="0" y="0" width="380" height="58" rx="22" fill="#12805C" />
+    <rect x="0" y="34" width="380" height="24" fill="#12805C" />
+    <text x="26" y="38" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="18">FORM 26AS · 4-TAB XLSX</text>
+
+    <rect x="24" y="80" width="158" height="92" rx="14" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="2.5" />
+    <text x="40" y="108" fill="#12805C" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="14">PART A · TDS</text>
+    <rect x="40" y="122" width="122" height="10" rx="5" fill="#CEE5DC" />
+    <rect x="40" y="142" width="94" height="10" rx="5" fill="#F9C80E" />
+
+    <rect x="198" y="80" width="158" height="92" rx="14" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="2.5" />
+    <text x="214" y="108" fill="#B45309" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="14">PART B · TCS</text>
+    <rect x="214" y="122" width="122" height="10" rx="5" fill="#FDE68A" />
+    <rect x="214" y="142" width="84" height="10" rx="5" fill="#12805C" />
+
+    <rect x="24" y="192" width="332" height="114" rx="14" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="2.5" />
+    <text x="40" y="218" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="14">Q1 – Q4 TALLY MATRIX</text>
+    <rect x="44" y="256" width="48" height="32" rx="6" fill="#CEE5DC" stroke="#2F3E4E" stroke-width="1.5" />
+    <rect x="112" y="238" width="48" height="50" rx="6" fill="#12805C" stroke="#2F3E4E" stroke-width="1.5" />
+    <rect x="180" y="246" width="48" height="42" rx="6" fill="#F9C80E" stroke="#2F3E4E" stroke-width="1.5" />
+    <rect x="248" y="228" width="48" height="60" rx="6" fill="#2F3E4E" />
+
+    <rect x="24" y="324" width="332" height="44" rx="12" fill="#2F3E4E" />
+    <text x="190" y="352" text-anchor="middle" fill="#F9C80E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="15">TAN &amp; SECTION BIFURCATION · OFFLINE</text>
+  </g>
+
+  <rect x="96" y="512" width="1008" height="44" rx="12" fill="#2F3E4E" />
+  <text x="122" y="540" fill="#F9C80E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="17">vcpltools.vercel.app/blog</text>
+  <text x="1078" y="540" text-anchor="end" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="16">TDS &amp; TCS Guide · 100% Browser-Private Utilities</text>
+</svg>

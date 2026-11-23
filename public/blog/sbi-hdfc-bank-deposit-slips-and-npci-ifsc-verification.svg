@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <pattern id="vcpl-blog-dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="4" r="1.4" fill="#2F3E4E" fill-opacity="0.11" />
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="#FEF2C8" />
+  <rect width="1200" height="630" fill="url(#vcpl-blog-dots)" />
+
+  <rect x="0" y="0" width="1200" height="14" fill="#2F3E4E" />
+  <rect x="0" y="14" width="1200" height="6" fill="#1E3A8A" />
+
+  <rect x="44" y="48" width="1112" height="534" rx="28" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="4" />
+
+  <rect x="96" y="96" width="174" height="40" rx="10" fill="#2F3E4E" />
+  <rect x="108" y="106" width="10" height="10" rx="2" fill="#F9C80E" />
+  <rect x="120" y="106" width="10" height="10" rx="2" fill="#CEE5DC" />
+  <rect x="108" y="118" width="10" height="10" rx="2" fill="#CEE5DC" />
+  <rect x="120" y="118" width="10" height="10" rx="2" fill="#F9C80E" />
+  <text x="142" y="122" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="16" letter-spacing="0.8">VCPL BLOG</text>
+
+  <rect x="284" y="96" width="256" height="40" rx="10" fill="#DBEAFE" stroke="#2F3E4E" stroke-width="2" />
+  <text x="412" y="121" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="15">BANKING SLIPS &amp; RBI IFSC</text>
+
+  <text x="96" y="236" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="36" letter-spacing="-0.8">Zero-Error Daily Banking:</text>
+  <text x="96" y="284" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="36" letter-spacing="-0.8">Printable SBI &amp; HDFC Deposit</text>
+  <text x="96" y="332" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="36" letter-spacing="-0.8">Slips, RTGS Forms &amp; IFSC Checks</text>
+
+  <text x="96" y="402" fill="#475569" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="18">By Arjun Bangera · 5 min read · 23 Nov 2026</text>
+
+
+  <!-- Bank Deposit Slip & IFSC Blueprint Artwork -->
+  <g transform="translate(736, 98)">
+    <rect x="0" y="0" width="380" height="390" rx="22" fill="#DBEAFE" stroke="#2F3E4E" stroke-width="3.5" />
+    <rect x="0" y="0" width="380" height="58" rx="22" fill="#1E3A8A" />
+    <rect x="0" y="34" width="380" height="24" fill="#1E3A8A" />
+    <text x="26" y="38" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="18">A4 DEPOSIT &amp; RTGS FORM</text>
+
+    <rect x="24" y="80" width="332" height="176" rx="14" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="2.5" />
+    <line x1="126" y1="88" x2="126" y2="248" stroke="#2F3E4E" stroke-width="2" stroke-dasharray="6 5" />
+    <text x="40" y="108" fill="#1E3A8A" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="12">COUNTERFOIL</text>
+    <rect x="40" y="122" width="70" height="10" rx="4" fill="#CBD5E1" />
+    <rect x="40" y="142" width="58" height="10" rx="4" fill="#CBD5E1" />
+    <rect x="40" y="170" width="70" height="28" rx="6" fill="#FEF2C8" stroke="#2F3E4E" stroke-width="1.5" />
+    <text x="75" y="189" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="11">₹ TOTAL</text>
+
+    <text x="146" y="108" fill="#1E3A8A" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="13">BANK PAY-IN / CHEQUE COPY</text>
+    <rect x="146" y="122" width="190" height="14" rx="5" fill="#E2E8F0" />
+    <rect x="146" y="146" width="150" height="14" rx="5" fill="#E2E8F0" />
+    <rect x="146" y="176" width="88" height="24" rx="6" fill="#F9C80E" stroke="#2F3E4E" stroke-width="1.5" />
+    <text x="190" y="193" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="11">SBI · HDFC</text>
+    <rect x="242" y="176" width="94" height="24" rx="6" fill="#CEE5DC" stroke="#2F3E4E" stroke-width="1.5" />
+    <text x="289" y="193" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="11">IN WORDS</text>
+    <rect x="146" y="212" width="190" height="26" rx="6" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.2" />
+    <text x="241" y="230" text-anchor="middle" fill="#475569" font-family="monospace" font-weight="700" font-size="12">₹500 × 20 · ₹200 × 10</text>
+
+    <rect x="24" y="272" width="332" height="44" rx="12" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="2" />
+    <text x="190" y="299" text-anchor="middle" fill="#1E3A8A" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="14">182,000+ RBI IFSC &amp; MICR CHECKED</text>
+
+    <rect x="24" y="328" width="332" height="40" rx="12" fill="#2F3E4E" />
+    <text x="190" y="353" text-anchor="middle" fill="#F9C80E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="14">FULL A4 &amp; PRE-PRINTED MODES</text>
+  </g>
+
+  <rect x="96" y="512" width="1008" height="44" rx="12" fill="#2F3E4E" />
+  <text x="122" y="540" fill="#F9C80E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="17">vcpltools.vercel.app/blog</text>
+  <text x="1078" y="540" text-anchor="end" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="16">Banking &amp; UPI Guide · 100% Browser-Private Utilities</text>
+</svg>

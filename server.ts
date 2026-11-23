@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { startBackendBlogScheduler } from './src/server/blogScheduler.ts';
 import { getDb } from './src/server/db.ts';
 import { seedRtoIfEmpty } from './src/server/importers.ts';
 import { createApiRouter, warmDirectoryCache } from './src/server/routes.ts';
@@ -54,6 +55,7 @@ async function startServer() {
   app.listen(port, '0.0.0.0', () => {
     console.log(`VCPL Tools server running on http://0.0.0.0:${port}`);
     warmDirectoryCache();
+    startBackendBlogScheduler();
   });
 }
 

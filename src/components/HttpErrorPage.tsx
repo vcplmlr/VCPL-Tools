@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Clock,
   Compass,
-  FileSpreadsheet,
   FileText,
   Gauge,
   Home,
@@ -30,7 +29,7 @@ import {
   HttpErrorCode,
 } from '../data/errorPagesData';
 import { LegalPageSlug } from '../data/legalPagesData';
-import { PUBLIC_TOOLS_CATALOG } from '../data/toolsCatalog';
+import { PUBLIC_TOOLS_CATALOG, getToolsForCategory } from '../data/toolsCatalog';
 import { ToolFilterType } from '../types/tools';
 
 export interface HttpErrorPageProps {
@@ -49,9 +48,8 @@ export interface HttpErrorPageProps {
 
 const POPULAR_SUITES: { label: string; filter: ToolFilterType; Icon: typeof Landmark }[] = [
   { label: 'Banking & Deposit Slips', filter: 'Banking', Icon: Landmark },
-  { label: 'Tax & GST Utilities', filter: 'Tax & GST', Icon: Receipt },
-  { label: 'GST Utilities & GSTR-1', filter: 'GST Utilities', Icon: FileSpreadsheet },
-  { label: 'PDF Suite (33 Tools)', filter: 'PDF Suite', Icon: FileText },
+  { label: 'Tax, GST & GSTR-1 Utilities', filter: 'Tax & GST', Icon: Receipt },
+  { label: `PDF Suite (${getToolsForCategory('PDF Suite').length} Tools)`, filter: 'PDF Suite', Icon: FileText },
   { label: `All ${PUBLIC_TOOLS_CATALOG.length} Tools Directory`, filter: 'All', Icon: LayoutGrid },
 ];
 

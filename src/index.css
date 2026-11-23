@@ -81,6 +81,31 @@
   scrollbar-width: none;
 }
 
+.vcpl-slim-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(47, 62, 78, 0.28) transparent;
+}
+.vcpl-slim-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.vcpl-slim-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.vcpl-slim-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(47, 62, 78, 0.28);
+  border-radius: 9999px;
+}
+.vcpl-slim-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(47, 62, 78, 0.48);
+}
+.dark .vcpl-slim-scroll {
+  scrollbar-color: rgba(249, 200, 14, 0.35) transparent;
+}
+.dark .vcpl-slim-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(249, 200, 14, 0.35);
+}
+
 /* =========================================================
    CUSTOM CURSOR (Image 5)
    ========================================================= */

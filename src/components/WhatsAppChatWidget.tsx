@@ -10,6 +10,7 @@ export type WhatsAppPageView =
   | 'all-tools'
   | 'tool'
   | 'legal'
+  | 'blog'
   | 'locked'
   | 'sitemap'
   | 'not-found';
@@ -46,6 +47,9 @@ export function WhatsAppChatWidget({
     }
     if (view === 'legal' && activeLegalSlug) {
       return `${LEGAL_PAGES[activeLegalSlug]?.navTitle ?? 'Information'} Page`;
+    }
+    if (view === 'blog') {
+      return 'Blog & Guides Page';
     }
     if (view === 'locked') {
       return 'Locked Vault Page';

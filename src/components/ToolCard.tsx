@@ -272,8 +272,6 @@ function getSuiteIconBg(category: ToolCatalogItem['category']): string {
       return 'bg-[#FFE1B3] dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-400/40';
     case 'Tax & GST':
       return 'bg-[#CEE5DC] dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-400/40';
-    case 'GST Utilities':
-      return 'bg-[#CEE5DC] dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-400/40';
     case 'Calculator':
       return 'bg-[#F9C80E] dark:text-[#0F172A] dark:border-[#F9C80E]';
     case 'PDF Suite':

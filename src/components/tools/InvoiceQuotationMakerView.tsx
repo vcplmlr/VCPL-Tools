@@ -1501,8 +1501,8 @@ export const InvoiceQuotationMakerView: React.FC<InvoiceQuotationMakerViewProps>
 
       {/* Main Split Builder + Live A4 Preview */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block">
-        {/* Left Form Controls (Scrollable Working Area on Desktop, hidden on print) */}
-        <div className="xl:col-span-5 xl:max-h-[calc(100dvh-5.5rem)] xl:overflow-y-auto xl:pr-1.5 space-y-4 no-print">
+        {/* Left Form Controls (Flows naturally alongside Sticky Preview, hidden on print) */}
+        <div className="xl:col-span-5 space-y-4 no-print">
           {/* Document Type & Quick Excel Fill */}
           <div className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-4 space-y-4">
             <div>

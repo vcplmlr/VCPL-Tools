@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   ArrowLeft,
+  BookOpen,
   Check,
   Code2,
   Copy,
@@ -13,6 +14,7 @@ import {
   Scale,
   Wrench,
 } from 'lucide-react';
+import { estimatePostReadingStats, getAllBlogPosts } from '../data/blogPostsData';
 import { LEGAL_PAGES, LegalPageSlug } from '../data/legalPagesData';
 import {
   PUBLIC_TOOLS_CATALOG,
@@ -27,6 +29,7 @@ import {
 } from '../utils/seoConfig';
 import {
   getAllToolsPath,
+  getBlogPath,
   getLegalPath,
   getToolPath,
 } from '../utils/seoRouting';
@@ -37,6 +40,7 @@ interface SitemapPageProps {
   onOpenAllTools: (filter?: ToolFilterType) => void;
   onOpenTool: (tool: ToolCatalogItem) => void;
   onOpenLegalPage: (slug: LegalPageSlug) => void;
+  onOpenBlog?: (slug?: string) => void;
 }
 
 export function SitemapPage({
@@ -44,6 +48,7 @@ export function SitemapPage({
   onOpenAllTools,
   onOpenTool,
   onOpenLegalPage,
+  onOpenBlog,
 }: SitemapPageProps) {
   const [copiedXml, setCopiedXml] = useState(false);
 
@@ -190,6 +195,12 @@ export function SitemapPage({
               All Tools ({PUBLIC_TOOLS_CATALOG.length})
             </a>
             <a
+              href="#sitemap-blog"
+              className="px-3 py-1.5 rounded-lg bg-[#FFFDF5] dark:bg-[#0B1120] hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] border border-[#2F3E4E]/35 dark:border-slate-700 font-bold text-[#2F3E4E] dark:text-slate-200 dark:hover:text-[#0F172A]"
+            >
+              Blog ({getAllBlogPosts().length})
+            </a>
+            <a
               href="#sitemap-legal"
               className="px-3 py-1.5 rounded-lg bg-[#FFFDF5] dark:bg-[#0B1120] hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] border border-[#2F3E4E]/35 dark:border-slate-700 font-bold text-[#2F3E4E] dark:text-slate-200 dark:hover:text-[#0F172A]"
             >
@@ -255,6 +266,20 @@ export function SitemapPage({
                 All Tools Directory ({PUBLIC_TOOLS_CATALOG.length} Tools)
               </div>
               <div className="text-xs font-mono text-[#475569] dark:text-slate-400">/tools</div>
+            </a>
+
+            <a
+              href="/blog"
+              onClick={(e) => {
+                e.preventDefault();
+                onOpenBlog?.();
+              }}
+              className="p-4 rounded-xl border-[1.5px] border-[#2F3E4E]/25 dark:border-slate-700 bg-[#CEE5DC]/55 dark:bg-[#0B1120] hover:bg-[#F9C80E]/35 dark:hover:bg-[#1A253B] hover:border-[#2F3E4E] dark:hover:border-[#F9C80E] transition flex flex-col justify-between gap-1"
+            >
+              <div className="font-display font-extrabold text-sm text-[#2F3E4E] dark:text-slate-100">
+                Blog &amp; Practical Guides ({getAllBlogPosts().length} Articles)
+              </div>
+              <div className="text-xs font-mono text-[#475569] dark:text-slate-400">/blog</div>
             </a>
 
             {TOOL_SECTION_HEADS.map((head) => {
@@ -355,6 +380,59 @@ export function SitemapPage({
                     })}
                   </ul>
                 </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Blog Articles & Guides */}
+        <section
+          id="sitemap-blog"
+          className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-6 sm:p-7 shadow-[0_4px_0_#2F3E4E] dark:shadow-[0_4px_0_#020617] space-y-5"
+        >
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-[#2F3E4E]/15 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <BookOpen className="w-5 h-5 text-[#2F3E4E] dark:text-[#F9C80E] shrink-0" aria-hidden="true" />
+              <h2 className="font-display font-extrabold text-xl text-[#2F3E4E] dark:text-slate-100">
+                Blog &amp; Practical Guides ({getAllBlogPosts().length})
+              </h2>
+            </div>
+            <a
+              href="/blog"
+              onClick={(e) => {
+                e.preventDefault();
+                onOpenBlog?.();
+              }}
+              className="text-xs font-mono font-bold px-2.5 py-1 rounded-md bg-[#CEE5DC] border border-[#2F3E4E] text-[#2F3E4E] hover:bg-[#F9C80E]"
+            >
+              Open Blog
+            </a>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {getAllBlogPosts().map((post) => {
+              const path = getBlogPath(post.slug);
+              const stats = estimatePostReadingStats(post);
+              return (
+                <a
+                  key={post.slug}
+                  href={path}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onOpenBlog?.(post.slug);
+                  }}
+                  className="p-3.5 rounded-xl border-[1.5px] border-[#2F3E4E]/20 dark:border-slate-700 bg-white dark:bg-[#0B1120] hover:bg-[#FEF2C8] dark:hover:bg-[#1A253B] hover:border-[#2F3E4E] dark:hover:border-[#F9C80E] transition flex flex-col justify-between gap-1.5"
+                >
+                  <span className="font-display font-bold text-xs text-[#2F3E4E] dark:text-slate-100">
+                    {post.title}
+                  </span>
+                  <span className="text-[11px] font-mono text-[#12805C] dark:text-[#F9C80E] tabular-nums">
+                    {stats.formattedTime} · {stats.wordCount.toLocaleString()} words · By {post.author}
+                  </span>
+                  <span className="text-[11px] font-mono text-[#475569] dark:text-slate-400 truncate">
+                    {path}
+                  </span>
+                </a>
               );
             })}
           </div>

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { NextFunction, Request, Response, Router } from 'express';
 import express from 'express';
 import { RBI_AMALGAMATED_BANKS } from './bankMetadata.ts';
+import { getAutoPublishedBlogPosts, runScheduledBlogCatchUp } from './blogScheduler.ts';
 import { buildFtsQuery, getDb } from './db.ts';
 import {
   IFSC_REGEX,
@@ -1000,6 +1001,19 @@ export function createApiRouter(): Router {
     const ifscs = Number((db.prepare('SELECT COUNT(*) as c FROM india_ifsc').get() as { c: number }).c);
     const rtos = Number((db.prepare('SELECT COUNT(*) as c FROM india_rto').get() as { c: number }).c);
     res.json({ ok: true, pincodesCount: pins, ifscCount: ifscs, rtoCount: rtos });
+  });
+
+  // Backend auto-published daily blog articles endpoint (internal scheduler feed)
+  router.get('/blog/posts', (_req, res) => {
+    void runScheduledBlogCatchUp();
+    try {
+      const posts = getAutoPublishedBlogPosts();
+      res.setHeader('Cache-Control', 'public, max-age=120');
+      res.json({ posts });
+    } catch (err) {
+      console.error('Failed loading auto-published blog posts:', err);
+      res.json({ posts: [] });
+    }
   });
 
   // =========================================================================

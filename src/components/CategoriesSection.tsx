@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  BookOpen,
   Building2,
   Calculator,
   FileSpreadsheet,
@@ -15,25 +16,36 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from 'lucide-react';
+import { BLOG_POSTS } from '../data/blogPostsData';
 import { PUBLIC_TOOLS_CATALOG, TOOL_CATEGORIES } from '../data/toolsCatalog';
 import { CategoryItem, ToolFilterType } from '../types/tools';
 
 interface CategoriesSectionProps {
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string, filterKey: ToolFilterType) => void;
+  onOpenBlog?: () => void;
 }
 
-type CategoryGridEntry = CategoryItem | {
-  id: 'cat-all';
-  name: string;
-  filterKey: 'All';
-  countLabel: string;
-  iconName: 'layout-grid';
-};
+type CategoryGridEntry =
+  | CategoryItem
+  | {
+      id: 'cat-all';
+      name: string;
+      filterKey: 'All';
+      countLabel: string;
+      iconName: 'layout-grid';
+    }
+  | {
+      id: 'cat-blog';
+      name: string;
+      countLabel: string;
+      iconName: 'book-open';
+    };
 
 export function CategoriesSection({
   selectedCategoryId,
   onSelectCategory,
+  onOpenBlog,
 }: CategoriesSectionProps) {
   const categoryTiles: CategoryGridEntry[] = [
     ...TOOL_CATEGORIES,
@@ -43,6 +55,12 @@ export function CategoriesSection({
       filterKey: 'All',
       countLabel: `${PUBLIC_TOOLS_CATALOG.length} Total`,
       iconName: 'layout-grid',
+    },
+    {
+      id: 'cat-blog',
+      name: 'Blog & Guides',
+      countLabel: `${BLOG_POSTS.length} Articles`,
+      iconName: 'book-open',
     },
   ];
 
@@ -76,6 +94,8 @@ export function CategoriesSection({
         return <Sparkles className="w-5 h-5" />;
       case 'layout-grid':
         return <LayoutGrid className="w-5 h-5" />;
+      case 'book-open':
+        return <BookOpen className="w-5 h-5" />;
     }
   };
 
@@ -88,7 +108,7 @@ export function CategoriesSection({
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
           <div className="space-y-1.5">
             <p className="text-xs font-semibold text-[#475569] dark:text-slate-400">
-              Eleven Integrated Suites · Zero Installation
+              Ten Integrated Suites · Zero Installation
             </p>
             <h2 className="font-display font-extrabold text-[clamp(1.65rem,3vw,2.25rem)] text-[#2F3E4E] dark:text-slate-50 tracking-tight [text-wrap:balance]">
               Explore Tools by Category
@@ -103,18 +123,29 @@ export function CategoriesSection({
         <div className="rounded-2xl bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 shadow-[0_5px_0_#2F3E4E] dark:shadow-[0_5px_0_#020617] overflow-hidden">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-[1px] bg-[#2F3E4E]/15 dark:bg-slate-700/80">
             {categoryTiles.map((category) => {
-              const isSelected = category.id !== 'cat-all' && selectedCategoryId === category.id;
+              const isBlogTile = category.id === 'cat-blog';
               const isAllTile = category.id === 'cat-all';
+              const isSelected = !isAllTile && !isBlogTile && selectedCategoryId === category.id;
               return (
                 <button
                   key={category.id}
                   type="button"
-                  onClick={() => onSelectCategory(category.id, category.filterKey)}
+                  onClick={() => {
+                    if (isBlogTile) {
+                      onOpenBlog?.();
+                      return;
+                    }
+                    if ('filterKey' in category) {
+                      onSelectCategory(category.id, category.filterKey);
+                    }
+                  }}
                   className={`group p-3.5 sm:p-4 min-h-[108px] text-left flex flex-col justify-between gap-3 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E] ${
                     isSelected
                       ? 'bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A]'
                       : isAllTile
                       ? 'bg-[#FEF2C8]/65 dark:bg-[#162033] text-[#2F3E4E] dark:text-slate-100 hover:bg-[#F9C80E]/35 dark:hover:bg-[#1E2A40]'
+                      : isBlogTile
+                      ? 'bg-[#CEE5DC]/45 dark:bg-[#0F2420] text-[#2F3E4E] dark:text-slate-100 hover:bg-[#CEE5DC]/80 dark:hover:bg-[#16332D]'
                       : 'bg-[#FFFDF5] dark:bg-[#131C2E] text-[#2F3E4E] dark:text-slate-100 hover:bg-[#FEF2C8]/55 dark:hover:bg-[#1A253B]'
                   }`}
                 >

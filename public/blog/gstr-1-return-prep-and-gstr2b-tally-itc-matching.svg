@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <pattern id="vcpl-blog-dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="4" r="1.4" fill="#2F3E4E" fill-opacity="0.11" />
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="#E4F2EC" />
+  <rect width="1200" height="630" fill="url(#vcpl-blog-dots)" />
+
+  <rect x="0" y="0" width="1200" height="14" fill="#2F3E4E" />
+  <rect x="0" y="14" width="1200" height="6" fill="#0F766E" />
+
+  <rect x="44" y="48" width="1112" height="534" rx="28" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="4" />
+
+  <rect x="96" y="96" width="174" height="40" rx="10" fill="#2F3E4E" />
+  <rect x="108" y="106" width="10" height="10" rx="2" fill="#F9C80E" />
+  <rect x="120" y="106" width="10" height="10" rx="2" fill="#CEE5DC" />
+  <rect x="108" y="118" width="10" height="10" rx="2" fill="#CEE5DC" />
+  <rect x="120" y="118" width="10" height="10" rx="2" fill="#F9C80E" />
+  <text x="142" y="122" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="16" letter-spacing="0.8">VCPL BLOG</text>
+
+  <rect x="284" y="96" width="256" height="40" rx="10" fill="#FEF2C8" stroke="#2F3E4E" stroke-width="2" />
+  <text x="412" y="121" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="15">GST RETURN &amp; ITC MATCHING</text>
+
+  <text x="96" y="218" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="40" letter-spacing="-0.8">GSTR-1 Return Prep &amp;</text>
+  <text x="96" y="270" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="40" letter-spacing="-0.8">GSTR-2B vs Tally ITC</text>
+  <text x="96" y="322" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="40" letter-spacing="-0.8">Matching Without Server</text>
+  <text x="96" y="374" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="40" letter-spacing="-0.8">Uploads</text>
+
+  <text x="96" y="448" fill="#475569" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="18">By Kaushik Bangera · 6 min read · 23 Nov 2026</text>
+
+
+  <!-- GST Return & GSTR-2B ITC Matching Artwork -->
+  <g transform="translate(736, 98)">
+    <rect x="0" y="0" width="380" height="390" rx="22" fill="#CEE5DC" stroke="#2F3E4E" stroke-width="3.5" />
+    <rect x="0" y="0" width="380" height="58" rx="22" fill="#0F766E" />
+    <rect x="0" y="34" width="380" height="24" fill="#0F766E" />
+    <text x="26" y="38" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="18">GSTN JSON &amp; ITC AUDIT</text>
+
+    <rect x="24" y="80" width="332" height="86" rx="14" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="2.5" />
+    <text x="42" y="110" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="16">GSTR-1 OUTWARD TABLES</text>
+    <rect x="42" y="124" width="76" height="24" rx="7" fill="#F9C80E" stroke="#2F3E4E" stroke-width="1.5" />
+    <text x="80" y="141" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="12">B2B / B2CS</text>
+    <rect x="128" y="124" width="96" height="24" rx="7" fill="#CEE5DC" stroke="#2F3E4E" stroke-width="1.5" />
+    <text x="176" y="141" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="12">HSN TABLE 12</text>
+    <rect x="234" y="124" width="102" height="24" rx="7" fill="#2F3E4E" />
+    <text x="285" y="141" text-anchor="middle" fill="#F9C80E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="12">GSTIN CHECK</text>
+
+    <rect x="24" y="186" width="332" height="122" rx="14" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="2.5" />
+    <text x="42" y="216" fill="#0F766E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="15">GSTR-2B ⇄ TALLY PURCHASE</text>
+    <circle cx="56" cy="248" r="10" fill="#12805C" />
+    <rect x="78" y="241" width="186" height="13" rx="6" fill="#CEE5DC" />
+    <text x="328" y="252" text-anchor="end" fill="#12805C" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="13">EXACT</text>
+    <circle cx="56" cy="282" r="10" fill="#F9C80E" stroke="#2F3E4E" stroke-width="1.5" />
+    <rect x="78" y="275" width="150" height="13" rx="6" fill="#FEF2C8" />
+    <text x="328" y="286" text-anchor="end" fill="#B45309" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="13">NORMALIZED</text>
+
+    <rect x="24" y="326" width="332" height="44" rx="12" fill="#2F3E4E" />
+    <text x="190" y="354" text-anchor="middle" fill="#CEE5DC" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="15">ZERO SERVER UPLOAD · ITC READY</text>
+  </g>
+
+  <rect x="96" y="512" width="1008" height="44" rx="12" fill="#2F3E4E" />
+  <text x="122" y="540" fill="#F9C80E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="17">vcpltools.vercel.app/blog</text>
+  <text x="1078" y="540" text-anchor="end" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="16">GST Guide · 100% Browser-Private Utilities</text>
+</svg>

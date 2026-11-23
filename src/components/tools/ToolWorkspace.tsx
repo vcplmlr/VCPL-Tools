@@ -229,7 +229,6 @@ interface ToolWorkspaceProps {
 const TOOL_GROUPS = [
   'Banking',
   'Tax & GST',
-  'GST Utilities',
   'Calculator',
   'PDF Suite',
   'Image Studio',
@@ -341,7 +340,6 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   const showIndependentNotice =
     tool.category === 'Banking' ||
     tool.category === 'Tax & GST' ||
-    tool.category === 'GST Utilities' ||
     tool.category === 'Calculator' ||
     tool.category === 'VCPL';
 

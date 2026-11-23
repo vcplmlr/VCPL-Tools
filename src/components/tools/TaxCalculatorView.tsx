@@ -193,7 +193,7 @@ export const TaxCalculatorView: React.FC<TaxCalculatorViewProps> = ({ tool, onBa
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Inputs */}
-        <div className="lg:col-span-6 space-y-4 bg-[#FEF2C8]/50 border-[1.5px] border-[#2F3E4E] rounded-2xl p-5 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1.5">
+        <div className="lg:col-span-6 space-y-4 bg-[#FEF2C8]/50 border-[1.5px] border-[#2F3E4E] rounded-2xl p-5">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-bold text-sm text-[#2F3E4E] flex items-center gap-1.5">
               <Calculator className="w-4 h-4" /> Income &amp; Deductions (INR)

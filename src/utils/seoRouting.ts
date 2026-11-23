@@ -1,5 +1,11 @@
 import { FAQ_ITEMS } from '../components/FaqSection';
 import {
+  BLOG_AUTHORS,
+  estimatePostWordCount,
+  getAllBlogPosts,
+  getBlogPostBySlug,
+} from '../data/blogPostsData';
+import {
   ERROR_PAGES_CONFIG,
   HttpErrorCode,
   parseHttpErrorCode,
@@ -18,6 +24,7 @@ import {
   CATEGORY_SLUG_BY_FILTER,
   FILTER_BY_CATEGORY_SLUG,
   getAllToolsPath,
+  getBlogPath,
   getCategoryUrlSlug,
   getLegalPath,
   getToolFullPath,
@@ -27,6 +34,7 @@ import {
 export {
   CATEGORY_SLUG_BY_FILTER,
   getAllToolsPath,
+  getBlogPath,
   getCategoryUrlSlug,
   getLegalPath,
   getToolFullPath,
@@ -38,6 +46,7 @@ export type ParsedRoute =
   | { view: 'all-tools'; filter: ToolFilterType; initialQuery?: string }
   | { view: 'tool'; toolId: string; fullScreen?: boolean; subParam?: string }
   | { view: 'legal'; slug: LegalPageSlug }
+  | { view: 'blog'; slug?: string }
   | { view: 'locked' }
   | { view: 'sitemap' }
   | { view: 'not-found'; path: string; statusCode?: HttpErrorCode };
@@ -143,6 +152,16 @@ export function parseLocationToRoute(pathname: string, search: string): ParsedRo
         initialQuery,
       };
     }
+    if (seg === 'blog' || seg === 'articles' || seg === 'guides') {
+      return { view: 'blog' };
+    }
+    if (seg === 'gst-utilities') {
+      return {
+        view: 'all-tools',
+        filter: 'Tax & GST',
+        initialQuery,
+      };
+    }
     if (FILTER_BY_CATEGORY_SLUG[seg]) {
       return {
         view: 'all-tools',
@@ -167,6 +186,13 @@ export function parseLocationToRoute(pathname: string, search: string): ParsedRo
 
   if (segments.length === 2) {
     const [catSlug, toolSlug] = segments;
+    if (catSlug === 'blog') {
+      const post = getBlogPostBySlug(toolSlug);
+      if (post) {
+        return { view: 'blog', slug: post.slug };
+      }
+      return { view: 'not-found', path: pathname };
+    }
     if (catSlug === 'error' || catSlug === 'errors' || catSlug === 'status') {
       const codeFromSeg = parseHttpErrorCode(toolSlug) ?? ERROR_SLUG_ALIASES[toolSlug];
       if (codeFromSeg) {
@@ -289,6 +315,8 @@ export function applySeoForRoute(route: ParsedRoute) {
 
   let listedTools: ToolCatalogItem[] | null = null;
   let includeFaqSchema = false;
+  let customOgImageUrl: string | null = null;
+  let customOgImageAlt: string | null = null;
 
   if (route.view === 'home') {
     includeFaqSchema = true;
@@ -298,7 +326,7 @@ export function applySeoForRoute(route: ParsedRoute) {
     if (route.filter === 'All') {
       listedTools = PUBLIC_TOOLS_CATALOG;
       title = `All ${PUBLIC_TOOLS_CATALOG.length} Free Browser Tools Directory | VCPL Tools`;
-      description = `Browse all ${PUBLIC_TOOLS_CATALOG.length} client-side VCPL Tools across Banking Slips, Tax & GST, GST Utilities, PDF Suite, Image Studio, Typing & Text, Calculators, and QR Utilities.`;
+      description = `Browse all ${PUBLIC_TOOLS_CATALOG.length} client-side VCPL Tools across Banking Slips, Tax & GST (including GSTR-1 Return Prep), PDF Suite, Image Studio, Typing & Text, Calculators, and QR Utilities.`;
       breadcrumbItems.push({ name: 'All Tools', item: `${origin}${path}` });
     } else {
       const catMeta = TOOL_CATEGORIES.find((c) => c.filterKey === route.filter);
@@ -383,6 +411,37 @@ export function applySeoForRoute(route: ParsedRoute) {
       }
       breadcrumbItems.push({ name: page.navTitle, item: `${origin}${path}` });
     }
+  } else if (route.view === 'blog') {
+    if (route.slug) {
+      const post = getBlogPostBySlug(route.slug);
+      if (post) {
+        path = getBlogPath(post.slug);
+        title = post.seoTitle || `${post.title} | VCPL Tools Blog`;
+        description = post.seoDescription || post.excerpt;
+        keywords = [
+          ...post.keywords,
+          post.category,
+          'VCPL Tools Blog',
+          'Arjun Bangera',
+          'Kaushik Bangera',
+        ].join(', ');
+        customOgImageUrl = `${origin}${post.coverImage}`;
+        customOgImageAlt = post.coverImageAlt;
+        breadcrumbItems.push(
+          { name: 'Blog', item: `${origin}/blog` },
+          { name: post.category, item: `${origin}/blog` },
+          { name: post.title, item: `${origin}${path}` }
+        );
+      }
+    } else {
+      path = '/blog';
+      title = `Blog & Practical Guides (${getAllBlogPosts().length} Articles) | VCPL Tools`;
+      description =
+        'Step-by-step guides on Form 26AS TDS/TCS Excel conversion, GSTR-1 JSON prep, GSTR-2B vs Tally matching, SBI & HDFC bank slips, NPCI UPI QRs, and offline PDF privacy.';
+      keywords =
+        'VCPL Tools Blog, Form 26AS Excel guide, GSTR-1 JSON tutorial, GSTR-2B Tally matching, NPCI UPI QR standards, offline PDF privacy';
+      breadcrumbItems.push({ name: 'Blog', item: `${origin}/blog` });
+    }
   } else if (route.view === 'locked') {
     path = '/locked';
     title = 'Locked Enterprise Vault | VCPL Tools';
@@ -394,7 +453,7 @@ export function applySeoForRoute(route: ParsedRoute) {
     path = '/sitemap';
     listedTools = PUBLIC_TOOLS_CATALOG;
     title = `HTML & XML Sitemap (${PUBLIC_TOOLS_CATALOG.length} Tools) | VCPL Tools`;
-    description = `Complete site directory and XML sitemap for all ${PUBLIC_TOOLS_CATALOG.length} browser-based utilities, suites, and policy pages on VCPL Tools.`;
+    description = `Complete site directory and XML sitemap for all ${PUBLIC_TOOLS_CATALOG.length} browser-based utilities, suites, blog guides, and policy pages on VCPL Tools.`;
     keywords = 'VCPL Tools sitemap, XML sitemap, all browser tools index, Arjun Bangera, Kaushik Bangera';
     breadcrumbItems.push({ name: 'Sitemap', item: `${origin}${path}` });
   } else if (route.view === 'not-found') {
@@ -414,8 +473,9 @@ export function applySeoForRoute(route: ParsedRoute) {
     route.view === 'tool' && route.fullScreen
       ? `${origin}${getToolFullPath(getToolById(route.toolId) ?? PUBLIC_TOOLS_CATALOG[0])}`
       : canonicalUrl;
-  const ogImageUrl = `${origin}/og-card.svg`;
-  const ogType = route.view === 'legal' ? 'article' : 'website';
+  const ogImageUrl = customOgImageUrl ?? `${origin}/og-card.svg`;
+  const ogImageAlt = customOgImageAlt ?? `${title} — VCPL Tools`;
+  const ogType = route.view === 'legal' || (route.view === 'blog' && Boolean(route.slug)) ? 'article' : 'website';
 
   document.title = title;
   setMetaContent('meta[name="description"]', description);
@@ -428,12 +488,22 @@ export function applySeoForRoute(route: ParsedRoute) {
   setMetaContent('meta[property="og:description"]', description);
   setMetaContent('meta[property="og:url"]', currentUrl);
   setMetaContent('meta[property="og:image"]', ogImageUrl);
-  setMetaContent('meta[property="og:image:alt"]', `${title} — VCPL Tools`);
+  setMetaContent('meta[property="og:image:alt"]', ogImageAlt);
   setMetaContent('meta[name="twitter:card"]', 'summary_large_image');
   setMetaContent('meta[name="twitter:title"]', title);
   setMetaContent('meta[name="twitter:description"]', description);
   setMetaContent('meta[name="twitter:image"]', ogImageUrl);
-  setMetaContent('meta[name="twitter:image:alt"]', `${title} — VCPL Tools`);
+  setMetaContent('meta[name="twitter:image:alt"]', ogImageAlt);
+
+  if (route.view === 'blog' && route.slug) {
+    const activeBlog = getBlogPostBySlug(route.slug);
+    if (activeBlog) {
+      setMetaContent('meta[property="article:published_time"]', activeBlog.publishedIso);
+      setMetaContent('meta[property="article:modified_time"]', activeBlog.updatedIso);
+      setMetaContent('meta[property="article:section"]', activeBlog.category);
+      setMetaContent('meta[property="article:author"]', activeBlog.author);
+    }
+  }
 
   const canonicalLink = document.getElementById('vcpl-canonical') as HTMLLinkElement | null;
   if (canonicalLink) {
@@ -536,6 +606,75 @@ export function applySeoForRoute(route: ParsedRoute) {
           })),
         },
       });
+    }
+
+    if (route.view === 'blog') {
+      const activePost = route.slug ? getBlogPostBySlug(route.slug) : undefined;
+      if (activePost) {
+        const authorProfile = BLOG_AUTHORS[activePost.authorId];
+        graph.push({
+          '@type': 'BlogPosting',
+          headline: activePost.title,
+          description: activePost.seoDescription || activePost.excerpt,
+          datePublished: activePost.publishedIso,
+          dateModified: activePost.updatedIso,
+          wordCount: estimatePostWordCount(activePost),
+          articleSection: activePost.category,
+          keywords: activePost.keywords.join(', '),
+          inLanguage: 'en-IN',
+          image: [ogImageUrl],
+          author: {
+            '@type': 'Person',
+            name: authorProfile?.name ?? activePost.author,
+            jobTitle: authorProfile?.role ?? activePost.authorRole,
+            email: authorProfile?.email,
+          },
+          publisher: {
+            '@type': 'Organization',
+            name: 'VCPL Tools',
+            url: `${origin}/`,
+            logo: {
+              '@type': 'ImageObject',
+              url: `${origin}/favicon.svg`,
+            },
+          },
+          mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': canonicalUrl,
+          },
+        });
+
+        if (activePost.faqs.length > 0) {
+          graph.push({
+            '@type': 'FAQPage',
+            mainEntity: activePost.faqs.map((faq) => ({
+              '@type': 'Question',
+              name: faq.question,
+              acceptedAnswer: {
+                '@type': 'Answer',
+                text: faq.answer,
+              },
+            })),
+          });
+        }
+      } else {
+        graph.push({
+          '@type': 'Blog',
+          name: 'VCPL Tools Blog & Guides',
+          url: `${origin}/blog`,
+          description,
+          inLanguage: 'en-IN',
+          blogPost: getAllBlogPosts().map((post) => ({
+            '@type': 'BlogPosting',
+            headline: post.title,
+            url: `${origin}${getBlogPath(post.slug)}`,
+            image: `${origin}${post.coverImage}`,
+            datePublished: post.publishedIso,
+            dateModified: post.updatedIso,
+            author: { '@type': 'Person', name: post.author },
+          })),
+        });
+      }
     }
 
     if (includeFaqSchema) {

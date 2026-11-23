@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   Clock,
   Command,
+  Crown,
   FileBadge,
   FileSpreadsheet,
   FileText,
@@ -21,6 +22,7 @@ import {
   Receipt,
   ScanText,
   Search,
+  ShieldCheck,
   Sparkles,
   Wrench,
   X,
@@ -38,7 +40,7 @@ interface HeroSectionProps {
 const ROTATING_DOMAINS = [
   { label: 'Bank Slips', toolId: 'bank-slip-generator' },
   { label: 'Tax & GST', toolId: 'form-26as-to-excel' },
-  { label: 'GST Utilities', toolId: 'gstr2b-tally-reconciler' },
+  { label: 'GST & GSTR-1', toolId: 'gstr2b-tally-reconciler' },
   { label: 'PDF Tools', toolId: 'pdf-to-word' },
   { label: 'Image Studio', toolId: 'image-bg-remover' },
   { label: 'Calculators', toolId: 'unified-calculator' },
@@ -193,7 +195,19 @@ export function HeroSection({
   const [heroQuery, setHeroQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showRtoUpgradeNotice, setShowRtoUpgradeNotice] = useState(false);
+  const [showVcplProModal, setShowVcplProModal] = useState(false);
   const searchWrapperRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!showVcplProModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowVcplProModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showVcplProModal]);
 
   useEffect(() => {
     const prefersReducedMotion =
@@ -492,8 +506,8 @@ export function HeroSection({
             Generate SBI &amp; HDFC deposit slips, convert Form 26AS &amp; invoices to Excel, reconcile GSTR-2B, edit PDFs, and run calculations—100% private in your browser.
           </p>
 
-          {/* Centered Dual CTA Row */}
-          <div className="mt-7 w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-3.5">
+          {/* Centered CTA Row */}
+          <div className="mt-7 w-full sm:w-auto flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-3 sm:gap-3.5">
             <button
               type="button"
               onClick={onExploreClick}
@@ -508,6 +522,20 @@ export function HeroSection({
               className="w-full sm:w-auto min-h-[44px] px-6 py-3 rounded-lg bg-[#FFFDF5] dark:bg-[#131C2E] hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] text-[#2F3E4E] dark:text-slate-100 dark:hover:text-[#0F172A] border-[1.5px] border-[#2F3E4E] dark:border-slate-500 text-sm sm:text-[15px] font-semibold transition-all duration-150 active:translate-y-0.5 cursor-pointer whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E]"
             >
               Open All-in-One Calculator
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowVcplProModal(true)}
+              aria-haspopup="dialog"
+              aria-expanded={showVcplProModal}
+              className="w-full sm:w-auto min-h-[44px] px-5 py-3 rounded-lg bg-[#FFE1B3] dark:bg-amber-950/50 hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] text-[#2F3E4E] dark:text-[#F9C80E] dark:hover:text-[#0F172A] border-[1.5px] border-dashed border-[#2F3E4E] dark:border-[#F9C80E]/70 text-sm sm:text-[15px] font-semibold transition-all duration-150 active:translate-y-0.5 cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E]"
+            >
+              <Crown className="w-4 h-4 shrink-0 text-[#B45309] dark:text-current" aria-hidden="true" />
+              <span>VCPL Pro</span>
+              <span className="px-1.5 py-0.5 rounded bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#F9C80E] dark:text-[#0F172A] font-mono text-[10px] font-extrabold uppercase tracking-wider">
+                Coming Soon
+              </span>
             </button>
           </div>
 
@@ -787,6 +815,105 @@ export function HeroSection({
           )}
         </div>
       </div>
+
+      {/* VCPL Pro Coming Soon Preview Modal */}
+      {showVcplProModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0B1120]/60 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="vcpl-pro-modal-title"
+          onClick={() => setShowVcplProModal(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-[#F9C80E]/70 p-6 sm:p-7 shadow-[0_8px_0_#2F3E4E] dark:shadow-[0_8px_0_#020617] space-y-5 text-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="w-10 h-10 rounded-xl bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] text-[#2F3E4E] flex items-center justify-center shrink-0">
+                  <Crown className="w-5 h-5" aria-hidden="true" />
+                </span>
+                <div className="space-y-1">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#F9C80E] dark:text-[#0F172A] font-mono text-[10px] font-extrabold uppercase tracking-wider">
+                    <Clock className="w-3 h-3" aria-hidden="true" />
+                    <span>VCPL Pro · Coming Soon</span>
+                  </span>
+                  <h2
+                    id="vcpl-pro-modal-title"
+                    className="font-display font-extrabold text-lg sm:text-xl text-[#2F3E4E] dark:text-slate-50 leading-snug"
+                  >
+                    VCPL Pro — Enterprise &amp; Multi-Branch Edition
+                  </h2>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowVcplProModal(false)}
+                aria-label="Close VCPL Pro preview"
+                className="p-1.5 rounded-lg text-[#64748B] dark:text-slate-400 hover:text-[#2F3E4E] dark:hover:text-white hover:bg-[#FEF2C8] dark:hover:bg-slate-800 cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <p className="text-xs sm:text-sm leading-relaxed text-[#475569] dark:text-slate-300">
+              All {PUBLIC_TOOLS_CATALOG.length} current browser tools stay open and 100% client-side.
+              VCPL Pro will introduce dedicated multi-branch automation for dealerships, CA practices, and finance teams:
+            </p>
+
+            <ul className="space-y-2.5 text-xs sm:text-[13px] text-[#2F3E4E] dark:text-slate-200">
+              <li className="flex items-start gap-2.5 rounded-xl bg-[#FEF2C8]/75 dark:bg-[#0B1120] border border-[#2F3E4E]/20 dark:border-slate-700 px-3.5 py-2.5">
+                <ShieldCheck className="w-4 h-4 text-[#12805C] dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  <strong className="font-display font-extrabold">Batch 26AS &amp; GSTR-2B Queues:</strong>{' '}
+                  Reconcile multi-GSTIN and multi-quarter workbooks in one unified run.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5 rounded-xl bg-[#FEF2C8]/75 dark:bg-[#0B1120] border border-[#2F3E4E]/20 dark:border-slate-700 px-3.5 py-2.5">
+                <ShieldCheck className="w-4 h-4 text-[#12805C] dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  <strong className="font-display font-extrabold">Saved Letterhead &amp; Signatory Profiles:</strong>{' '}
+                  Reusable company seals, bank accounts, and branch presets across slips &amp; invoices.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5 rounded-xl bg-[#FEF2C8]/75 dark:bg-[#0B1120] border border-[#2F3E4E]/20 dark:border-slate-700 px-3.5 py-2.5">
+                <ShieldCheck className="w-4 h-4 text-[#12805C] dark:text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  <strong className="font-display font-extrabold">Team Vault &amp; Audit Trails:</strong>{' '}
+                  Role-scoped branch workspace templates with local encrypted backups.
+                </span>
+              </li>
+            </ul>
+
+            <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 border-t border-[#2F3E4E]/15 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowVcplProModal(false)}
+                className="min-h-[42px] px-4 py-2 rounded-xl border-[1.5px] border-[#2F3E4E]/40 dark:border-slate-600 bg-white dark:bg-[#0B1120] hover:bg-[#FEF2C8] dark:hover:bg-slate-800 text-xs font-display font-bold text-[#2F3E4E] dark:text-slate-200 cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVcplProModal(false);
+                  const emailEl = document.getElementById('vcpl-footer-updates-email');
+                  if (emailEl) {
+                    emailEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    window.setTimeout(() => emailEl.focus(), 350);
+                  }
+                }}
+                className="min-h-[42px] inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl bg-[#2F3E4E] dark:bg-[#F9C80E] hover:bg-[#1E293B] dark:hover:bg-[#FDE047] text-[#F9C80E] dark:text-[#0F172A] border-[1.5px] border-[#2F3E4E] dark:border-[#F9C80E] text-xs font-display font-extrabold cursor-pointer"
+              >
+                <span>Notify Me on Launch</span>
+                <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

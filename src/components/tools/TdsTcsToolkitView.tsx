@@ -679,7 +679,7 @@ export const TdsTcsToolkitView: React.FC<TdsTcsToolkitViewProps> = ({ tool }) =>
       {activeTab === 'calc' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start print:block">
           {/* Inputs Panel */}
-          <div className="lg:col-span-6 bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-5 shadow-[0_4px_0_#2F3E4E] space-y-3.5 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1.5 no-print print:max-h-none print:overflow-visible">
+          <div className="lg:col-span-6 bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-5 shadow-[0_4px_0_#2F3E4E] space-y-3.5 no-print">
             <h2 className="font-display font-extrabold text-base text-[#2F3E4E]">
               Invoice &amp; Payee Details
             </h2>

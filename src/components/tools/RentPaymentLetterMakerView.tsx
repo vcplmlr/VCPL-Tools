@@ -1514,8 +1514,8 @@ export const RentPaymentLetterMakerView: React.FC<RentPaymentLetterMakerViewProp
       {/* Main Split Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start print:block">
         {/* Left Controls Panel */}
-        {/* Left Editable Form (Scrollable Working Area on Desktop) */}
-        <div className="lg:col-span-5 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1.5 bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_0_#2F3E4E] space-y-5 no-print">
+        {/* Left Editable Form */}
+        <div className="lg:col-span-5 bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_0_#2F3E4E] space-y-5 no-print">
           {/* 0. Upload Vendor / Landlord Rent Invoice PDF */}
           <section className="space-y-2.5">
             <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-[#2F3E4E]/15">

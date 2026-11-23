@@ -1449,7 +1449,7 @@ export const Gstr1ReturnPrepView: React.FC<Gstr1ReturnPrepViewProps> = ({ tool, 
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[#475569]">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#CEE5DC] border border-[#2F3E4E]/30 text-[#2F3E4E]">
               <FileSpreadsheet className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{tool?.categoryName || 'GST Utilities'} · {tool?.code || 'GS-01'}</span>
+              <span>{tool?.categoryName || 'Tax & GST'} · {tool?.code || 'TX-12'}</span>
             </span>
             <span className="px-2 py-0.5 rounded-md bg-[#FEF2C8] border border-[#2F3E4E]/25 text-[#2F3E4E]">
               Form GSTR-1 · V2.2 Offline

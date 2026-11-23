@@ -1244,7 +1244,7 @@ export const TextliftOcrProView: React.FC<TextliftOcrProViewProps> = ({ tool }) 
       {/* Main 2-Column VCPL Workbench */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* LEFT COLUMN (4 cols): Dropzone, Batch Queue, OCR Controls & Live DSP */}
-        <div className="lg:col-span-5 xl:col-span-4 space-y-4 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1.5">
+        <div className="lg:col-span-5 xl:col-span-4 space-y-4">
           {/* Dropzone Card */}
           <div
             role="button"
@@ -1337,7 +1337,7 @@ export const TextliftOcrProView: React.FC<TextliftOcrProViewProps> = ({ tool }) 
                 No files queued yet. Drop images or PDFs above to begin.
               </p>
             ) : (
-              <ul className="space-y-2 max-h-[260px] overflow-y-auto pr-0.5">
+              <ul className="space-y-2 max-h-[260px] overflow-y-auto pr-1 pb-1 vcpl-slim-scroll">
                 {files.map((item) => {
                   const isActive = item.id === currentId;
                   return (
@@ -2094,7 +2094,7 @@ export const TextliftOcrProView: React.FC<TextliftOcrProViewProps> = ({ tool }) 
                           </div>
                         </div>
 
-                        <div className="p-3.5 rounded-xl border-[1.5px] border-[#2F3E4E] bg-white max-h-[340px] overflow-y-auto flex flex-wrap gap-1.5 leading-normal">
+                        <div className="p-3.5 rounded-xl border-[1.5px] border-[#2F3E4E] bg-white max-h-[340px] overflow-y-auto vcpl-slim-scroll flex flex-wrap gap-1.5 leading-normal">
                           {filteredHeatmapWords.map((w, idx) => {
                             const tone =
                               w.confidence >= 88

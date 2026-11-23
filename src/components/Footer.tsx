@@ -26,6 +26,7 @@ interface FooterProps {
   onOpenAllTools: (filter?: ToolFilterType) => void;
   onOpenLockedVault?: () => void;
   onOpenLegalPage: (slug: LegalPageSlug) => void;
+  onOpenBlog?: () => void;
   onOpenPrivacyBanner: () => void;
   onOpenNotFound?: () => void;
   onOpenErrorPage?: (code: HttpErrorCode) => void;
@@ -48,8 +49,7 @@ function isValidSubscriberEmail(value: string): boolean {
 const TOOL_DIRECTORY_LINKS: { label: string; filter: ToolFilterType }[] = [
   { label: 'All Tools', filter: 'All' },
   { label: 'Banking & Deposit Slips', filter: 'Banking' },
-  { label: 'Tax & GST Utilities', filter: 'Tax & GST' },
-  { label: 'GST & GSTR-1 Return Prep', filter: 'GST Utilities' },
+  { label: 'Tax, GST & GSTR-1 Utilities', filter: 'Tax & GST' },
   { label: 'PDF & Document Tools', filter: 'PDF Suite' },
   { label: 'Image Editing Studio', filter: 'Image Studio' },
   { label: 'Calculator Hub', filter: 'Calculator' },
@@ -112,6 +112,7 @@ export function Footer({
   onOpenAllTools,
   onOpenLockedVault,
   onOpenLegalPage,
+  onOpenBlog,
   onOpenPrivacyBanner,
   onOpenNotFound,
   onOpenErrorPage,
@@ -482,6 +483,20 @@ export function Footer({
                     </a>
                   </li>
                 ))}
+                {onOpenBlog && (
+                  <li className="min-w-0">
+                    <a
+                      href="/blog"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onOpenBlog();
+                      }}
+                      className="text-[#475569] dark:text-slate-300 hover:text-[#2F3E4E] dark:hover:text-[#F9C80E] hover:underline underline-offset-4 transition-colors inline-flex items-center py-0.5 min-h-[36px] sm:min-h-0 leading-snug"
+                    >
+                      Blog &amp; Guides
+                    </a>
+                  </li>
+                )}
                 {onOpenSitemap && (
                   <li className="min-w-0">
                     <a

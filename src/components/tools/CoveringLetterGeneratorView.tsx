@@ -1133,8 +1133,8 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
 
       {/* Main Split Workspace */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block">
-        {/* Left Control Column (Scrollable Working Area on Desktop) */}
-        <div className="xl:col-span-5 xl:max-h-[calc(100dvh-5.5rem)] xl:overflow-y-auto xl:pr-1.5 space-y-4 no-print">
+        {/* Left Control Column */}
+        <div className="xl:col-span-5 space-y-4 no-print">
           {/* 0. Format Selector */}
           <section className="bg-[#FFFDF5] border-[1.5px] border-[#2F3E4E] rounded-2xl p-4 sm:p-5 shadow-[0_4px_0_#2F3E4E] space-y-2.5">
             <div className="flex items-center justify-between gap-2">

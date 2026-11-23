@@ -1028,7 +1028,7 @@ export const QrUpiStudioView: React.FC = () => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start print:block">
       {/* Left Column: Bank-Standard Input & Validation Controls */}
-      <div className="lg:col-span-7 space-y-5 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1.5 no-print print:max-h-none print:overflow-visible">
+      <div className="lg:col-span-7 space-y-5 no-print">
         <div className="bg-white border-2 border-[#2F3E4E] rounded-2xl p-5 sm:p-6 shadow-[0_4px_0_#2F3E4E] space-y-5">
           {/* Browser Save & Reset Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#2F3E4E]/15">

@@ -19,6 +19,7 @@ import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { TopLoadingBar, emitGlobalProgress } from './components/TopLoadingBar';
 import { WhatsAppChatWidget } from './components/WhatsAppChatWidget';
 import { OPEN_COOKIE_BANNER_EVENT } from './config/adsense';
+import { mergeDynamicBlogPosts } from './data/blogPostsData';
 import { HttpErrorCode } from './data/errorPagesData';
 import { LegalPageSlug } from './data/legalPagesData';
 import { TOOL_CATEGORIES, getToolById } from './data/toolsCatalog';
@@ -26,6 +27,7 @@ import { useAdBlockerDetector } from './hooks/useAdBlockerDetector';
 import { useGlobalFileDropSupport } from './hooks/useGlobalFileDropSupport';
 import { useRightClickProtection } from './hooks/useRightClickProtection';
 import { useTheme } from './hooks/useTheme';
+import { BlogPostItem } from './types/blog';
 import { ToolCatalogItem, ToolFilterType } from './types/tools';
 import { BankId } from './utils/bankSlipRenderers';
 import { safeReadStorage, safeWriteStorage } from './utils/browserVault';
@@ -33,6 +35,7 @@ import {
   ParsedRoute,
   applySeoForRoute,
   getAllToolsPath,
+  getBlogPath,
   getLegalPath,
   getToolFullPath,
   getToolPath,
@@ -41,6 +44,9 @@ import {
 
 const AllToolsPage = lazy(() =>
   import('./components/AllToolsPage').then((m) => ({ default: m.AllToolsPage }))
+);
+const BlogPage = lazy(() =>
+  import('./components/BlogPage').then((m) => ({ default: m.BlogPage }))
 );
 const LockedToolsPage = lazy(() =>
   import('./components/LockedToolsPage').then((m) => ({ default: m.LockedToolsPage }))
@@ -87,7 +93,6 @@ const RECENTS_KEY = 'vcpl_tool_recents_v1';
 const ICON_MENU_TO_FILTER: Partial<Record<IconMenuKey, ToolFilterType>> = {
   banking: 'Banking',
   'tax-gst': 'Tax & GST',
-  'gst-utilities': 'GST Utilities',
   'pdf-tools': 'PDF Suite',
   'image-studio': 'Image Studio',
   'image-qr': 'Utilities',
@@ -103,7 +108,6 @@ const FILTER_TO_ICON_MENU: Record<ToolFilterType, IconMenuKey> = {
   All: 'all-tools',
   Banking: 'banking',
   'Tax & GST': 'tax-gst',
-  'GST Utilities': 'gst-utilities',
   Calculator: 'calculator',
   'PDF Suite': 'pdf-tools',
   'Image Studio': 'image-studio',
@@ -129,6 +133,7 @@ function AppShell() {
   const [route, setRoute] = useState<ParsedRoute>(() =>
     parseLocationToRoute(window.location.pathname, window.location.search)
   );
+  const [blogFeedLoaded, setBlogFeedLoaded] = useState(false);
   const [navTriggerKey, setNavTriggerKey] = useState(0);
   const [vaultSession, setVaultSession] = useState<{ token: string; email: string } | null>(null);
   const isVaultUnlocked = Boolean(vaultSession?.token);
@@ -158,6 +163,35 @@ function AppShell() {
     return () => {
       window.removeEventListener('pagehide', handlePageExit);
       window.removeEventListener('beforeunload', handlePageExit);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadAutoPublishedPosts = async () => {
+      try {
+        const res = await fetch('/api/blog/posts');
+        if (!res.ok) return;
+        const payload = (await res.json()) as { posts?: BlogPostItem[] };
+        if (active && Array.isArray(payload.posts) && payload.posts.length > 0) {
+          mergeDynamicBlogPosts(payload.posts);
+          window.dispatchEvent(new CustomEvent('vcpl:blog-posts-updated'));
+          setRoute((prev) => {
+            if (window.location.pathname.toLowerCase().startsWith('/blog')) {
+              return parseLocationToRoute(window.location.pathname, window.location.search);
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // Ignore network errors cleanly; static posts remain available
+      } finally {
+        if (active) setBlogFeedLoaded(true);
+      }
+    };
+    void loadAutoPublishedPosts();
+    return () => {
+      active = false;
     };
   }, []);
 
@@ -257,6 +291,13 @@ function AppShell() {
     navigateToRoute({ view: 'locked' }, '/locked');
   }, [navigateToRoute]);
 
+  const handleOpenBlog = useCallback(
+    (slug?: string) => {
+      navigateToRoute({ view: 'blog', slug }, getBlogPath(slug));
+    },
+    [navigateToRoute]
+  );
+
   const handleOpenLegalPage = useCallback(
     (slug: LegalPageSlug) => {
       navigateToRoute({ view: 'legal', slug }, getLegalPath(slug));
@@ -282,10 +323,18 @@ function AppShell() {
         handleGoHome();
         return;
       }
+      if (key === 'blog') {
+        handleOpenBlog();
+        return;
+      }
+      if (key === 'locked') {
+        handleOpenLockedVault();
+        return;
+      }
       const mapped = ICON_MENU_TO_FILTER[key] || 'All';
       handleOpenAllTools(mapped);
     },
-    [handleGoHome, handleOpenAllTools]
+    [handleGoHome, handleOpenAllTools, handleOpenBlog, handleOpenLockedVault]
   );
 
   const activeFilter: ToolFilterType =
@@ -302,6 +351,8 @@ function AppShell() {
 
   const activeIconMenu: IconMenuKey | null = useMemo(() => {
     if (route.view === 'home') return 'home';
+    if (route.view === 'blog') return 'blog';
+    if (route.view === 'locked') return 'locked';
     if (route.view === 'all-tools') return FILTER_TO_ICON_MENU[route.filter];
     if (route.view === 'tool' && activeTool) {
       return FILTER_TO_ICON_MENU[activeTool.category];
@@ -325,6 +376,7 @@ function AppShell() {
       {!isToolFullScreen && (
         <Navbar
           activeIconMenu={activeIconMenu}
+          isVaultUnlocked={isVaultUnlocked}
           onHomeClick={handleGoHome}
           onSelectIconMenu={handleSelectIconMenu}
           themePreference={themePreference}
@@ -354,6 +406,7 @@ function AppShell() {
             <CategoriesSection
               selectedCategoryId={selectedCategoryId}
               onSelectCategory={(_catId, filterKey) => handleOpenAllTools(filterKey)}
+              onOpenBlog={() => handleOpenBlog()}
             />
             <div className="w-full bg-[#CEE5DC] dark:bg-[#0D1526] pt-8 sm:pt-10 no-print">
               <div className="max-w-[1400px] mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6">
@@ -454,28 +507,42 @@ function AppShell() {
             />
           )}
 
+          {route.view === 'blog' && (
+            <BlogPage
+              activeSlug={route.slug}
+              onSelectPost={(slug) => handleOpenBlog(slug)}
+              onBackHome={handleGoHome}
+              onOpenTool={(tool) => handleOpenTool(tool)}
+            />
+          )}
+
           {route.view === 'sitemap' && (
             <SitemapPage
               onBackHome={handleGoHome}
               onOpenAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
               onOpenTool={(tool) => handleOpenTool(tool)}
               onOpenLegalPage={handleOpenLegalPage}
+              onOpenBlog={(slug) => handleOpenBlog(slug)}
             />
           )}
 
-          {route.view === 'not-found' && (
-            <NotFoundPage
-              statusCode={route.statusCode ?? 404}
-              requestedPath={route.path}
-              onGoHome={handleGoHome}
-              onExploreAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
-              onOpenCalculator={() => handleOpenTool('unified-calculator')}
-              onOpenSearch={() => setSearchModalOpen(true)}
-              onOpenLegalPage={handleOpenLegalPage}
-              onOpenSitemap={() => navigateToRoute({ view: 'sitemap' }, '/sitemap')}
-              onSelectErrorCode={handleOpenErrorPage}
-            />
-          )}
+          {route.view === 'not-found' &&
+            (!blogFeedLoaded &&
+            window.location.pathname.toLowerCase().startsWith('/blog/') ? (
+              <RouteLoadingFallback />
+            ) : (
+              <NotFoundPage
+                statusCode={route.statusCode ?? 404}
+                requestedPath={route.path}
+                onGoHome={handleGoHome}
+                onExploreAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
+                onOpenCalculator={() => handleOpenTool('unified-calculator')}
+                onOpenSearch={() => setSearchModalOpen(true)}
+                onOpenLegalPage={handleOpenLegalPage}
+                onOpenSitemap={() => navigateToRoute({ view: 'sitemap' }, '/sitemap')}
+                onSelectErrorCode={handleOpenErrorPage}
+              />
+            ))}
         </Suspense>
         </AppErrorBoundary>
       </main>
@@ -487,6 +554,7 @@ function AppShell() {
           onOpenAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
           onOpenLockedVault={handleOpenLockedVault}
           onOpenLegalPage={handleOpenLegalPage}
+          onOpenBlog={() => handleOpenBlog()}
           onOpenPrivacyBanner={() => setCookieOpen(true)}
           onOpenNotFound={() => handleOpenErrorPage(404)}
           onOpenErrorPage={handleOpenErrorPage}

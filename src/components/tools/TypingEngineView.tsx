@@ -1373,7 +1373,7 @@ export const TypingEngineView: React.FC<TypingEngineViewProps> = ({ tool }) => {
             </div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start print:block">
-            <div className="space-y-3 bg-white p-4 rounded-xl border-[1.5px] border-[#2F3E4E] text-xs lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1.5 no-print print:max-h-none print:overflow-visible">
+            <div className="space-y-3 bg-white p-4 rounded-xl border-[1.5px] border-[#2F3E4E] text-xs no-print">
               <div>
                 <label className="block font-bold mb-1">Full Name</label>
                 <input value={resumeName} onChange={(e) => setResumeName(e.target.value)} placeholder="e.g. Rohan Kulkarni" className="w-full px-3 py-1.5 rounded-lg border border-[#2F3E4E]" />

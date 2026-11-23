@@ -22,7 +22,6 @@ const MODAL_CATEGORIES: { key: ToolFilterType; label: string }[] = [
   { key: 'All', label: `All Tools (${PUBLIC_TOOLS_CATALOG.length})` },
   { key: 'Banking', label: 'Banking' },
   { key: 'Tax & GST', label: 'Tax & GST' },
-  { key: 'GST Utilities', label: 'GST' },
   { key: 'Calculator', label: 'Calculator' },
   { key: 'PDF Suite', label: 'PDF Suite' },
   { key: 'Image Studio', label: 'Image Studio' },

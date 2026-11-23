@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <pattern id="vcpl-blog-dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="4" r="1.4" fill="#2F3E4E" fill-opacity="0.11" />
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="#E6F4EF" />
+  <rect width="1200" height="630" fill="url(#vcpl-blog-dots)" />
+
+  <rect x="0" y="0" width="1200" height="14" fill="#2F3E4E" />
+  <rect x="0" y="14" width="1200" height="6" fill="#2F3E4E" />
+
+  <rect x="44" y="48" width="1112" height="534" rx="28" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="4" />
+
+  <rect x="96" y="96" width="174" height="40" rx="10" fill="#2F3E4E" />
+  <rect x="108" y="106" width="10" height="10" rx="2" fill="#F9C80E" />
+  <rect x="120" y="106" width="10" height="10" rx="2" fill="#CEE5DC" />
+  <rect x="108" y="118" width="10" height="10" rx="2" fill="#CEE5DC" />
+  <rect x="120" y="118" width="10" height="10" rx="2" fill="#F9C80E" />
+  <text x="142" y="122" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="16" letter-spacing="0.8">VCPL BLOG</text>
+
+  <rect x="284" y="96" width="256" height="40" rx="10" fill="#FEF2C8" stroke="#2F3E4E" stroke-width="2" />
+  <text x="412" y="121" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="15">PF · ESI · PAYROLL</text>
+
+  <text x="96" y="218" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="36" letter-spacing="-0.8">PF, ESI &amp; Karnataka</text>
+  <text x="96" y="266" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="36" letter-spacing="-0.8">Professional Tax: Complete</text>
+  <text x="96" y="314" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="36" letter-spacing="-0.8">Monthly Payroll Compliance</text>
+  <text x="96" y="362" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="36" letter-spacing="-0.8">Guide</text>
+
+  <text x="96" y="432" fill="#475569" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="18">By Arjun Bangera · 8 min read · 23 Nov 2026</text>
+
+
+  <!-- EPF 12%, ESIC 3.25% & Karnataka PT Payroll Compliance Artwork -->
+  <g transform="translate(736, 98)">
+    <rect x="0" y="0" width="380" height="390" rx="22" fill="#FEF2C8" stroke="#2F3E4E" stroke-width="3.5" />
+    <rect x="0" y="0" width="380" height="58" rx="22" fill="#12805C" />
+    <rect x="0" y="34" width="380" height="24" fill="#12805C" />
+    <text x="26" y="38" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="18">PF · ESIC · KARNATAKA PT</text>
+
+    <rect x="24" y="78" width="158" height="104" rx="14" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="2.5" />
+    <text x="40" y="106" fill="#12805C" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="13">EPF + EPS SPLIT</text>
+    <text x="40" y="140" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="24">12% + 12%</text>
+    <text x="40" y="164" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="12">ECR DUE 15TH</text>
+
+    <rect x="198" y="78" width="158" height="104" rx="14" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="2.5" />
+    <text x="214" y="106" fill="#B45309" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="13">ESIC (≤ ₹21K)</text>
+    <text x="214" y="140" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="22">0.75% / 3.25%</text>
+    <text x="214" y="164" fill="#64748B" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="12">CHALLAN DUE 15TH</text>
+
+    <rect x="24" y="198" width="332" height="114" rx="14" fill="#FFFDF5" stroke="#2F3E4E" stroke-width="2.5" />
+    <text x="40" y="226" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="14">KARNATAKA PT &amp; CTC BREAKUP</text>
+    <rect x="40" y="240" width="144" height="28" rx="7" fill="#F9C80E" stroke="#2F3E4E" stroke-width="1.5" />
+    <text x="112" y="259" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="12">PT ₹200 · DUE 20TH</text>
+    <rect x="196" y="240" width="144" height="28" rx="7" fill="#CEE5DC" stroke="#2F3E4E" stroke-width="1.5" />
+    <text x="268" y="259" text-anchor="middle" fill="#2F3E4E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="12">GROSS VS NET PAY</text>
+    <rect x="40" y="276" width="300" height="24" rx="6" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1.2" />
+    <text x="190" y="293" text-anchor="middle" fill="#475569" font-family="monospace" font-weight="700" font-size="12">TDS SEC 393 · CHALLAN 7TH</text>
+
+    <rect x="24" y="330" width="332" height="40" rx="12" fill="#2F3E4E" />
+    <text x="190" y="355" text-anchor="middle" fill="#F9C80E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="14">HR &amp; ACCOUNTANT PAYROLL HANDBOOK</text>
+  </g>
+
+  <rect x="96" y="512" width="1008" height="44" rx="12" fill="#2F3E4E" />
+  <text x="122" y="540" fill="#F9C80E" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="17">vcpltools.vercel.app/blog</text>
+  <text x="1078" y="540" text-anchor="end" fill="#FFFDF5" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="16">PF &amp; ESI Guide · 100% Browser-Private Utilities</text>
+</svg>

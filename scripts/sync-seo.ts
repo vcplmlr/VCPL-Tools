@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { BLOG_POSTS } from '../src/data/blogPostsData';
 import { PUBLIC_TOOLS_CATALOG, getToolsForCategory } from '../src/data/toolsCatalog';
+import { buildBlogCoverSvg } from '../src/utils/blogCoverSvg';
 import {
   DEFAULT_SITE_ORIGIN,
   buildRobotsTxtString,
@@ -13,6 +15,7 @@ export function syncAllSeoArtifacts(rootDir: string = process.cwd()): {
   urlCount: number;
   toolCount: number;
   pdfToolCount: number;
+  blogCoverCount: number;
   sitemapUpdated: boolean;
   robotsUpdated: boolean;
   ogCardUpdated: boolean;
@@ -42,7 +45,8 @@ export function syncAllSeoArtifacts(rootDir: string = process.cwd()): {
   const sitemapPath = path.join(publicDir, 'sitemap.xml');
   const nextSitemapXml = buildSitemapXmlString(origin);
   const prevSitemapXml = fs.existsSync(sitemapPath) ? fs.readFileSync(sitemapPath, 'utf8') : '';
-  const stripLastmod = (xml: string) => xml.replace(/<lastmod>.*?<\/lastmod>/g, '<lastmod>DATE</lastmod>');
+  const stripLastmod = (xml: string) =>
+    xml.replace(/<lastmod>.*?<\/lastmod>/g, '<lastmod>DATE</lastmod>');
   let sitemapUpdated = false;
   if (!prevSitemapXml || stripLastmod(prevSitemapXml) !== stripLastmod(nextSitemapXml)) {
     fs.writeFileSync(sitemapPath, nextSitemapXml, 'utf8');
@@ -75,10 +79,27 @@ export function syncAllSeoArtifacts(rootDir: string = process.cwd()): {
     }
   }
 
+  // 5. Generate/sync themed 1200x630 featured cover SVGs for every blog article under public/blog/
+  const blogImgDir = path.join(publicDir, 'blog');
+  if (!fs.existsSync(blogImgDir)) {
+    fs.mkdirSync(blogImgDir, { recursive: true });
+  }
+  for (const post of BLOG_POSTS) {
+    const targetSvgPath = path.join(publicDir, post.coverImage.replace(/^\/+/, ''));
+    const nextCoverSvg = buildBlogCoverSvg(post);
+    const prevCoverSvg = fs.existsSync(targetSvgPath)
+      ? fs.readFileSync(targetSvgPath, 'utf8')
+      : '';
+    if (prevCoverSvg !== nextCoverSvg) {
+      fs.writeFileSync(targetSvgPath, nextCoverSvg, 'utf8');
+    }
+  }
+
   return {
     urlCount: canonicalUrls.length,
     toolCount,
     pdfToolCount,
+    blogCoverCount: BLOG_POSTS.length,
     sitemapUpdated,
     robotsUpdated,
     ogCardUpdated,
@@ -94,7 +115,7 @@ const isDirectRun =
 if (isDirectRun) {
   const result = syncAllSeoArtifacts();
   console.log(
-    `[SEO Sync] Verified ${result.urlCount} canonical URLs (${result.toolCount} tools, ${result.pdfToolCount} PDF tools). ` +
+    `[SEO Sync] Verified ${result.urlCount} canonical URLs (${result.toolCount} tools, ${result.pdfToolCount} PDF tools, ${result.blogCoverCount} blog covers). ` +
       `Updated: sitemap.xml=${result.sitemapUpdated}, robots.txt=${result.robotsUpdated}, og-card.svg=${result.ogCardUpdated}`
   );
 }

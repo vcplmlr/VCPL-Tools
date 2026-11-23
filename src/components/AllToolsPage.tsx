@@ -342,9 +342,6 @@ export function AllToolsPage({
     )
       .map((head) => {
         const filteredTools = PUBLIC_TOOLS_CATALOG.filter((tool) => {
-          if (tool.id === 'gstr1-return-prep' && activeFilter !== 'GST Utilities') {
-            return false;
-          }
           const matchesSuite =
             activeFilter === 'All'
               ? tool.category === head.key
@@ -513,7 +510,7 @@ export function AllToolsPage({
                   </h1>
                   <p className="text-sm text-[#475569] dark:text-slate-300 leading-relaxed">
                     Browse all {PUBLIC_TOOLS_CATALOG.length} client-side utilities organized across Banking,
-                    Tax &amp; GST, GST, Calculator Hub, PDF Suite, Image Studio, Typing &amp; Text, QR
+                    Tax &amp; GST, Calculator Hub, PDF Suite, Image Studio, Typing &amp; Text, QR
                     Utilities, VCPL Tools, Special, and Learn Tools.
                   </p>
                 </>

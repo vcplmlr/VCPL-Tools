@@ -1751,7 +1751,7 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
       <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-6 sm:p-8 space-y-6">
         {headerBanner}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1">
+          <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div>
               <label className="block font-bold text-[#2F3E4E] dark:text-slate-200 mb-1">Full Name</label>
               <input value={sigName} onChange={(e) => setSigName(e.target.value)} placeholder="e.g. Arjun Bangera" className="w-full px-3 py-2 rounded-lg border border-[#2F3E4E]/45 dark:border-slate-600 bg-white dark:bg-[#0F172A] text-[#2F3E4E] dark:text-slate-100" />
@@ -1914,7 +1914,7 @@ export const ProductivityDevSuiteView: React.FC<ProductivityDevSuiteViewProps> =
     <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-6 sm:p-8 space-y-6 print:border-0 print:bg-white print:p-0">
       {headerBanner}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start print:block">
-        <div className="lg:col-span-5 space-y-3 text-xs lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto lg:pr-1 no-print print:max-h-none print:overflow-visible">
+        <div className="lg:col-span-5 space-y-3 text-xs no-print">
           {isVcard ? (
             <>
               <input value={cardName} onChange={(e) => setCardName(e.target.value)} placeholder="Full Name" className="w-full px-3 py-2 rounded-xl border border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0F172A] text-[#2F3E4E] dark:text-slate-100 font-bold" />

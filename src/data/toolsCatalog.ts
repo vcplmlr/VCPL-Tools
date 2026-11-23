@@ -32,7 +32,7 @@ export const VALUE_PILLARS: ValuePillar[] = [
   {
     id: 'all-in-one',
     icon: 'blocks',
-    title: '11 Integrated Indian Utility Suites',
+    title: '10 Integrated Indian Utility Suites',
     description:
       'Built for Indian accounting teams, dealership offices, CAs, students, regional language learners, and daily document workflows.',
   },
@@ -48,60 +48,54 @@ export const TOOL_SECTION_HEADS: ToolSectionHead[] = [
   {
     key: 'Tax & GST',
     index: '02',
-    title: 'Tax, TDS, TCS & GST Reconciliation',
-    subtitle: 'TRACES Form 26AS, GSTR-2B vs Tally, Place of Supply, Expense ITC Manager & PDF/Image Table Extraction.',
-  },
-  {
-    key: 'GST Utilities',
-    index: '03',
-    title: 'GST Utilities & Return Prep',
-    subtitle: 'Prepare, validate, and export GST portal Form GSTR-1 JSON directly from V2.2 workbooks and CSVs.',
+    title: 'Tax, TDS, TCS & GST Return Utilities',
+    subtitle: 'TRACES Form 26AS, GSTR-2B vs Tally, GSTR-1 Return Prep & JSON validation, Place of Supply, Expense ITC & PDF/Image Table Extraction.',
   },
   {
     key: 'Calculator',
-    index: '04',
+    index: '03',
     title: 'Calculator Hub',
     subtitle: 'Standard scientific, loan EMI, SIP/SWP wealth, FY income tax, exam CGPA, Student SSLC/PUC/GPA & Date tenure.',
   },
   {
     key: 'PDF Suite',
-    index: '05',
+    index: '04',
     title: 'PDF Suite & Converters',
     subtitle: 'Complete 70-tool offline PDF workshop: edit, convert, merge, split, organize, booklet, redact, OCR & sign.',
   },
   {
     key: 'Image Studio',
-    index: '06',
+    index: '05',
     title: 'Image Studio, Govt Exam & OCR Lab',
     subtitle: 'Crop, remove backgrounds, passport sheets, govt exam photo/signature resizers, EXIF cleaner, OCR & swatchbook.',
   },
   {
     key: 'Typing & Text',
-    index: '07',
+    index: '06',
     title: 'Typing, Word, Text & Resume Suite',
     subtitle: 'EN/HI/KN typing speed tests, Rich Text & DOCX viewer, Kruti/Nudi Unicode, Text Sorter & ATS Resume Builder.',
   },
   {
     key: 'Utilities',
-    index: '08',
+    index: '07',
     title: 'Excel/CSV, QR, Developer & Office Utilities',
     subtitle: 'Spreadsheet studio, NPCI QR standees & vCards, JSON/XML/Base64/Regex/Hash dev tools, converters & world atlas.',
   },
   {
     key: 'VCPL',
-    index: '09',
+    index: '08',
     title: 'VCPL Tools — Enterprise & OCR Suite',
     subtitle: 'Tally & DMS reconcilers, DBS P&L, IOCL fuel & covering letters, letterhead invoices & Textlift OCR Pro.',
   },
   {
     key: 'Special Tools',
-    index: '10',
+    index: '09',
     title: 'Special',
     subtitle: 'Featured specialized & cultural studios including Tulusiri Pro Tulu Lipi Studio (Beta Testing).',
   },
   {
     key: 'Learn Tools',
-    index: '11',
+    index: '10',
     title: 'Learn Tools',
     subtitle: 'Interactive Windows/Laptop & MacBook keyboard shortcuts and TallyPrime / Tally.ERP 9 shortcuts guide.',
   },
@@ -355,15 +349,12 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     keywords: ['image to excel', 'photo table ocr', 'bill scan excel'],
   },
 
-  // =========================================================================
-  // 03. GST UTILITIES
-  // =========================================================================
   {
     id: 'gstr1-return-prep',
-    code: 'GU-01',
-    suite: 'GST Utilities',
-    suiteAccent: '#0F766E',
-    category: 'GST Utilities',
+    code: 'TX-12',
+    suite: 'Tax & GST',
+    suiteAccent: '#12805C',
+    category: 'Tax & GST',
     categoryName: 'GSTR-1 Return Filing Engine',
     kind: 'gstr1-return-prep',
     title: 'GSTR-1 Return Preparation Tool',
@@ -375,7 +366,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
   },
 
   // =========================================================================
-  // 04. CALCULATOR
+  // 03. CALCULATOR
   // =========================================================================
   {
     id: 'unified-calculator',
@@ -3168,13 +3159,6 @@ export const TOOL_CATEGORIES: CategoryItem[] = [
     filterKey: 'Tax & GST',
     countLabel: `${getToolsForCategory('Tax & GST').length} Tools`,
     iconName: 'receipt',
-  },
-  {
-    id: 'cat-gst-utils',
-    name: 'GST',
-    filterKey: 'GST Utilities',
-    countLabel: `${getToolsForCategory('GST Utilities').length} Tool`,
-    iconName: 'file-spreadsheet',
   },
   {
     id: 'cat-calc',
