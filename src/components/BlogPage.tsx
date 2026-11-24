@@ -1333,8 +1333,17 @@ export function BlogPage({
                       </span>
                     )}
                     <span>
-                      <span className="block font-display font-bold text-[#2F3E4E] dark:text-slate-100 group-hover:underline">
-                        {activePost.author}
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="font-display font-bold text-[#2F3E4E] dark:text-slate-100 group-hover:underline">
+                          {activePost.author}
+                        </span>
+                        <span aria-hidden="true" className="text-[#94A3B8]">
+                          ·
+                        </span>
+                        <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-[#12805C] dark:text-[#F9C80E] tabular-nums">
+                          <Clock className="w-3 h-3 shrink-0" aria-hidden="true" />
+                          <span>{readingStats.formattedTime}</span>
+                        </span>
                       </span>
                       <span className="block text-[11px] text-[#64748B] dark:text-slate-400">
                         {activePost.authorRole}
@@ -1923,14 +1932,21 @@ export function BlogPage({
                   loading="lazy"
                   className="hidden sm:block w-28 aspect-[1200/630] object-cover rounded-lg border border-[#2F3E4E]/30 bg-[#FEF2C8] shrink-0"
                 />
-                <div className="min-w-0 space-y-0.5">
-                  <span className="inline-flex flex-wrap items-center gap-1 text-[11px] font-mono font-bold text-[#64748B] dark:text-slate-400 tabular-nums">
-                    <ArrowLeft className="w-3 h-3" aria-hidden="true" /> Previous Guide · {prevPost.category} ·{' '}
-                    {readingStatsBySlug.get(prevPost.slug)?.formattedTime ?? prevPost.readTime}
+                <div className="min-w-0 space-y-1">
+                  <span className="inline-flex flex-wrap items-center gap-1 text-[11px] font-mono font-bold text-[#64748B] dark:text-slate-400">
+                    <ArrowLeft className="w-3 h-3" aria-hidden="true" /> Previous Guide · {prevPost.category}
                   </span>
                   <div className="font-display font-extrabold text-sm text-[#2F3E4E] dark:text-slate-100 line-clamp-2 group-hover:text-[#12805C] dark:group-hover:text-[#F9C80E]">
                     {prevPost.title}
                   </div>
+                  <span className="inline-flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-[#64748B] dark:text-slate-400 tabular-nums">
+                    <span>By {prevPost.author}</span>
+                    <span aria-hidden="true">·</span>
+                    <span className="inline-flex items-center gap-1 font-mono font-bold text-[#12805C] dark:text-[#F9C80E]">
+                      <Clock className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      <span>{readingStatsBySlug.get(prevPost.slug)?.formattedTime ?? prevPost.readTime}</span>
+                    </span>
+                  </span>
                 </div>
               </a>
             ) : (
@@ -1946,15 +1962,21 @@ export function BlogPage({
                 }}
                 className="group p-4 rounded-2xl bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 hover:bg-[#FEF2C8] dark:hover:bg-[#1A253B] shadow-[0_3px_0_#2F3E4E] dark:shadow-[0_3px_0_#020617] transition flex items-center justify-between gap-3.5 text-left sm:text-right"
               >
-                <div className="min-w-0 space-y-0.5 flex-1">
-                  <span className="inline-flex flex-wrap items-center gap-1 text-[11px] font-mono font-bold text-[#64748B] dark:text-slate-400 sm:justify-end tabular-nums">
-                    Next Guide · {nextPost.category} ·{' '}
-                    {readingStatsBySlug.get(nextPost.slug)?.formattedTime ?? nextPost.readTime}{' '}
-                    <ArrowRight className="w-3 h-3" aria-hidden="true" />
+                <div className="min-w-0 space-y-1 flex-1">
+                  <span className="inline-flex flex-wrap items-center gap-1 text-[11px] font-mono font-bold text-[#64748B] dark:text-slate-400 sm:justify-end">
+                    Next Guide · {nextPost.category} <ArrowRight className="w-3 h-3" aria-hidden="true" />
                   </span>
                   <div className="font-display font-extrabold text-sm text-[#2F3E4E] dark:text-slate-100 line-clamp-2 group-hover:text-[#12805C] dark:group-hover:text-[#F9C80E]">
                     {nextPost.title}
                   </div>
+                  <span className="inline-flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-[#64748B] dark:text-slate-400 sm:justify-end tabular-nums">
+                    <span>By {nextPost.author}</span>
+                    <span aria-hidden="true">·</span>
+                    <span className="inline-flex items-center gap-1 font-mono font-bold text-[#12805C] dark:text-[#F9C80E]">
+                      <Clock className="w-3 h-3 shrink-0" aria-hidden="true" />
+                      <span>{readingStatsBySlug.get(nextPost.slug)?.formattedTime ?? nextPost.readTime}</span>
+                    </span>
+                  </span>
                 </div>
                 <img
                   src={nextPost.coverImage}
@@ -2017,8 +2039,15 @@ export function BlogPage({
                         <p className="text-xs sm:text-sm leading-relaxed text-[#475569] dark:text-slate-400 line-clamp-2">
                           {rp.excerpt}
                         </p>
-                        <p className="text-[11px] font-semibold text-[#64748B] dark:text-slate-400 pt-1">
-                          By {rp.author}
+                        <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-[#64748B] dark:text-slate-400 pt-1 tabular-nums">
+                          <span>By {rp.author}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="inline-flex items-center gap-1 font-mono font-bold text-[#12805C] dark:text-[#F9C80E]">
+                            <Clock className="w-3 h-3 shrink-0" aria-hidden="true" />
+                            <span>
+                              {readingStatsBySlug.get(rp.slug)?.formattedTime ?? rp.readTime}
+                            </span>
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -2566,13 +2595,24 @@ export function BlogPage({
                       </div>
 
                       <div className="px-5 py-3.5 border-t border-[#2F3E4E]/15 dark:border-slate-800 flex items-center justify-between gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedAuthorId(post.authorId)}
-                          className="text-[11px] font-semibold text-[#64748B] dark:text-slate-400 hover:text-[#2F3E4E] dark:hover:text-[#F9C80E] truncate cursor-pointer"
-                        >
-                          By {post.author}
-                        </button>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedAuthorId(post.authorId)}
+                            className="text-[11px] font-semibold text-[#64748B] dark:text-slate-400 hover:text-[#2F3E4E] dark:hover:text-[#F9C80E] truncate cursor-pointer"
+                          >
+                            By {post.author}
+                          </button>
+                          <span aria-hidden="true" className="text-[11px] text-[#94A3B8] shrink-0">
+                            ·
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-[#12805C] dark:text-[#F9C80E] whitespace-nowrap tabular-nums shrink-0">
+                            <Clock className="w-3 h-3 shrink-0" aria-hidden="true" />
+                            <span>
+                              {readingStatsBySlug.get(post.slug)?.formattedTime ?? post.readTime}
+                            </span>
+                          </span>
+                        </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <button
                             type="button"

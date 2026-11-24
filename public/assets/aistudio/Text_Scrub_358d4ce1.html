@@ -1,0 +1,310 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Text Scrub</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: options rail on the left, input and output panes stacked beside it; rail collapses above on phones */
+:root{
+  --bg:#eef1f3; --panel:#ffffff; --ink:#14202b; --muted:#5a6b78; --line:#d5dce1;
+  --accent:#0b6e8a; --accent-ink:#ffffff; --soft:#e2eef2; --good:#1f7a4d; --warn:#a15c00;
+  --display:'Bricolage Grotesque','IBM Plex Sans',system-ui,sans-serif;
+  --body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e161c; --panel:#16212a; --ink:#e4ecf1; --muted:#8fa3b1; --line:#2a3a46;
+  --accent:#4cc3e0; --accent-ink:#06222b; --soft:#1b2f39; --good:#5fd39a; --warn:#e8b25a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e161c; --panel:#16212a; --ink:#e4ecf1; --muted:#8fa3b1; --line:#2a3a46;
+  --accent:#4cc3e0; --accent-ink:#06222b; --soft:#1b2f39; --good:#5fd39a; --warn:#e8b25a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--body);padding-block:20px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px}
+h1{font:700 30px/1.1 var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0;max-width:60ch}
+.presets{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.presets span{font:500 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+button,select{font:inherit;color:inherit}
+.btn{border:1px solid var(--line);background:var(--panel);padding:7px 12px;border-radius:6px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.on{background:var(--soft);border-color:var(--accent)}
+button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.rail{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 14px 14px;min-width:0}
+.rail h2{font:600 11px var(--body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px}
+.opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;min-width:0}
+.opt label{flex:1;min-width:0;cursor:pointer}
+.opt select{max-width:150px;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:3px 6px}
+.opt input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex:none}
+.opt input[type=number]{width:56px;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:3px 6px;color:inherit}
+.main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-width:0}
+.pane-h{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.pane-h b{font:600 12px var(--body);letter-spacing:.07em;text-transform:uppercase}
+.pane-h .acts{display:flex;flex-wrap:wrap;gap:6px}
+.pane-h .btn{padding:4px 9px;font-size:12px}
+textarea{width:100%;min-height:420px;resize:vertical;border:0;background:transparent;color:var(--ink);font:13px/1.6 var(--mono);padding:12px;border-radius:0 0 10px 10px}
+.stats{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.chip b{color:var(--ink);font-weight:600}
+.chip.hit b{color:var(--good)}
+.note{color:var(--muted);font-size:12px}
+.sr{position:absolute;left:-9999px}
+</style>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Text Scrub</h1>
+      <p class="sub">Paste text from ChatGPT, Claude, Gemini or any AI. It converts live as you type, and every rule is adjustable. Nothing leaves your browser.</p>
+    </div>
+    <div class="presets" id="presets"><span>Presets</span></div>
+  </header>
+  <div class="grid">
+    <aside class="rail" id="rail" aria-label="Cleaning options"></aside>
+    <section class="main">
+      <div class="stats" id="stats"></div>
+      <div class="panes">
+        <div class="pane">
+          <div class="pane-h"><b>AI text in</b>
+            <div class="acts">
+              <button class="btn" id="example">Example</button>
+              <label class="btn" for="file">Open file</label>
+              <input type="file" id="file" class="sr" accept=".txt,.md,.markdown,.html,.htm,text/*">
+              <button class="btn" id="clear">Clear</button>
+            </div></div>
+          <textarea id="in" spellcheck="false" placeholder="Paste AI output here"></textarea>
+        </div>
+        <div class="pane">
+          <div class="pane-h"><b>Clean text out</b>
+            <div class="acts">
+              <button class="btn primary" id="copy">Copy</button>
+              <button class="btn" id="swap" title="Move the result into the input for another pass">Use as input</button>
+            </div></div>
+          <textarea id="out" spellcheck="false" readonly></textarea>
+        </div>
+      </div>
+      <p class="note" id="msg" aria-live="polite">Copy the answer from the chat with its copy button so the markdown comes through, then paste it here.</p>
+    </section>
+  </div>
+</div>
+<script>
+(function(){
+var SCHEMA=[
+ {g:'Markdown',o:[
+  {k:'headings',l:'Headings (#)',t:'b',d:true},
+  {k:'emph',l:'Bold, italic, strikethrough',t:'b',d:true},
+  {k:'quotes',l:'Blockquotes (>)',t:'b',d:true},
+  {k:'rules',l:'Horizontal rules',t:'b',d:true},
+  {k:'inlinecode',l:'Inline code ticks',t:'b',d:true},
+  {k:'fences',l:'Code blocks',t:'s',d:'keep',c:[['keep','Keep code'],['remove','Delete code']]},
+  {k:'links',l:'Links',t:'s',d:'text',c:[['text','Keep label only'],['both','Label (url)'],['url','URL only']]},
+  {k:'images',l:'Images',t:'s',d:'alt',c:[['alt','Keep alt text'],['remove','Remove']]},
+  {k:'html',l:'HTML tags',t:'b',d:true},
+  {k:'latex',l:'LaTeX delimiters',t:'b',d:true}]},
+ {g:'Lists and tables',o:[
+  {k:'bullets',l:'Bullets',t:'s',d:'dash',c:[['dash','"- "'],['dot','"• "'],['none','No marker'],['keep','Unchanged']]},
+  {k:'numbers',l:'Numbered lists',t:'s',d:'keep',c:[['keep','Keep numbers'],['remove','Remove numbers']]},
+  {k:'indent',l:'Flatten nested indent',t:'b',d:false},
+  {k:'tables',l:'Tables',t:'s',d:'aligned',c:[['aligned','Aligned columns'],['tab','Tab separated'],['csv','Comma separated']]}]},
+ {g:'AI leftovers',o:[
+  {k:'filler',l:'Opening and closing filler',t:'b',d:true},
+  {k:'cites',l:'Citation markers [1], 【4†source】',t:'b',d:true},
+  {k:'emoji',l:'Emoji',t:'b',d:true},
+  {k:'hidden',l:'Invisible characters',t:'b',d:true},
+  {k:'spaces',l:'Odd spaces to normal',t:'b',d:true}]},
+ {g:'Punctuation',o:[
+  {k:'smart',l:'Curly quotes to straight',t:'b',d:true},
+  {k:'emdash',l:'Em dash',t:'s',d:'comma',c:[['keep','Keep'],['comma','Comma'],['hyphen','Spaced hyphen']]},
+  {k:'ellipsis',l:'Ellipsis character',t:'b',d:true}]},
+ {g:'Spacing',o:[
+  {k:'trim',l:'Trim line ends, collapse spaces',t:'b',d:true},
+  {k:'maxblank',l:'Max blank lines in a row',t:'n',d:1},
+  {k:'join',l:'Join wrapped lines into paragraphs',t:'b',d:false}]}
+];
+var PRESETS={
+ 'Plain':{},
+ 'Email':{bullets:'dash',emdash:'comma',tables:'aligned'},
+ 'LinkedIn':{bullets:'dot',emdash:'comma',maxblank:1,numbers:'keep'},
+ 'Strict':{bullets:'none',numbers:'remove',indent:true,join:true,emdash:'comma',fences:'keep',links:'text'},
+ 'Markdown only':{filler:false,emoji:false,smart:false,emdash:'keep',ellipsis:false,hidden:false,spaces:false,cites:false}
+};
+var $=function(id){return document.getElementById(id)};
+var S={};
+SCHEMA.forEach(function(g){g.o.forEach(function(o){S[o.k]=o.d})});
+var DEF=JSON.parse(JSON.stringify(S));
+try{var sv=JSON.parse(localStorage.getItem('textscrub.v1')||'null');if(sv)Object.keys(sv).forEach(function(k){if(k in S)S[k]=sv[k]})}catch(e){}
+
+/* ---------- UI ---------- */
+var rail=$('rail');
+SCHEMA.forEach(function(g){
+  var h=document.createElement('h2');h.textContent=g.g;rail.appendChild(h);
+  g.o.forEach(function(o){
+    var d=document.createElement('div');d.className='opt';
+    var id='o_'+o.k,lab=document.createElement('label');lab.htmlFor=id;lab.textContent=o.l;
+    var el;
+    if(o.t==='b'){el=document.createElement('input');el.type='checkbox';el.checked=!!S[o.k];el.onchange=function(){S[o.k]=el.checked;run()}}
+    else if(o.t==='n'){el=document.createElement('input');el.type='number';el.min=0;el.max=5;el.value=S[o.k];el.onchange=function(){S[o.k]=Math.max(0,Math.min(5,+el.value||0));run()}}
+    else{el=document.createElement('select');o.c.forEach(function(c){var op=document.createElement('option');op.value=c[0];op.textContent=c[1];el.appendChild(op)});el.value=S[o.k];el.onchange=function(){S[o.k]=el.value;run()}}
+    el.id=id;d.appendChild(lab);d.appendChild(el);rail.appendChild(d);
+  });
+});
+function syncUI(){Object.keys(S).forEach(function(k){var el=$('o_'+k);if(!el)return;if(el.type==='checkbox')el.checked=!!S[k];else el.value=S[k]})}
+var pr=$('presets');
+Object.keys(PRESETS).forEach(function(n){
+  var b=document.createElement('button');b.className='btn';b.textContent=n;
+  b.onclick=function(){S=JSON.parse(JSON.stringify(DEF));Object.keys(PRESETS[n]).forEach(function(k){S[k]=PRESETS[n][k]});syncUI();run();msg('Preset applied: '+n)};
+  pr.appendChild(b);
+});
+
+/* ---------- Engine ---------- */
+var FILL_OPEN=/^(certainly|sure|absolutely|of course|great question|good question|got it|happy to help|i'd be happy|i would be happy|here(?:'s| is| are)|below is|okay|ok|alright|no problem|great|excellent)\b/i;
+var FILL_CLOSE=/^(i hope (this|that) helps|hope (this|that) helps|let me know|feel free|would you like|do you want me|if you(?:'d| would) like|if you want|want me to|is there anything|happy to (help|adjust|tweak)|i can also|just let me know)/i;
+
+function clean(src,o,C){
+  var t=String(src).replace(/\r\n?/g,'\n');
+  function rep(re,fn,key){return t=t.replace(re,function(){var a=arguments,r=typeof fn==='function'?fn.apply(null,a):fn.replace(/\$(\d)/g,function(m,n){return a[+n]||''});C[key]=(C[key]||0)+1;return r})}
+  /* hidden characters first so patterns match */
+  if(o.hidden)rep(/[\u200B-\u200F\u2060\uFEFF\u00AD\u202A-\u202E\u2066-\u2069]/g,'','hidden');
+  if(o.spaces)t=t.replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g,' ');
+  /* stash code */
+  var stash=[];
+  function keep(s){stash.push(s);return '\u0001'+(stash.length-1)+'\u0002'}
+  t=t.replace(/(^|\n)[ \t]*(```|~~~)[^\n]*\n([\s\S]*?)\n?[ \t]*\2[ \t]*(?=\n|$)/g,function(m,a,f,body){
+    if(o.fences==='remove'){C.md=(C.md||0)+1;return a}
+    C.md=(C.md||0)+1;return a+keep(body)});
+  if(o.inlinecode)t=t.replace(/`([^`\n]+)`/g,function(m,c){C.md=(C.md||0)+1;return keep(c)});
+  /* html */
+  if(o.html){t=t.replace(/<br\s*\/?>/gi,'\n');rep(/<\/?[a-z][a-z0-9-]*(\s[^<>]*)?>/gi,'','md')}
+  /* citations */
+  if(o.cites){
+    rep(/[\ue200][^\ue201]*[\ue201]/g,'','cite');
+    rep(/【[^】]*】/g,'','cite');
+    rep(/:?contentReference\[[^\]]*\]\{[^}]*\}/g,'','cite');
+    rep(/[ \t]?\[\d{1,3}(?:[,\u2013-]\s?\d{1,3})*\](?!\()/g,'','cite');
+  }
+  /* tables */
+  var L=t.split('\n'),outL=[],i=0;
+  function cells(l){return l.trim().replace(/^\|/,'').replace(/\|$/,'').split(/(?<!\\)\|/).map(function(c){return c.trim().replace(/\\\|/g,'|')})}
+  while(i<L.length){
+    if(/^\s*\|.*\|?\s*$/.test(L[i])&&L[i].indexOf('|')>-1&&i+1<L.length&&/^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(L[i+1])){
+      var rows=[cells(L[i])];i+=2;
+      while(i<L.length&&/^\s*\|/.test(L[i])){rows.push(cells(L[i]));i++}
+      C.table=(C.table||0)+1;
+      if(o.tables==='tab')rows.forEach(function(r){outL.push(r.join('\t'))});
+      else if(o.tables==='csv')rows.forEach(function(r){outL.push(r.map(function(c){return /[",]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c}).join(','))});
+      else{
+        var w=[];rows.forEach(function(r){r.forEach(function(c,j){w[j]=Math.max(w[j]||0,c.replace(/\*\*|__|`/g,'').length)})});
+        var tl=rows.map(function(r){return r.map(function(c,j){var p=c.replace(/\*\*|__|`/g,'');return j===r.length-1?p:p+' '.repeat(w[j]-p.length)}).join('   ')});outL.push(keep(tl.join('\n')));
+      }
+    }else{outL.push(L[i]);i++}
+  }
+  t=outL.join('\n');
+  /* block markers */
+  if(o.headings)rep(/^[ \t]{0,3}#{1,6}[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/gm,'$1','md');
+  if(o.rules)rep(/^[ \t]*([-*_])([ \t]*\1){2,}[ \t]*$/gm,'','md');
+  if(o.quotes)rep(/^[ \t]*(?:>[ \t]?)+/gm,'','md');
+  /* images and links */
+  t=t.replace(/!\[([^\]]*)\]\(([^)\s]*)(?:\s+"[^"]*")?\)/g,function(m,a){C.md=(C.md||0)+1;return o.images==='alt'?a:''});
+  t=t.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g,function(m,a,u){C.md=(C.md||0)+1;return o.links==='url'?u:o.links==='both'&&a!==u?a+' ('+u+')':a});
+  t=t.replace(/<(https?:\/\/[^>\s]+)>/g,'$1');
+  /* emphasis */
+  if(o.emph){
+    var before;do{before=t;
+      t=t.replace(/(\*\*\*|___)(?=\S)([\s\S]+?)(?<=\S)\1/g,function(m,a,b){C.md=(C.md||0)+1;return b});
+      t=t.replace(/(\*\*|__)(?=\S)([\s\S]+?)(?<=\S)\1/g,function(m,a,b){C.md=(C.md||0)+1;return b});
+      t=t.replace(/(?<![\w*\\])\*(?=[^\s*])([^*\n]+?)(?<=[^\s*])\*(?![\w*])/g,function(m,b){C.md=(C.md||0)+1;return b});
+      t=t.replace(/(?<![\w\\])_(?=[^\s_])([^_\n]+?)(?<=[^\s_])_(?![\w])/g,function(m,b){C.md=(C.md||0)+1;return b});
+      t=t.replace(/~~(?=\S)([^~\n]+?)(?<=\S)~~/g,function(m,b){C.md=(C.md||0)+1;return b});
+    }while(t!==before);
+  }
+  /* latex */
+  if(o.latex){
+    rep(/\$\$([\s\S]+?)\$\$/g,'$1','md');
+    rep(/\\\[([\s\S]+?)\\\]/g,'$1','md');
+    rep(/\\\((.+?)\\\)/g,'$1','md');
+    t=t.replace(/\\times/g,'\u00d7').replace(/\\cdot/g,'\u00b7').replace(/\\leq?/g,'\u2264').replace(/\\geq?/g,'\u2265').replace(/\\neq/g,'\u2260').replace(/\\approx/g,'\u2248').replace(/\\pm/g,'\u00b1').replace(/\\rightarrow|\\to/g,'->');
+    t=t.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g,'($1)/($2)').replace(/\\text\{([^{}]*)\}/g,'$1');
+  }
+  /* lists */
+  var ind=o.indent;
+  t=t.replace(/^([ \t]*)(?:[-*+\u2022\u25E6\u25AA\u2023])[ \t]+(\[[ xX]\][ \t]+)?/gm,function(m,sp,cb){
+    var pre=ind?'':sp,box=cb?cb.trim()+' ':'';
+    if(o.bullets==='keep')return m;
+    return pre+(o.bullets==='dash'?'- ':o.bullets==='dot'?'\u2022 ':'')+box});
+  if(o.numbers==='remove')t=t.replace(/^([ \t]*)\d{1,3}[.)][ \t]+/gm,function(m,sp){return ind?'':sp});
+  else if(ind)t=t.replace(/^[ \t]+(?=\d{1,3}[.)][ \t])/gm,'');
+  /* escapes */
+  t=t.replace(/\\([\\`*_{}\[\]()#+\-.!>~|])/g,'$1');
+  /* emoji */
+  if(o.emoji){rep(/(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[\u20E3\uFE0F\u200D])+[ \t]?/gu,'','emoji')}
+  /* filler */
+  if(o.filler){
+    var ps=t.replace(/^\s+/,'').split(/\n{2,}/);
+    if(ps.length>1){
+      var ls0=ps[0].split('\n'),f=ls0[0].trim(),drop=false,m=f.match(/^(certainly|sure|absolutely|of course|great question|good question|got it|okay|ok|alright|no problem|great|excellent)[!.,]\s*/i);
+      if(m){var r0=f.slice(m[0].length);if(!r0)drop=true;else if(/^(here(?:'s| is| are)|below is)/i.test(r0)&&/[:.]$/.test(r0))drop=true;else ls0[0]=r0;C.filler=(C.filler||0)+1}
+      else if(/^(here(?:'s| is| are)|below is)/i.test(f)&&/:$/.test(f)&&f.length<140){drop=true;C.filler=(C.filler||0)+1}
+      if(drop)ls0.shift();
+      if(ls0.join('').trim())ps[0]=ls0.join('\n');else ps.shift();
+    }
+    while(ps.length>1&&FILL_CLOSE.test(ps[ps.length-1].trim().split('\n')[0])&&ps[ps.length-1].length<400){ps.pop();C.filler=(C.filler||0)+1}
+    t=ps.join('\n\n');
+  }
+  /* punctuation */
+  if(o.smart){t=t.replace(/[\u2018\u2019\u201A\u2032]/g,"'").replace(/[\u201C\u201D\u201E\u2033]/g,'"');}
+  if(o.ellipsis)t=t.replace(/\u2026/g,'...');
+  if(o.emdash==='comma')rep(/[ \t]*\u2014[ \t]*/g,', ','punct');
+  else if(o.emdash==='hyphen')rep(/[ \t]*\u2014[ \t]*/g,' - ','punct');
+  if(o.emdash!=='keep')t=t.replace(/\u2013/g,'-');
+  /* join wrapped lines */
+  if(o.join){
+    t=t.split(/\n{2,}/).map(function(p){
+      var ls=p.split('\n');
+      if(ls.some(function(l){return /^\s*([-\u2022*+]|\d{1,3}[.)])\s/.test(l)||/\t|\s{3,}\S/.test(l)||/\u0001/.test(l)}))return p;
+      return ls.join(' ')}).join('\n\n');
+  }
+  /* spacing */
+  if(o.trim){t=t.replace(/[ \t]+$/gm,'').replace(/([^\s])[ \t]{2,}(?=\S)/g,function(m,a){return a+' '})}
+  var mb=+o.maxblank;
+  if(mb>=0)t=t.replace(new RegExp('\\n{'+(mb+2)+',}','g'),'\n'.repeat(mb+1));
+  t=t.replace(/^\s*\n/,'').replace(/\s+$/,'');
+  t=t.replace(/\u0001(\d+)\u0002/g,function(m,n){return stash[+n]});
+  return t;
+}
+
+/* ---------- Wiring ---------- */
+var IN=$('in'),OUT=$('out'),timer;
+function words(s){var m=s.trim().match(/\S+/g);return m?m.length:0}
+function run(){
+  var C={},res=clean(IN.value,S,C);OUT.value=res;
+  var a=IN.value.length,b=res.length;
+  var chips=[['In','<b>'+a.toLocaleString()+'</b> chars'],['Out','<b>'+b.toLocaleString()+'</b> chars'],['Words','<b>'+words(res).toLocaleString()+'</b>'],['Removed','<b>'+Math.max(0,a-b).toLocaleString()+'</b> chars']];
+  [['md','Markdown marks'],['table','Tables'],['filler','Filler lines'],['emoji','Emoji'],['hidden','Hidden chars'],['cite','Citations'],['punct','Dashes']].forEach(function(p){if(C[p[0]])chips.push([p[1],'<b>'+C[p[0]]+'</b>',1])});
+  $('stats').innerHTML=chips.map(function(c){return '<span class="chip'+(c[2]?' hit':'')+'">'+c[0]+' '+c[1]+'</span>'}).join('');
+  try{localStorage.setItem('textscrub.v1',JSON.stringify(S))}catch(e){}
+}
+function msg(t){$('msg').textContent=t}
+IN.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(run,60)});
+$('clear').onclick=function(){IN.value='';run();IN.focus()};
+$('swap').onclick=function(){IN.value=OUT.value;run();msg('Result moved to the input.')};
+$('copy').onclick=function(){
+  var v=OUT.value;if(!v){msg('Nothing to copy yet.');return}
+  function fb(){OUT.focus();OUT.select();msg('Selected. Press Ctrl+C or Cmd+C to copy.')}
+  try{navigator.clipboard.writeText(v).then(function(){msg('Copied '+v.length.toLocaleString()+' characters.')},fb)}catch(e){fb()}
+};
+$('file').onchange=function(e){
+  var f=e.target.files[0];if(!f)return;var r=new FileReader();
+  r.onload=function(){IN.value=r.result;run();msg('Loaded '+f.name)};r.readAsText(f);e.target.value='';
+};
+var EX="Certainly! Here's a quick guide to launching the project \ud83d\ude80\n\n### Key Points\n\n**Point 1:** Always use *clear* language\u2014short sentences win \ud83d\udca1\n**Point 2:** Keep ~~jargon~~ terms simple [1]\n\n> Remember: clarity is everything\u2026\n\n---\n\n| Task | Owner | Due |\n|---|---|---|\n| Draft | **Asha** | Mon |\n| Review | Ravi | Wed |\n\n1. Read the [style guide](https://example.com/style)\n2. Run `npm test` before you ship\n   - Fix failures first\n   - Then re-run\n\n```js\nconst total = a * b;\n```\n\nThe area is \\(A = \\pi r^2\\) and it\u2019s \u201Cnice\u201D to know.\n\nI hope this helps! Let me know if you'd like me to expand any section. \ud83c\udf89";
+$('example').onclick=function(){IN.value=EX;run()};
+IN.value=EX;run();
+})();
+</script>
+
+</body></html>

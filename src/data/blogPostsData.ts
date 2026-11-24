@@ -31,7 +31,7 @@ export const BLOG_AUTHORS: Record<BlogAuthorProfile['id'], BlogAuthorProfile> = 
     role: 'Web Developer, AI Integrator & UI/UX Designer',
     experienceLabel: 'Technical Architecture, Security & AI Solutions',
     initials: 'AB',
-    avatarUrl: '/src/assets/images/author_arjun_portrait_1795433494286.jpg',
+    avatarUrl: '/blog/author-arjun.jpg',
     location: 'Mangalore, Karnataka, India',
     email: 'arjun.bangera@yahoo.com',
     bio: [
