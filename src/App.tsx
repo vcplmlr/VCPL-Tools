@@ -19,6 +19,7 @@ import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { TopLoadingBar, emitGlobalProgress } from './components/TopLoadingBar';
 import { WhatsAppChatWidget } from './components/WhatsAppChatWidget';
 import { OPEN_COOKIE_BANNER_EVENT } from './config/adsense';
+import { EnterpriseAuthProvider, useEnterpriseAuth } from './context/EnterpriseAuthContext';
 import { mergeDynamicBlogPosts } from './data/blogPostsData';
 import { HttpErrorCode } from './data/errorPagesData';
 import { LegalPageSlug } from './data/legalPagesData';
@@ -65,6 +66,16 @@ const SitemapPage = lazy(() =>
 );
 const ToolWorkspace = lazy(() =>
   import('./components/tools/ToolWorkspace').then((m) => ({ default: m.ToolWorkspace }))
+);
+const EnterprisePortalView = lazy(() =>
+  import('./components/enterprise/EnterprisePortalView').then((m) => ({
+    default: m.EnterprisePortalView,
+  }))
+);
+const SuperAdminDashboard = lazy(() =>
+  import('./components/enterprise/SuperAdminDashboard').then((m) => ({
+    default: m.SuperAdminDashboard,
+  }))
 );
 
 function RouteLoadingFallback() {
@@ -136,7 +147,8 @@ function AppShell() {
   const [blogFeedLoaded, setBlogFeedLoaded] = useState(false);
   const [navTriggerKey, setNavTriggerKey] = useState(0);
   const [vaultSession, setVaultSession] = useState<{ token: string; email: string } | null>(null);
-  const isVaultUnlocked = Boolean(vaultSession?.token);
+  const { isAuthenticated, requiresPasswordChange } = useEnterpriseAuth();
+  const isVaultUnlocked = Boolean(vaultSession?.token) || (isAuthenticated && !requiresPasswordChange);
   const [selectedBankForSlip, setSelectedBankForSlip] = useState<BankId | undefined>(undefined);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [cookieOpen, setCookieOpen] = useState(() => {
@@ -291,6 +303,20 @@ function AppShell() {
     navigateToRoute({ view: 'locked' }, '/locked');
   }, [navigateToRoute]);
 
+  const handleOpenPortal = useCallback(() => {
+    navigateToRoute({ view: 'portal' }, '/portal');
+  }, [navigateToRoute]);
+
+  const handleOpenSuperAdmin = useCallback(() => {
+    navigateToRoute({ view: 'super-admin' }, '/super-admin');
+  }, [navigateToRoute]);
+
+  useEffect(() => {
+    if (isAuthenticated && requiresPasswordChange && route.view !== 'portal') {
+      navigateToRoute({ view: 'portal' }, '/portal', true);
+    }
+  }, [isAuthenticated, navigateToRoute, requiresPasswordChange, route.view]);
+
   const handleOpenBlog = useCallback(
     (slug?: string) => {
       navigateToRoute({ view: 'blog', slug }, getBlogPath(slug));
@@ -331,10 +357,25 @@ function AppShell() {
         handleOpenLockedVault();
         return;
       }
+      if (key === 'portal') {
+        handleOpenPortal();
+        return;
+      }
+      if (key === 'super-admin') {
+        handleOpenSuperAdmin();
+        return;
+      }
       const mapped = ICON_MENU_TO_FILTER[key] || 'All';
       handleOpenAllTools(mapped);
     },
-    [handleGoHome, handleOpenAllTools, handleOpenBlog, handleOpenLockedVault]
+    [
+      handleGoHome,
+      handleOpenAllTools,
+      handleOpenBlog,
+      handleOpenLockedVault,
+      handleOpenPortal,
+      handleOpenSuperAdmin,
+    ]
   );
 
   const activeFilter: ToolFilterType =
@@ -353,6 +394,8 @@ function AppShell() {
     if (route.view === 'home') return 'home';
     if (route.view === 'blog') return 'blog';
     if (route.view === 'locked') return 'locked';
+    if (route.view === 'portal') return 'portal';
+    if (route.view === 'super-admin') return 'super-admin';
     if (route.view === 'all-tools') return FILTER_TO_ICON_MENU[route.filter];
     if (route.view === 'tool' && activeTool) {
       return FILTER_TO_ICON_MENU[activeTool.category];
@@ -458,6 +501,23 @@ function AppShell() {
               onLock={() => setVaultSession(null)}
               onBackHome={handleGoHome}
               onOpenTool={(tool, fullScreen) => handleOpenTool(tool, fullScreen)}
+              onOpenPortal={handleOpenPortal}
+            />
+          )}
+
+          {route.view === 'portal' && (
+            <EnterprisePortalView
+              onBackHome={handleGoHome}
+              onOpenTool={(tool, fullScreen) => handleOpenTool(tool, fullScreen)}
+              onOpenSuperAdmin={handleOpenSuperAdmin}
+              onOpenLockedVault={handleOpenLockedVault}
+            />
+          )}
+
+          {route.view === 'super-admin' && (
+            <SuperAdminDashboard
+              onBackPortal={handleOpenPortal}
+              onBackHome={handleGoHome}
             />
           )}
 
@@ -495,6 +555,7 @@ function AppShell() {
                 handleOpenTool('bank-slip-generator');
               }}
               onOpenDisclaimer={() => handleOpenLegalPage('disclaimer')}
+              onOpenPortal={handleOpenPortal}
             />
           )}
 
@@ -553,6 +614,8 @@ function AppShell() {
           onHomeClick={handleGoHome}
           onOpenAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
           onOpenLockedVault={handleOpenLockedVault}
+          onOpenPortal={handleOpenPortal}
+          onOpenSuperAdmin={handleOpenSuperAdmin}
           onOpenLegalPage={handleOpenLegalPage}
           onOpenBlog={() => handleOpenBlog()}
           onOpenPrivacyBanner={() => setCookieOpen(true)}
@@ -618,5 +681,9 @@ function AppShell() {
 }
 
 export default function App() {
-  return <AppShell />;
+  return (
+    <EnterpriseAuthProvider>
+      <AppShell />
+    </EnterpriseAuthProvider>
+  );
 }

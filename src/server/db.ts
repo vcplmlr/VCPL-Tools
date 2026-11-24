@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-const DATA_DIR = process.env.VERCEL
+export const DATA_DIR = process.env.VERCEL
   ? path.join('/tmp', 'vcpl_data')
   : path.resolve(process.cwd(), 'data');
 export const DB_FILE_PATH = path.join(DATA_DIR, 'vcpl_directory.db');
@@ -173,6 +173,130 @@ export function ensureSchema(db: DatabaseSync): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_auto_blog_ist_date ON auto_blog_posts(published_ist_date DESC);
+
+    CREATE TABLE IF NOT EXISTS enterprise_users (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      display_username TEXT NOT NULL,
+      internal_auth_id TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      full_name TEXT NOT NULL,
+      employee_id TEXT NOT NULL DEFAULT '',
+      department TEXT NOT NULL DEFAULT 'Operations',
+      designation TEXT NOT NULL DEFAULT 'Executive',
+      contact_number TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT 'employee',
+      status TEXT NOT NULL DEFAULT 'Pending Approval',
+      is_archived INTEGER NOT NULL DEFAULT 0,
+      must_change_password INTEGER NOT NULL DEFAULT 1,
+      token_version INTEGER NOT NULL DEFAULT 1,
+      last_login_at TEXT NOT NULL DEFAULT '',
+      last_active_at TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT 'system',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ent_users_username ON enterprise_users(username);
+    CREATE INDEX IF NOT EXISTS idx_ent_users_status ON enterprise_users(status, is_archived);
+    CREATE INDEX IF NOT EXISTS idx_ent_users_role ON enterprise_users(role);
+
+    CREATE TABLE IF NOT EXISTS enterprise_permissions (
+      user_id TEXT NOT NULL,
+      module_id TEXT NOT NULL,
+      can_view INTEGER NOT NULL DEFAULT 0,
+      can_create INTEGER NOT NULL DEFAULT 0,
+      can_edit INTEGER NOT NULL DEFAULT 0,
+      can_upload INTEGER NOT NULL DEFAULT 0,
+      can_download INTEGER NOT NULL DEFAULT 0,
+      can_delete INTEGER NOT NULL DEFAULT 0,
+      can_approve INTEGER NOT NULL DEFAULT 0,
+      can_export INTEGER NOT NULL DEFAULT 0,
+      can_admin INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, module_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ent_perms_user ON enterprise_permissions(user_id);
+
+    CREATE TABLE IF NOT EXISTS enterprise_password_reset_requests (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      full_name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Pending',
+      note TEXT NOT NULL DEFAULT '',
+      resolved_by TEXT NOT NULL DEFAULT '',
+      resolved_at TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ent_reset_status ON enterprise_password_reset_requests(status, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS enterprise_login_history (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      display_username TEXT NOT NULL,
+      outcome TEXT NOT NULL,
+      detail TEXT NOT NULL DEFAULT '',
+      ip_address TEXT NOT NULL DEFAULT '',
+      user_agent TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ent_login_hist_user ON enterprise_login_history(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ent_login_hist_created ON enterprise_login_history(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS enterprise_activity_logs (
+      id TEXT PRIMARY KEY,
+      actor_user_id TEXT NOT NULL,
+      actor_username TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ent_act_logs_created ON enterprise_activity_logs(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ent_act_logs_actor ON enterprise_activity_logs(actor_user_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS enterprise_documents (
+      id TEXT PRIMARY KEY,
+      module_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      stored_file_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      approval_status TEXT NOT NULL DEFAULT 'Draft',
+      drive_file_id TEXT NOT NULL DEFAULT '',
+      drive_web_view_link TEXT NOT NULL DEFAULT '',
+      uploaded_by TEXT NOT NULL,
+      uploaded_by_username TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ent_docs_mod ON enterprise_documents(module_id, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS enterprise_workspace_records (
+      id TEXT PRIMARY KEY,
+      module_id TEXT NOT NULL,
+      record_title TEXT NOT NULL,
+      reference_code TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'Active',
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      created_by TEXT NOT NULL,
+      created_by_username TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ent_rec_mod ON enterprise_workspace_records(module_id, updated_at DESC);
 
     CREATE VIRTUAL TABLE IF NOT EXISTS india_pincodes_fts USING fts5(
       pincode,

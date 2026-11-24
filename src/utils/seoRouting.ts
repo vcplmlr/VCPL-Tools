@@ -1,25 +1,25 @@
-import { FAQ_ITEMS } from '../components/FaqSection';
+import { FAQ_ITEMS } from '../components/FaqSection.tsx';
 import {
   BLOG_AUTHORS,
   estimatePostWordCount,
   getAllBlogPosts,
   getBlogPostBySlug,
-} from '../data/blogPostsData';
+} from '../data/blogPostsData.ts';
 import {
   ERROR_PAGES_CONFIG,
   HttpErrorCode,
   parseHttpErrorCode,
-} from '../data/errorPagesData';
-import { LEGAL_PAGES, LegalPageSlug, SITE_CONTACT } from '../data/legalPagesData';
-import { RTO_BY_CODE } from '../data/rtoDatabase';
+} from '../data/errorPagesData.ts';
+import { LEGAL_PAGES, LegalPageSlug, SITE_CONTACT } from '../data/legalPagesData.ts';
+import { RTO_BY_CODE } from '../data/rtoDatabase.ts';
 import {
   PUBLIC_TOOLS_CATALOG,
   TOOL_CATEGORIES,
   getToolById,
   getToolsForCategory,
-} from '../data/toolsCatalog';
-import { ToolCatalogItem, ToolFilterType } from '../types/tools';
-import { normalizeRtoCodeInput } from './rtoSearch';
+} from '../data/toolsCatalog.ts';
+import { ToolCatalogItem, ToolFilterType } from '../types/tools.ts';
+import { normalizeRtoCodeInput } from './rtoSearch.ts';
 import {
   CATEGORY_SLUG_BY_FILTER,
   FILTER_BY_CATEGORY_SLUG,
@@ -29,7 +29,7 @@ import {
   getLegalPath,
   getToolFullPath,
   getToolPath,
-} from './seoConfig';
+} from './seoConfig.ts';
 
 export {
   CATEGORY_SLUG_BY_FILTER,
@@ -48,6 +48,8 @@ export type ParsedRoute =
   | { view: 'legal'; slug: LegalPageSlug }
   | { view: 'blog'; slug?: string }
   | { view: 'locked' }
+  | { view: 'portal' }
+  | { view: 'super-admin' }
   | { view: 'sitemap' }
   | { view: 'not-found'; path: string; statusCode?: HttpErrorCode };
 
@@ -133,6 +135,12 @@ export function parseLocationToRoute(pathname: string, search: string): ParsedRo
     }
     if (seg === 'locked' || seg === 'locked-tools') {
       return { view: 'locked' };
+    }
+    if (seg === 'portal' || seg === 'login' || seg === 'change-password') {
+      return { view: 'portal' };
+    }
+    if (seg === 'super-admin' || seg === 'admin') {
+      return { view: 'super-admin' };
     }
     if (
       seg === 'sitemap' ||
@@ -449,6 +457,20 @@ export function applySeoForRoute(route: ParsedRoute) {
       'Restricted access vault for authorized VCPL dealership, banking, and administrative modules.';
     robots = 'noindex, nofollow';
     breadcrumbItems.push({ name: 'Locked Vault', item: `${origin}/locked` });
+  } else if (route.view === 'portal') {
+    path = '/portal';
+    title = 'VCPL Pro Enterprise Portal | Employee Sign In';
+    description =
+      'Sign in with your VCPL Pro username and password to access assigned modules, documents, and centralized workspaces.';
+    robots = 'noindex, nofollow';
+    breadcrumbItems.push({ name: 'Enterprise Portal', item: `${origin}/portal` });
+  } else if (route.view === 'super-admin') {
+    path = '/super-admin';
+    title = 'VCPL Pro Super Admin Control Panel';
+    description =
+      'Centralized VCPL Pro administration console for user accounts, approvals, granular tool permissions, reset requests, and audit logs.';
+    robots = 'noindex, nofollow';
+    breadcrumbItems.push({ name: 'Super Admin', item: `${origin}/super-admin` });
   } else if (route.view === 'sitemap') {
     path = '/sitemap';
     listedTools = PUBLIC_TOOLS_CATALOG;
@@ -477,10 +499,15 @@ export function applySeoForRoute(route: ParsedRoute) {
   const ogImageAlt = customOgImageAlt ?? `${title} — VCPL Tools`;
   const ogType = route.view === 'legal' || (route.view === 'blog' && Boolean(route.slug)) ? 'article' : 'website';
 
+  const toIstIsoTimestamp = (isoDate: string): string =>
+    /^\d{4}-\d{2}-\d{2}$/.test(isoDate) ? `${isoDate}T09:00:00+05:30` : isoDate;
+
   document.title = title;
   setMetaContent('meta[name="description"]', description);
   setMetaContent('meta[name="keywords"]', keywords);
   setMetaContent('meta[name="robots"]', robots);
+  setMetaContent('meta[name="googlebot"]', robots);
+  setMetaContent('meta[name="bingbot"]', robots);
   setMetaContent('meta[property="og:site_name"]', 'VCPL Tools');
   setMetaContent('meta[property="og:locale"]', 'en_IN');
   setMetaContent('meta[property="og:type"]', ogType);
@@ -488,6 +515,8 @@ export function applySeoForRoute(route: ParsedRoute) {
   setMetaContent('meta[property="og:description"]', description);
   setMetaContent('meta[property="og:url"]', currentUrl);
   setMetaContent('meta[property="og:image"]', ogImageUrl);
+  setMetaContent('meta[property="og:image:width"]', '1200');
+  setMetaContent('meta[property="og:image:height"]', '630');
   setMetaContent('meta[property="og:image:alt"]', ogImageAlt);
   setMetaContent('meta[name="twitter:card"]', 'summary_large_image');
   setMetaContent('meta[name="twitter:title"]', title);
@@ -498,8 +527,8 @@ export function applySeoForRoute(route: ParsedRoute) {
   if (route.view === 'blog' && route.slug) {
     const activeBlog = getBlogPostBySlug(route.slug);
     if (activeBlog) {
-      setMetaContent('meta[property="article:published_time"]', activeBlog.publishedIso);
-      setMetaContent('meta[property="article:modified_time"]', activeBlog.updatedIso);
+      setMetaContent('meta[property="article:published_time"]', toIstIsoTimestamp(activeBlog.publishedIso));
+      setMetaContent('meta[property="article:modified_time"]', toIstIsoTimestamp(activeBlog.updatedIso));
       setMetaContent('meta[property="article:section"]', activeBlog.category);
       setMetaContent('meta[property="article:author"]', activeBlog.author);
     }
@@ -530,7 +559,10 @@ export function applySeoForRoute(route: ParsedRoute) {
         '@type': 'Organization',
         name: 'VCPL Tools',
         url: `${origin}/`,
-        logo: `${origin}/favicon.svg`,
+        logo: {
+          '@type': 'ImageObject',
+          url: `${origin}/favicon.svg`,
+        },
         founder: {
           '@type': 'Person',
           name: 'Arjun Bangera',
@@ -615,19 +647,35 @@ export function applySeoForRoute(route: ParsedRoute) {
         graph.push({
           '@type': 'BlogPosting',
           headline: activePost.title,
+          alternativeHeadline: activePost.seoTitle || activePost.title,
           description: activePost.seoDescription || activePost.excerpt,
-          datePublished: activePost.publishedIso,
-          dateModified: activePost.updatedIso,
+          datePublished: toIstIsoTimestamp(activePost.publishedIso),
+          dateModified: toIstIsoTimestamp(activePost.updatedIso),
           wordCount: estimatePostWordCount(activePost),
           articleSection: activePost.category,
           keywords: activePost.keywords.join(', '),
           inLanguage: 'en-IN',
-          image: [ogImageUrl],
+          isAccessibleForFree: true,
+          image: [
+            {
+              '@type': 'ImageObject',
+              url: ogImageUrl,
+              width: 1200,
+              height: 630,
+              caption: activePost.coverImageAlt,
+            },
+          ],
+          speakable: {
+            '@type': 'SpeakableSpecification',
+            cssSelector: ['h1', '#key-takeaways'],
+          },
           author: {
             '@type': 'Person',
             name: authorProfile?.name ?? activePost.author,
             jobTitle: authorProfile?.role ?? activePost.authorRole,
             email: authorProfile?.email,
+            url: `${origin}/blog`,
+            knowsAbout: authorProfile?.expertise,
           },
           publisher: {
             '@type': 'Organization',
@@ -636,6 +684,8 @@ export function applySeoForRoute(route: ParsedRoute) {
             logo: {
               '@type': 'ImageObject',
               url: `${origin}/favicon.svg`,
+              width: 512,
+              height: 512,
             },
           },
           mainEntityOfPage: {
@@ -669,8 +719,8 @@ export function applySeoForRoute(route: ParsedRoute) {
             headline: post.title,
             url: `${origin}${getBlogPath(post.slug)}`,
             image: `${origin}${post.coverImage}`,
-            datePublished: post.publishedIso,
-            dateModified: post.updatedIso,
+            datePublished: toIstIsoTimestamp(post.publishedIso),
+            dateModified: toIstIsoTimestamp(post.updatedIso),
             author: { '@type': 'Person', name: post.author },
           })),
         });

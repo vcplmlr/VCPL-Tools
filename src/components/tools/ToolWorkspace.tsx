@@ -7,7 +7,9 @@ import {
   Info,
   Minimize2,
   RotateCcw,
+  ShieldAlert,
 } from 'lucide-react';
+import { useEnterpriseAuth } from '../../context/EnterpriseAuthContext';
 import { getFinancialCalculatorById } from '../../data/financialCalculators';
 import { getToolArticle } from '../../data/toolArticlesData';
 import {
@@ -188,6 +190,11 @@ const Tds26asTallyRecoView = lazy(() =>
     default: m.Tds26asTallyRecoView,
   }))
 );
+const GoogleWorkspaceSuiteView = lazy(() =>
+  import('./GoogleWorkspaceSuiteView').then((m) => ({
+    default: m.GoogleWorkspaceSuiteView,
+  }))
+);
 
 function ToolEngineFallback({ title }: { title: string }) {
   useEffect(() => {
@@ -224,6 +231,7 @@ interface ToolWorkspaceProps {
   onSelectTool: (toolId: string) => void;
   onOpenBankSlipWithBank: (bankId: BankId) => void;
   onOpenDisclaimer?: () => void;
+  onOpenPortal?: () => void;
 }
 
 const TOOL_GROUPS = [
@@ -253,7 +261,18 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
   onSelectTool,
   onOpenBankSlipWithBank,
   onOpenDisclaimer,
+  onOpenPortal,
 }) => {
+  const { isAuthenticated, isSuperAdmin, requiresPasswordChange, hasPermission } =
+    useEnterpriseAuth();
+
+  const employeeDeniedView =
+    isAuthenticated && !isSuperAdmin && !requiresPasswordChange && !hasPermission(tool.id, 'view');
+
+  const effectiveVaultUnlocked =
+    isVaultUnlocked ||
+    isSuperAdmin ||
+    (isAuthenticated && !requiresPasswordChange && hasPermission(tool.id, 'view'));
 
   const financialDefinition =
     tool.kind === 'financial-calc' ? getFinancialCalculatorById(tool.id) : undefined;
@@ -342,6 +361,44 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
     tool.category === 'Tax & GST' ||
     tool.category === 'Calculator' ||
     tool.category === 'VCPL';
+
+  if (employeeDeniedView) {
+    return (
+      <section className="w-full bg-[#FEF2C8] dark:bg-[#0B1120] py-12 min-h-[calc(100dvh-140px)] flex items-center">
+        <div className="max-w-md mx-auto px-4 w-full">
+          <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#9E2A2B] rounded-2xl p-6 text-center space-y-4">
+            <ShieldAlert className="w-10 h-10 mx-auto text-[#9E2A2B]" />
+            <h1 className="font-display font-extrabold text-xl text-[#2F3E4E] dark:text-slate-50">
+              Tool Access Not Assigned
+            </h1>
+            <p className="text-xs text-[#475569] dark:text-slate-300 leading-relaxed">
+              Your account does not currently have <strong>View Access</strong> for{' '}
+              <strong>{tool.title}</strong> ({tool.code}). Please contact your Super Admin to assign
+              permission for this module.
+            </p>
+            <div className="flex justify-center gap-2">
+              {onOpenPortal && (
+                <button
+                  type="button"
+                  onClick={onOpenPortal}
+                  className="px-4 py-2 rounded-xl bg-[#2F3E4E] text-[#F9C80E] text-xs font-display font-extrabold cursor-pointer"
+                >
+                  Open Assigned Workspace
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl border border-[#2F3E4E]/30 text-xs font-bold text-[#2F3E4E] dark:text-slate-200 cursor-pointer"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (isRouteFullScreen && (tool.kind === 'pdf-editor-advanced' || tool.kind === 'letterhead-invoice-maker')) {
     return (
@@ -707,7 +764,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <IncentiveReportToolView
               key={tool.id}
               tool={tool}
-              isVaultUnlocked={isVaultUnlocked}
+              isVaultUnlocked={effectiveVaultUnlocked}
               onBack={onClose}
             />
           )}
@@ -728,7 +785,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <DbsPnlReportsView
               key={tool.id}
               tool={tool}
-              isVaultUnlocked={isVaultUnlocked}
+              isVaultUnlocked={effectiveVaultUnlocked}
               onBack={onClose}
             />
           )}
@@ -741,7 +798,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <BmwStatementReconcilerView
               key={tool.id}
               tool={tool}
-              isVaultUnlocked={isVaultUnlocked}
+              isVaultUnlocked={effectiveVaultUnlocked}
               onBack={onClose}
             />
           )}
@@ -750,7 +807,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <BmwVendorLedgerReconcilerView
               key={tool.id}
               tool={tool}
-              isVaultUnlocked={isVaultUnlocked}
+              isVaultUnlocked={effectiveVaultUnlocked}
               onBack={onClose}
             />
           )}
@@ -759,7 +816,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <BmwClaimsReconcilerView
               key={tool.id}
               tool={tool}
-              isVaultUnlocked={isVaultUnlocked}
+              isVaultUnlocked={effectiveVaultUnlocked}
               onBack={onClose}
             />
           )}
@@ -768,7 +825,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <VcplRtgsNeftFormView
               key={tool.id}
               tool={tool}
-              isVaultUnlocked={isVaultUnlocked}
+              isVaultUnlocked={effectiveVaultUnlocked}
               onBack={onClose}
             />
           )}
@@ -777,7 +834,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <Tds26asTallyRecoView
               key={tool.id}
               tool={tool}
-              isVaultUnlocked={isVaultUnlocked}
+              isVaultUnlocked={effectiveVaultUnlocked}
               onBack={onClose}
             />
           )}
@@ -786,7 +843,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <BajajReconciliationView
               key={tool.id}
               tool={tool}
-              isVaultUnlocked={isVaultUnlocked}
+              isVaultUnlocked={effectiveVaultUnlocked}
               onBack={onClose}
             />
           )}
@@ -795,7 +852,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <FuelReportGeneratorView
               key={tool.id}
               tool={tool}
-              isVaultUnlocked={isVaultUnlocked}
+              isVaultUnlocked={effectiveVaultUnlocked}
               onBack={onClose}
             />
           )}
@@ -804,7 +861,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
             <CoveringLetterGeneratorView
               key={tool.id}
               tool={tool}
-              isVaultUnlocked={isVaultUnlocked}
+              isVaultUnlocked={effectiveVaultUnlocked}
               onBack={onClose}
             />
           )}
@@ -874,6 +931,10 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
 
           {tool.kind === 'tally-shortcuts' && (
             <TallyShortcutsView key={tool.id} tool={tool} />
+          )}
+
+          {tool.kind === 'google-workspace' && (
+            <GoogleWorkspaceSuiteView key={tool.id} tool={tool} />
           )}
           </React.Fragment>
         </Suspense>

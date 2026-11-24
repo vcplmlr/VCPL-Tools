@@ -1,4 +1,4 @@
-import { BlogPostItem } from '../types/blog';
+import { BlogPostItem } from '../types/blog.ts';
 
 export const GSTR2B_EXCEL_RECO_POST: BlogPostItem = {
   slug: 'gstr-2b-vs-purchase-register-reconciliation-excel',

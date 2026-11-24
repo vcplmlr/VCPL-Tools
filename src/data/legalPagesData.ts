@@ -1,4 +1,4 @@
-import { PUBLIC_TOOLS_CATALOG, TOOL_SECTION_HEADS } from './toolsCatalog';
+import { PUBLIC_TOOLS_CATALOG, TOOL_SECTION_HEADS } from './toolsCatalog.ts';
 
 export type LegalPageSlug =
   | 'about-us'

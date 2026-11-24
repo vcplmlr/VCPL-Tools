@@ -1,0 +1,265 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string
+        && id.size() > 0
+        && id.size() <= 128
+        && id.matches('^[a-zA-Z0-9._:-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (
+          request.auth.token.email == 'vcpl.mlr@gmail.com'
+          && request.auth.token.email_verified == true
+        )
+        || exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidUserStatus(status) {
+      return status in ['Pending Approval', 'Approved', 'Rejected', 'Suspended', 'Inactive'];
+    }
+
+    function isValidResetStatus(status) {
+      return status in ['Pending', 'Approved', 'Rejected'];
+    }
+
+    function isValidDocApproval(status) {
+      return status in ['Draft', 'Pending Review', 'Approved', 'Rejected'];
+    }
+
+    function isValidEnterpriseUser(data) {
+      return data.keys().hasAll([
+          'id', 'username', 'displayUsername', 'internalAuthId', 'fullName',
+          'department', 'designation', 'role', 'status', 'isArchived',
+          'mustChangePassword', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'username', 'displayUsername', 'internalAuthId', 'fullName',
+          'employeeId', 'department', 'designation', 'contactNumber',
+          'role', 'status', 'isArchived', 'mustChangePassword',
+          'lastLoginAt', 'lastActiveAt', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.username is string && data.username.size() >= 2 && data.username.size() <= 64
+        && data.displayUsername is string && data.displayUsername.size() >= 2 && data.displayUsername.size() <= 64
+        && data.internalAuthId is string && data.internalAuthId.size() >= 8 && data.internalAuthId.size() <= 128
+        && data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 120
+        && (!('employeeId' in data) || (data.employeeId is string && data.employeeId.size() <= 64))
+        && data.department is string && data.department.size() <= 100
+        && data.designation is string && data.designation.size() <= 100
+        && (!('contactNumber' in data) || (data.contactNumber is string && data.contactNumber.size() <= 40))
+        && data.role in ['super_admin', 'employee']
+        && isValidUserStatus(data.status)
+        && data.isArchived is bool
+        && data.mustChangePassword is bool
+        && (!('lastLoginAt' in data) || (data.lastLoginAt is string && data.lastLoginAt.size() <= 64))
+        && (!('lastActiveAt' in data) || (data.lastActiveAt is string && data.lastActiveAt.size() <= 64))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPermissionProfile(data) {
+      return data.keys().hasAll(['userId', 'permissionsJson', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'permissionsJson', 'createdAt', 'updatedAt'])
+        && data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128
+        && data.permissionsJson is string && data.permissionsJson.size() >= 2 && data.permissionsJson.size() <= 32768
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidResetRequest(data) {
+      return data.keys().hasAll(['id', 'userId', 'username', 'fullName', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'userId', 'username', 'fullName', 'status', 'note', 'resolvedBy', 'resolvedAt', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128
+        && data.username is string && data.username.size() >= 2 && data.username.size() <= 64
+        && data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 120
+        && isValidResetStatus(data.status)
+        && (!('note' in data) || (data.note is string && data.note.size() <= 500))
+        && (!('resolvedBy' in data) || (data.resolvedBy is string && data.resolvedBy.size() <= 120))
+        && (!('resolvedAt' in data) || (data.resolvedAt is string && data.resolvedAt.size() <= 64))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidActivityLog(data) {
+      return data.keys().hasAll(['id', 'actorUserId', 'actorUsername', 'action', 'targetType', 'targetId', 'summary', 'createdAt'])
+        && data.keys().hasOnly(['id', 'actorUserId', 'actorUsername', 'action', 'targetType', 'targetId', 'summary', 'createdAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.actorUserId is string && data.actorUserId.size() <= 128
+        && data.actorUsername is string && data.actorUsername.size() <= 64
+        && data.action is string && data.action.size() > 0 && data.action.size() <= 80
+        && data.targetType is string && data.targetType.size() <= 64
+        && data.targetId is string && data.targetId.size() <= 128
+        && data.summary is string && data.summary.size() <= 500
+        && data.createdAt is timestamp;
+    }
+
+    function isValidEnterpriseDocument(data) {
+      return data.keys().hasAll(['id', 'moduleId', 'title', 'fileName', 'mimeType', 'sizeBytes', 'approvalStatus', 'uploadedBy', 'uploadedByUsername', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'moduleId', 'title', 'fileName', 'mimeType', 'sizeBytes', 'approvalStatus', 'driveFileId', 'driveWebViewLink', 'uploadedBy', 'uploadedByUsername', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.moduleId is string && data.moduleId.size() > 0 && data.moduleId.size() <= 80
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 180
+        && data.fileName is string && data.fileName.size() > 0 && data.fileName.size() <= 255
+        && data.mimeType is string && data.mimeType.size() > 0 && data.mimeType.size() <= 160
+        && data.sizeBytes is number && data.sizeBytes >= 0 && data.sizeBytes <= 52428800
+        && isValidDocApproval(data.approvalStatus)
+        && (!('driveFileId' in data) || (data.driveFileId is string && data.driveFileId.size() <= 256))
+        && (!('driveWebViewLink' in data) || (data.driveWebViewLink is string && data.driveWebViewLink.size() <= 512))
+        && data.uploadedBy is string && data.uploadedBy.size() <= 128
+        && data.uploadedByUsername is string && data.uploadedByUsername.size() <= 64
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWorkspaceRecord(data) {
+      return data.keys().hasAll(['id', 'moduleId', 'recordTitle', 'referenceCode', 'status', 'payloadJson', 'createdBy', 'createdByUsername', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'moduleId', 'recordTitle', 'referenceCode', 'status', 'payloadJson', 'createdBy', 'createdByUsername', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.moduleId is string && data.moduleId.size() > 0 && data.moduleId.size() <= 80
+        && data.recordTitle is string && data.recordTitle.size() > 0 && data.recordTitle.size() <= 200
+        && data.referenceCode is string && data.referenceCode.size() <= 100
+        && data.status is string && data.status.size() > 0 && data.status.size() <= 64
+        && data.payloadJson is string && data.payloadJson.size() >= 2 && data.payloadJson.size() <= 65536
+        && data.createdBy is string && data.createdBy.size() <= 128
+        && data.createdByUsername is string && data.createdByUsername.size() <= 64
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /test/connection {
+      allow get: if isSignedIn();
+      allow list, write: if false;
+    }
+
+    match /admins/{uid} {
+      allow get: if isSignedIn() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    match /enterpriseUsers/{userId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin()
+        && isValidId(userId)
+        && request.resource.data.id == userId
+        && isValidEnterpriseUser(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(userId)
+        && isValidEnterpriseUser(request.resource.data)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayUsername', 'fullName', 'employeeId', 'department', 'designation',
+          'contactNumber', 'status', 'isArchived', 'mustChangePassword',
+          'lastLoginAt', 'lastActiveAt', 'updatedAt'
+        ]);
+      allow delete: if isAdmin();
+    }
+
+    match /permissionProfiles/{userId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin()
+        && isValidId(userId)
+        && request.resource.data.userId == userId
+        && isValidPermissionProfile(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(userId)
+        && isValidPermissionProfile(request.resource.data)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'permissionsJson', 'updatedAt'
+        ]);
+      allow delete: if isAdmin();
+    }
+
+    match /resetRequests/{requestId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin()
+        && isValidId(requestId)
+        && request.resource.data.id == requestId
+        && isValidResetRequest(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(requestId)
+        && isValidResetRequest(request.resource.data)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'note', 'resolvedBy', 'resolvedAt', 'updatedAt'
+        ]);
+      allow delete: if isAdmin();
+    }
+
+    match /activityLogs/{logId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin()
+        && isValidId(logId)
+        && request.resource.data.id == logId
+        && isValidActivityLog(request.resource.data)
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /enterpriseDocuments/{docId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin()
+        && isValidId(docId)
+        && request.resource.data.id == docId
+        && isValidEnterpriseDocument(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(docId)
+        && isValidEnterpriseDocument(request.resource.data)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'approvalStatus', 'driveFileId', 'driveWebViewLink', 'updatedAt'
+        ]);
+      allow delete: if isAdmin();
+    }
+
+    match /workspaceRecords/{recordId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin()
+        && isValidId(recordId)
+        && request.resource.data.id == recordId
+        && isValidWorkspaceRecord(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(recordId)
+        && isValidWorkspaceRecord(request.resource.data)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'recordTitle', 'referenceCode', 'status', 'payloadJson', 'updatedAt'
+        ]);
+      allow delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

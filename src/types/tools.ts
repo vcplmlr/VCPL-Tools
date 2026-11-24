@@ -60,7 +60,8 @@ export type ToolKind =
   | 'database-file-compressor'
   | 'tulusiri-pro'
   | 'keyboard-shortcuts'
-  | 'tally-shortcuts';
+  | 'tally-shortcuts'
+  | 'google-workspace';
 
 export interface ToolCatalogItem {
   id: string;

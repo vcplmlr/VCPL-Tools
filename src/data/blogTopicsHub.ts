@@ -1,4 +1,4 @@
-import { BlogCategory } from '../types/blog';
+import { BlogCategory } from '../types/blog.ts';
 
 export interface BlogTopicHeadMeta {
   category: BlogCategory;
@@ -117,7 +117,7 @@ export const EDITORIAL_TOPICS_QUEUE: EditorialRoadmapItem[] = [
   { no: 4, title: 'How to Bifurcate Form 26AS TDS & TCS Schedules in Excel for Faster Tax Audit', slug: 'form-26as-tds-tcs-excel-reconciliation-guide', category: 'TDS & TCS', tier: 'Top 15 Priority', relatedToolId: 'form-26as-to-excel' },
   { no: 5, title: 'PF, ESI & Karnataka Professional Tax: Complete Payroll Compliance Guide', slug: 'pf-esi-and-karnataka-professional-tax-compliance-guide', category: 'PF & ESI', tier: 'Top 15 Priority' },
 
-  // Remaining Daily Scheduled Knowledge Hub Queue (Published Daily 9:05 AM IST)
+  // Remaining Daily Scheduled Knowledge Hub Queue (Published Daily 9:00 AM IST)
   { no: 6, title: '100 Most Important Journal Entries Every Accountant Should Know', slug: '100-most-important-journal-entries-accountants', category: 'Accounting', tier: 'Top 15 Priority', relatedToolId: 'tds-26as-tally-reco' },
   { no: 7, title: 'New Income-tax Act 2025: Complete Guide for Taxpayers and Accountants', slug: 'new-income-tax-act-2025-complete-accountant-guide', category: 'Income Tax', tier: 'Top 15 Priority', relatedToolId: 'income-tax-fy-2026-27' },
   { no: 8, title: 'Old Tax Regime vs New Tax Regime: Complete Comparison FY 2026–27', slug: 'old-tax-regime-vs-new-tax-regime-comparison', category: 'Income Tax', tier: 'Top 15 Priority', relatedToolId: 'income-tax-fy-2026-27' },

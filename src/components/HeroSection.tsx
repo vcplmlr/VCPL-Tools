@@ -14,6 +14,7 @@ import {
   FileText,
   Fuel,
   GitCompareArrows,
+  HardDrive,
   IndianRupee,
   Landmark,
   Lock,
@@ -762,6 +763,32 @@ export function HeroSection({
                 </span>
               </span>
               <Wrench className="w-4 h-4 text-[#B45309] dark:text-amber-400 ml-1 shrink-0" aria-hidden="true" />
+            </button>
+
+            {/* 5. Google Workspace Hub (Drive, Forms & Meet) */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowRtoUpgradeNotice(false);
+                onQuickLaunchTool('google-drive-manager');
+              }}
+              className="group inline-flex items-center gap-3 px-4 py-2.5 min-h-[48px] rounded-xl bg-[#FFFDF5] dark:bg-[#131C2E] hover:bg-[#F9C80E] dark:hover:bg-[#F9C80E] border-[1.5px] border-[#2F3E4E] dark:border-slate-600 shadow-[0_3px_0_#2F3E4E] dark:shadow-[0_3px_0_#020617] text-left transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F3E4E] dark:focus-visible:ring-[#F9C80E]"
+            >
+              <span className="w-8 h-8 rounded-lg bg-[#CEE5DC] dark:bg-emerald-950/80 group-hover:bg-[#FFFDF5] dark:group-hover:bg-[#0F172A] border border-[#2F3E4E] dark:border-emerald-500/40 text-[#2F3E4E] dark:text-emerald-300 dark:group-hover:text-[#F9C80E] flex items-center justify-center shrink-0 transition-colors">
+                <HardDrive className="w-4 h-4" aria-hidden="true" />
+              </span>
+              <span className="leading-tight">
+                <span className="block font-display font-extrabold text-xs sm:text-sm text-[#2F3E4E] dark:text-slate-100 dark:group-hover:text-[#0F172A] whitespace-nowrap">
+                  Google Workspace Hub
+                </span>
+                <span className="block font-mono text-[10px] font-semibold text-[#12805C] dark:text-emerald-400 group-hover:text-[#2F3E4E] dark:group-hover:text-[#0F172A]">
+                  Drive · Forms · Meet
+                </span>
+              </span>
+              <ArrowUpRight
+                className="w-4 h-4 text-[#2F3E4E] dark:text-slate-300 dark:group-hover:text-[#0F172A] ml-1 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                aria-hidden="true"
+              />
             </button>
           </div>
 

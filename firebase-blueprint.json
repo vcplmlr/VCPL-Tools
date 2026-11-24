@@ -1,0 +1,156 @@
+{
+  "entities": {
+    "AdminRegistry": {
+      "title": "AdminRegistry",
+      "description": "Authorized Super Admin UID registry entry for Firestore access.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email", "description": "Super Admin verified Google email" },
+        "role": { "type": "string", "description": "Fixed super_admin role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "EnterpriseUser": {
+      "title": "EnterpriseUser",
+      "description": "Centralized VCPL Pro user profile (never contains password hashes or temporary secrets).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID" },
+        "username": { "type": "string", "description": "Canonical lowercase username" },
+        "displayUsername": { "type": "string", "description": "Original casing username for display" },
+        "internalAuthId": { "type": "string", "description": "Internal synthetic auth identifier (never exposed to employees)" },
+        "fullName": { "type": "string", "description": "Full display name" },
+        "employeeId": { "type": "string", "description": "Optional Employee ID" },
+        "department": { "type": "string", "description": "Department name" },
+        "designation": { "type": "string", "description": "Job designation" },
+        "contactNumber": { "type": "string", "description": "Optional phone/contact number" },
+        "role": { "type": "string", "description": "super_admin or employee" },
+        "status": { "type": "string", "description": "Pending Approval | Approved | Rejected | Suspended | Inactive" },
+        "isArchived": { "type": "boolean", "description": "Soft archive flag" },
+        "mustChangePassword": { "type": "boolean", "description": "Mandatory first-login/reset password change flag" },
+        "lastLoginAt": { "type": "string", "description": "ISO timestamp of last sign-in" },
+        "lastActiveAt": { "type": "string", "description": "ISO timestamp of last verified request" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp" }
+      },
+      "required": ["id", "username", "displayUsername", "internalAuthId", "fullName", "department", "designation", "role", "status", "isArchived", "mustChangePassword", "createdAt", "updatedAt"]
+    },
+    "PermissionProfile": {
+      "title": "PermissionProfile",
+      "description": "Tool-wise 9-action permission map for an enterprise user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "permissionsJson": { "type": "string", "description": "JSON map of moduleId -> 9 boolean flags" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "permissionsJson", "createdAt", "updatedAt"]
+    },
+    "PasswordResetRequest": {
+      "title": "PasswordResetRequest",
+      "description": "Manual employee password reset request handled by Super Admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "fullName": { "type": "string" },
+        "status": { "type": "string", "description": "Pending | Approved | Rejected" },
+        "note": { "type": "string" },
+        "resolvedBy": { "type": "string" },
+        "resolvedAt": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "username", "fullName", "status", "createdAt", "updatedAt"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Centralized audit log of logins, status approvals, permission edits, and document actions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "actorUserId": { "type": "string" },
+        "actorUsername": { "type": "string" },
+        "action": { "type": "string" },
+        "targetType": { "type": "string" },
+        "targetId": { "type": "string" },
+        "summary": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "actorUserId", "actorUsername", "action", "targetType", "targetId", "summary", "createdAt"]
+    },
+    "EnterpriseDocument": {
+      "title": "EnterpriseDocument",
+      "description": "Metadata for centrally uploaded files in Document Vault and Google Drive backups.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "moduleId": { "type": "string" },
+        "title": { "type": "string" },
+        "fileName": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "sizeBytes": { "type": "number" },
+        "approvalStatus": { "type": "string", "description": "Draft | Pending Review | Approved | Rejected" },
+        "driveFileId": { "type": "string" },
+        "driveWebViewLink": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "uploadedByUsername": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "moduleId", "title", "fileName", "mimeType", "sizeBytes", "approvalStatus", "uploadedBy", "uploadedByUsername", "createdAt", "updatedAt"]
+    },
+    "WorkspaceRecord": {
+      "title": "WorkspaceRecord",
+      "description": "Centralized records for Document Studio, BMW Claims Reconciler, AutoLedger, Vehicle Master, Registers, and Reports.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "moduleId": { "type": "string" },
+        "recordTitle": { "type": "string" },
+        "referenceCode": { "type": "string" },
+        "status": { "type": "string" },
+        "payloadJson": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdByUsername": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "moduleId", "recordTitle", "referenceCode", "status", "payloadJson", "createdBy", "createdByUsername", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/AdminRegistry" },
+      "description": "Authorized Super Admin registry indexed by Firebase Auth UID."
+    },
+    "/enterpriseUsers/{userId}": {
+      "schema": { "$ref": "#/entities/EnterpriseUser" },
+      "description": "Centralized employee & Super Admin account profiles (excludes passwords)."
+    },
+    "/permissionProfiles/{userId}": {
+      "schema": { "$ref": "#/entities/PermissionProfile" },
+      "description": "Granular tool-wise 9-action permissions per user."
+    },
+    "/resetRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/PasswordResetRequest" },
+      "description": "Manual employee password reset requests awaiting Super Admin action."
+    },
+    "/activityLogs/{logId}": {
+      "schema": { "$ref": "#/entities/ActivityLog" },
+      "description": "Immutable enterprise audit log."
+    },
+    "/enterpriseDocuments/{docId}": {
+      "schema": { "$ref": "#/entities/EnterpriseDocument" },
+      "description": "Document Vault metadata & Google Drive backup references."
+    },
+    "/workspaceRecords/{recordId}": {
+      "schema": { "$ref": "#/entities/WorkspaceRecord" },
+      "description": "Centralized module records synced across browsers."
+    }
+  }
+}

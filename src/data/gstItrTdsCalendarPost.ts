@@ -1,4 +1,4 @@
-import { BlogPostItem } from '../types/blog';
+import { BlogPostItem } from '../types/blog.ts';
 
 export const GST_ITR_TDS_CALENDAR_POST: BlogPostItem = {
   slug: 'gst-itr-tds-due-dates-2026-27',

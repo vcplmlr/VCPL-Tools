@@ -1,4 +1,4 @@
-import { BlogPostItem } from '../types/blog';
+import { BlogPostItem } from '../types/blog.ts';
 
 export const TDS_RATES_POST: BlogPostItem = {
   slug: 'tds-sections-and-rates-chart-fy-2026-27',

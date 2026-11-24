@@ -1,4 +1,4 @@
-import type { RtoRecord } from './rtoDatabase';
+import type { RtoRecord } from './rtoDatabase.ts';
 
 const SRC_PARIVAHAN = 'Parivahan Sewa / State Transport Department Registry';
 const VERIFIED_DATE = '2026-11-17';

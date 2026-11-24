@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, HelpCircle, ShieldCheck } from 'lucide-react';
-import { SITE_CONTACT } from '../data/legalPagesData';
-import { PUBLIC_TOOLS_CATALOG } from '../data/toolsCatalog';
+import { SITE_CONTACT } from '../data/legalPagesData.ts';
+import { PUBLIC_TOOLS_CATALOG } from '../data/toolsCatalog.ts';
 
 type FaqTopic = 'All' | 'Privacy & Security' | 'Banking & Tax' | 'PDF & Image' | 'General';
 

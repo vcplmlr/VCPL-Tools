@@ -1,15 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { BLOG_POSTS } from '../src/data/blogPostsData';
-import { PUBLIC_TOOLS_CATALOG, getToolsForCategory } from '../src/data/toolsCatalog';
-import { buildBlogCoverSvg } from '../src/utils/blogCoverSvg';
+import { BLOG_POSTS } from '../src/data/blogPostsData.ts';
+import { PUBLIC_TOOLS_CATALOG, getToolsForCategory } from '../src/data/toolsCatalog.ts';
+import { buildBlogCoverSvg } from '../src/utils/blogCoverSvg.ts';
 import {
   DEFAULT_SITE_ORIGIN,
   buildRobotsTxtString,
   buildSitemapXmlString,
   getAllCanonicalSitemapUrls,
-} from '../src/utils/seoConfig';
-import { parseLocationToRoute } from '../src/utils/seoRouting';
+} from '../src/utils/seoConfig.ts';
+import { parseLocationToRoute } from '../src/utils/seoRouting.ts';
 
 export function syncAllSeoArtifacts(rootDir: string = process.cwd()): {
   urlCount: number;

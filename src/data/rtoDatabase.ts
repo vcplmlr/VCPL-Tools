@@ -1,6 +1,6 @@
-import { RTO_RECORDS_PART_1 } from './rtoRecordsPart1';
-import { RTO_RECORDS_PART_2 } from './rtoRecordsPart2';
-import { INDIA_STATES_AND_UTS, STATE_UT_BY_CODE, StateUtInfo } from './statesAndUts';
+import { RTO_RECORDS_PART_1 } from './rtoRecordsPart1.ts';
+import { RTO_RECORDS_PART_2 } from './rtoRecordsPart2.ts';
+import { INDIA_STATES_AND_UTS, STATE_UT_BY_CODE, StateUtInfo } from './statesAndUts.ts';
 
 export type RtoRecordStatus = 'active' | 'historical';
 export type RtoVerificationStatus = 'verified' | 'unverified';

@@ -1,4 +1,4 @@
-import { CategoryItem, ToolCatalogItem, ToolFilterType } from '../types/tools';
+import { CategoryItem, ToolCatalogItem, ToolFilterType } from '../types/tools.ts';
 
 export interface ValuePillar {
   id: string;
@@ -2720,6 +2720,71 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
       'large file splitter',
       'sql minifier gzip',
       'zip volume splitter',
+    ],
+  },
+  {
+    id: 'google-drive-manager',
+    code: 'UT-46',
+    suite: 'Office Utilities',
+    suiteAccent: '#12805C',
+    category: 'Utilities',
+    categoryName: 'Google Workspace · Drive',
+    kind: 'google-workspace',
+    title: 'Google Drive Explorer & File Manager',
+    description:
+      'Sign in with Google to search, upload, download, star, organize folders, inspect Drive activity, and manage files securely in your browser.',
+    priorityStars: 5,
+    statusLabel: 'Google Workspace · Live API',
+    featuredPrimary: true,
+    keywords: [
+      'google drive',
+      'drive explorer',
+      'upload to drive',
+      'drive activity',
+      'workspace',
+    ],
+  },
+  {
+    id: 'google-forms-studio',
+    code: 'UT-47',
+    suite: 'Office Utilities',
+    suiteAccent: '#12805C',
+    category: 'Utilities',
+    categoryName: 'Google Workspace · Forms',
+    kind: 'google-workspace',
+    title: 'Google Forms Builder & Response Viewer',
+    description:
+      'Create Google Forms, add questions, edit descriptions, inspect form structure, and export Google Form responses directly to CSV.',
+    priorityStars: 5,
+    statusLabel: 'Google Workspace · Live API',
+    featuredPrimary: true,
+    keywords: [
+      'google forms',
+      'form responses csv',
+      'create google form',
+      'workspace forms',
+    ],
+  },
+  {
+    id: 'google-meet-spaces',
+    code: 'UT-48',
+    suite: 'Office Utilities',
+    suiteAccent: '#12805C',
+    category: 'Utilities',
+    categoryName: 'Google Workspace · Meet',
+    kind: 'google-workspace',
+    title: 'Google Meet Space & Conference Manager',
+    description:
+      'Create instant Google Meet spaces, configure meeting access permissions, end active calls, and inspect conference participants & recordings.',
+    priorityStars: 5,
+    statusLabel: 'Google Workspace · Live API',
+    featuredPrimary: true,
+    keywords: [
+      'google meet',
+      'meet space',
+      'video conference',
+      'meet participants',
+      'meet recordings',
     ],
   },
 

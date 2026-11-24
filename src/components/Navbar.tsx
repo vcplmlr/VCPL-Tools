@@ -16,11 +16,14 @@ import {
   Menu,
   QrCode,
   Receipt,
+  ShieldCheck,
   Sparkles,
   Unlock,
+  UserCheck,
   X,
   Youtube,
 } from 'lucide-react';
+import { useEnterpriseAuth } from '../context/EnterpriseAuthContext';
 import { ThemePreference } from '../hooks/useTheme';
 import { ThemeSelector } from './ThemeSelector';
 import { VcplBrandLogo } from './VcplBrandLogo';
@@ -38,6 +41,8 @@ export type IconMenuKey =
   | 'learn-tools'
   | 'blog'
   | 'locked'
+  | 'portal'
+  | 'super-admin'
   | 'calculator'
   | 'all-tools';
 
@@ -103,7 +108,7 @@ const IstClock = memo(function IstClock() {
 });
 
 const ICON_MENU_ITEMS: {
-  key: Exclude<IconMenuKey, 'calculator'>;
+  key: Exclude<IconMenuKey, 'calculator' | 'portal' | 'super-admin'>;
   label: string;
   Icon: typeof Home;
 }[] = [
@@ -162,6 +167,7 @@ export function Navbar({
   onChangeTheme,
 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, isAuthenticated, isSuperAdmin } = useEnterpriseAuth();
 
   return (
     <>
@@ -260,8 +266,46 @@ export function Navbar({
             })}
           </nav>
 
-          {/* Right Controls in Main Menu Bar: Light / System / Dark Switcher + Mobile Hamburger */}
+          {/* Right Controls in Main Menu Bar: Enterprise Portal + Light/Dark Switcher + Mobile Hamburger */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onSelectIconMenu('portal');
+              }}
+              title={isAuthenticated && user ? `Signed in as @${user.displayUsername}` : 'Employee & Admin Portal'}
+              className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-display font-extrabold tracking-tight border transition-colors cursor-pointer whitespace-nowrap ${
+                activeIconMenu === 'portal'
+                  ? 'bg-[#2F3E4E] text-[#F9C80E] border-[#2F3E4E] dark:bg-[#F9C80E] dark:text-[#0F172A]'
+                  : isAuthenticated
+                    ? 'bg-[#CEE5DC]/90 dark:bg-emerald-950/75 text-[#12805C] dark:text-emerald-300 border-[#12805C]/35'
+                    : 'bg-[#FFFDF5] dark:bg-slate-900 text-[#2F3E4E] dark:text-slate-100 border-[#2F3E4E]/25 dark:border-slate-700 hover:bg-[#F9C80E]/45'
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span>{isAuthenticated && user ? `@${user.displayUsername}` : 'PORTAL'}</span>
+            </button>
+
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onSelectIconMenu('super-admin');
+                }}
+                title="Open Super Admin Control Panel"
+                className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-display font-extrabold tracking-tight border transition-colors cursor-pointer whitespace-nowrap ${
+                  activeIconMenu === 'super-admin'
+                    ? 'bg-[#9E2A2B] text-[#FFFDF5] border-[#7D0B0B]'
+                    : 'bg-[#2F3E4E] text-[#F9C80E] border-[#2F3E4E] hover:bg-[#1E293B]'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>ADMIN</span>
+              </button>
+            )}
+
             <ThemeSelector
               preference={themePreference}
               onChange={onChangeTheme}
@@ -325,7 +369,33 @@ export function Navbar({
               })}
             </nav>
 
-            <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-[#2F3E4E]/15 dark:border-slate-800">
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#2F3E4E]/15 dark:border-slate-800">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onSelectIconMenu('portal');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-[#FFFDF5] dark:bg-slate-900 text-xs font-display font-extrabold text-[#2F3E4E] dark:text-slate-100 cursor-pointer"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>{isAuthenticated && user ? `@${user.displayUsername}` : 'Enterprise Portal'}</span>
+                </button>
+                {isSuperAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onSelectIconMenu('super-admin');
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#2F3E4E] text-[#F9C80E] text-xs font-display font-extrabold cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Super Admin</span>
+                  </button>
+                )}
+              </div>
               <ThemeSelector
                 preference={themePreference}
                 onChange={onChangeTheme}

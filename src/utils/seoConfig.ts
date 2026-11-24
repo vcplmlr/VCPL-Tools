@@ -1,7 +1,8 @@
-import { BLOG_POSTS } from '../data/blogPostsData';
-import { LEGAL_PAGES, LegalPageSlug } from '../data/legalPagesData';
-import { PUBLIC_TOOLS_CATALOG, TOOL_SECTION_HEADS } from '../data/toolsCatalog';
-import { ToolCatalogItem, ToolFilterType } from '../types/tools';
+import { BLOG_POSTS } from '../data/blogPostsData.ts';
+import { LEGAL_PAGES, LegalPageSlug } from '../data/legalPagesData.ts';
+import { PUBLIC_TOOLS_CATALOG, TOOL_CATEGORIES, TOOL_SECTION_HEADS } from '../data/toolsCatalog.ts';
+import type { BlogPostItem } from '../types/blog.ts';
+import { ToolCatalogItem, ToolFilterType } from '../types/tools.ts';
 
 export const DEFAULT_SITE_ORIGIN = 'https://vcpltools.vercel.app';
 
@@ -31,6 +32,10 @@ export const ROBOTS_DISALLOW_PATHS: string[] = [
   '/income-tax-fy-2026-27.html',
   '/locked',
   '/locked-tools',
+  '/portal',
+  '/login',
+  '/super-admin',
+  '/change-password',
   '/400',
   '/401',
   '/403',
@@ -89,13 +94,27 @@ export interface SitemapUrlEntry {
   image?: { loc: string; title: string };
 }
 
-export function getAllCanonicalSitemapUrls(origin: string = DEFAULT_SITE_ORIGIN): SitemapUrlEntry[] {
+export function getAllCanonicalSitemapUrls(
+  origin: string = DEFAULT_SITE_ORIGIN,
+  extraPosts: BlogPostItem[] = []
+): SitemapUrlEntry[] {
   const cleanOrigin = origin.replace(/\/+$/, '');
   const seen = new Set<string>();
+  const combinedPostsMap = new Map<string, BlogPostItem>();
+  for (const post of [...extraPosts, ...BLOG_POSTS]) {
+    if (post?.slug && !combinedPostsMap.has(post.slug)) {
+      combinedPostsMap.set(post.slug, post);
+    }
+  }
+  const combinedPosts = Array.from(combinedPostsMap.values()).sort((a, b) =>
+    b.updatedIso.localeCompare(a.updatedIso)
+  );
+  const latestBlogIso = combinedPosts[0]?.updatedIso;
+
   const rawEntries: SitemapUrlEntry[] = [
-    { loc: `${cleanOrigin}/`, changefreq: 'weekly', priority: '1.0' },
+    { loc: `${cleanOrigin}/`, changefreq: 'weekly', priority: '1.0', lastmod: latestBlogIso },
     { loc: `${cleanOrigin}/tools`, changefreq: 'weekly', priority: '0.95' },
-    { loc: `${cleanOrigin}/blog`, changefreq: 'weekly', priority: '0.9' },
+    { loc: `${cleanOrigin}/blog`, changefreq: 'daily', priority: '0.9', lastmod: latestBlogIso },
     { loc: `${cleanOrigin}/sitemap`, changefreq: 'weekly', priority: '0.75' },
     ...TOOL_SECTION_HEADS.map((head) => ({
       loc: `${cleanOrigin}${getAllToolsPath(head.key)}`,
@@ -107,7 +126,7 @@ export function getAllCanonicalSitemapUrls(origin: string = DEFAULT_SITE_ORIGIN)
       changefreq: 'monthly' as const,
       priority: tool.featuredPrimary ? '0.85' : '0.8',
     })),
-    ...BLOG_POSTS.map((post) => ({
+    ...combinedPosts.map((post) => ({
       loc: `${cleanOrigin}${getBlogPath(post.slug)}`,
       changefreq: 'weekly' as const,
       priority: '0.85',
@@ -142,9 +161,10 @@ function escapeXml(str: string): string {
 
 export function buildSitemapXmlString(
   origin: string = DEFAULT_SITE_ORIGIN,
-  lastmod: string = new Date().toISOString().slice(0, 10)
+  lastmod: string = new Date().toISOString().slice(0, 10),
+  extraPosts: BlogPostItem[] = []
 ): string {
-  const entries = getAllCanonicalSitemapUrls(origin);
+  const entries = getAllCanonicalSitemapUrls(origin, extraPosts);
   const xmlRows = entries
     .map((entry) => {
       const rowLastmod = entry.lastmod ?? lastmod;
@@ -162,9 +182,84 @@ export function buildSitemapXmlString(
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${xmlRows}\n</urlset>\n`;
 }
 
+function toRfc2822IstDate(isoDate: string): string {
+  const clean = isoDate.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+    return new Date().toUTCString();
+  }
+  const dt = new Date(`${clean}T09:00:00+05:30`);
+  return Number.isNaN(dt.getTime()) ? new Date().toUTCString() : dt.toUTCString();
+}
+
+export function buildRssFeedXmlString(
+  origin: string = DEFAULT_SITE_ORIGIN,
+  extraPosts: BlogPostItem[] = []
+): string {
+  const cleanOrigin = origin.replace(/\/+$/, '');
+  const seen = new Set<string>();
+  const posts = [...extraPosts, ...BLOG_POSTS]
+    .filter((post) => {
+      if (!post?.slug || seen.has(post.slug)) return false;
+      seen.add(post.slug);
+      return true;
+    })
+    .sort((a, b) => b.publishedIso.localeCompare(a.publishedIso))
+    .slice(0, 50);
+
+  const lastBuildDate = posts[0]
+    ? toRfc2822IstDate(posts[0].updatedIso || posts[0].publishedIso)
+    : new Date().toUTCString();
+
+  const itemsXml = posts
+    .map((post) => {
+      const link = `${cleanOrigin}${getBlogPath(post.slug)}`;
+      const imgUrl = `${cleanOrigin}${post.coverImage}`;
+      const tagsXml = [post.category, ...(post.topicTags ?? []), ...post.keywords.slice(0, 4)]
+        .filter(Boolean)
+        .map((tag) => `      <category>${escapeXml(tag)}</category>`)
+        .join('\n');
+
+      return `  <item>
+    <title>${escapeXml(post.title)}</title>
+    <link>${escapeXml(link)}</link>
+    <guid isPermaLink="true">${escapeXml(link)}</guid>
+    <pubDate>${escapeXml(toRfc2822IstDate(post.publishedIso))}</pubDate>
+    <dc:creator>${escapeXml(post.author)}</dc:creator>
+    <description>${escapeXml(post.seoDescription || post.excerpt)}</description>
+${tagsXml}
+    <media:content url="${escapeXml(imgUrl)}" medium="image" type="image/svg+xml" width="1200" height="630" />
+  </item>`;
+    })
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">
+<channel>
+  <title>VCPL Tools – Daily Indian Accounting, Tax &amp; Banking Blog</title>
+  <link>${escapeXml(`${cleanOrigin}/blog`)}</link>
+  <atom:link href="${escapeXml(`${cleanOrigin}/rss.xml`)}" rel="self" type="application/rss+xml" />
+  <description>Daily 9:00 AM IST practical guides on GST, Income-tax Act 2025, TDS/TCS, Tally reconciliations, PF/ESI payroll, and client-side utilities.</description>
+  <language>en-in</language>
+  <lastBuildDate>${escapeXml(lastBuildDate)}</lastBuildDate>
+  <ttl>60</ttl>
+${itemsXml}
+</channel>
+</rss>
+`;
+}
+
 export function buildRobotsTxtString(origin: string = DEFAULT_SITE_ORIGIN): string {
   const cleanOrigin = origin.replace(/\/+$/, '');
   return [
+    'User-agent: Googlebot',
+    'Allow: /',
+    '',
+    'User-agent: Bingbot',
+    'Allow: /',
+    '',
+    'User-agent: msnbot',
+    'Allow: /',
+    '',
     'User-agent: Mediapartners-Google',
     'Allow: /',
     '',
@@ -175,7 +270,7 @@ export function buildRobotsTxtString(origin: string = DEFAULT_SITE_ORIGIN): stri
     'Allow: /',
     ...ROBOTS_DISALLOW_PATHS.map((p) => `Disallow: ${p}`),
     '',
-    '# Crawl-delay not required for static client-side assets',
+    '# Sitemaps & Daily RSS Discovery',
     `Sitemap: ${cleanOrigin}/sitemap.xml`,
     '',
   ].join('\n');

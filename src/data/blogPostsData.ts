@@ -6,13 +6,14 @@ import {
   BlogFaqItem,
   BlogPostItem,
   BlogSubsection,
-} from '../types/blog';
-import { BLOG_TOPIC_HEADS } from './blogTopicsHub';
-import { GST_ITR_TDS_CALENDAR_POST } from './gstItrTdsCalendarPost';
-import { GSTR2B_EXCEL_RECO_POST } from './gstr2bExcelRecoPost';
-import { PASSWORD_SECURITY_TECH_POST } from './passwordSecurityTechPost';
-import { PF_ESI_PAYROLL_POST } from './pfEsiPayrollPost';
-import { TDS_RATES_POST } from './tdsRatesPost';
+} from '../types/blog.ts';
+import { BLOG_TOPIC_HEADS } from './blogTopicsHub.ts';
+import { GST_ITR_TDS_CALENDAR_POST } from './gstItrTdsCalendarPost.ts';
+import { GSTR2B_EXCEL_RECO_POST } from './gstr2bExcelRecoPost.ts';
+import { JOURNAL_ENTRIES_ACCOUNTANTS_POST } from './journalEntriesAccountantsPost.ts';
+import { PASSWORD_SECURITY_TECH_POST } from './passwordSecurityTechPost.ts';
+import { PF_ESI_PAYROLL_POST } from './pfEsiPayrollPost.ts';
+import { TDS_RATES_POST } from './tdsRatesPost.ts';
 
 export type {
   BlogArticleSection,
@@ -88,6 +89,7 @@ export const BLOG_CATEGORIES: ('All' | BlogCategory)[] = [
 ];
 
 export const BLOG_POSTS: BlogPostItem[] = [
+  JOURNAL_ENTRIES_ACCOUNTANTS_POST,
   PASSWORD_SECURITY_TECH_POST,
   GST_ITR_TDS_CALENDAR_POST,
   TDS_RATES_POST,

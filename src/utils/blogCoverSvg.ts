@@ -1,4 +1,4 @@
-import { BlogCoverTheme, BlogPostItem } from '../types/blog';
+import { BlogCoverTheme, BlogPostItem } from '../types/blog.ts';
 
 export function escapeXml(value: string): string {
   return value

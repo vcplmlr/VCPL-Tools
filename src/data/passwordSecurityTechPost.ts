@@ -1,4 +1,4 @@
-import { BlogPostItem } from '../types/blog';
+import { BlogPostItem } from '../types/blog.ts';
 
 export const PASSWORD_SECURITY_TECH_POST: BlogPostItem = {
   slug: 'advanced-password-handling-and-browser-cryptography',

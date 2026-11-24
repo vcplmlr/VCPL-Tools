@@ -2,8 +2,13 @@ import crypto from 'node:crypto';
 import type { NextFunction, Request, Response, Router } from 'express';
 import express from 'express';
 import { RBI_AMALGAMATED_BANKS } from './bankMetadata.ts';
-import { getAutoPublishedBlogPosts, runScheduledBlogCatchUp } from './blogScheduler.ts';
+import {
+  getAutoPublishedBlogPosts,
+  getBlogSchedulerStatus,
+  runScheduledBlogCatchUp,
+} from './blogScheduler.ts';
 import { buildFtsQuery, getDb } from './db.ts';
+import { createEnterpriseRouter } from './enterpriseRoutes.ts';
 import {
   IFSC_REGEX,
   PINCODE_REGEX,
@@ -1014,6 +1019,37 @@ export function createApiRouter(): Router {
       console.error('Failed loading auto-published blog posts:', err);
       res.json({ posts: [] });
     }
+  });
+
+  router.get('/blog/status', (_req, res) => {
+    res.json(getBlogSchedulerStatus());
+  });
+
+  router.post('/blog/publish-now', requireAdmin, async (_req, res) => {
+    const publishedCount = await runScheduledBlogCatchUp({ forceTodayIfBeforeNine: true });
+    res.json({
+      ok: true,
+      publishedCount,
+      status: getBlogSchedulerStatus(),
+    });
+  });
+
+  router.get('/cron/daily-blog', async (req, res) => {
+    const cronSecret = (process.env.CRON_SECRET || '').trim();
+    if (cronSecret) {
+      const authHeader = (req.headers.authorization || '').trim();
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+      if (!token || !safeEqualStrings(token, cronSecret)) {
+        res.status(401).json({ ok: false, error: 'Unauthorized cron trigger.' });
+        return;
+      }
+    }
+    const publishedCount = await runScheduledBlogCatchUp({ forceTodayIfBeforeNine: true });
+    res.json({
+      ok: true,
+      publishedCount,
+      status: getBlogSchedulerStatus(),
+    });
   });
 
   // =========================================================================
@@ -2471,6 +2507,8 @@ export function createApiRouter(): Router {
       });
     }
   });
+
+  router.use('/enterprise', createEnterpriseRouter());
 
   return router;
 }

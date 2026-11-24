@@ -1,5 +1,5 @@
-import { INDIA_RTO_RECORDS, RTO_BY_CODE, RtoRecord } from '../data/rtoDatabase';
-import { HISTORICAL_STATE_CODE_REMAP, STATE_UT_BY_CODE } from '../data/statesAndUts';
+import { INDIA_RTO_RECORDS, RTO_BY_CODE, RtoRecord } from '../data/rtoDatabase.ts';
+import { HISTORICAL_STATE_CODE_REMAP, STATE_UT_BY_CODE } from '../data/statesAndUts.ts';
 
 export interface ParsedRegistrationResult {
   isFullPlate: boolean;

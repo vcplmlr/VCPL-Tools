@@ -1,4 +1,4 @@
-import { BlogPostItem } from '../types/blog';
+import { BlogPostItem } from '../types/blog.ts';
 
 export const PF_ESI_PAYROLL_POST: BlogPostItem = {
   slug: 'pf-esi-and-karnataka-professional-tax-compliance-guide',

@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import {defineConfig, Plugin} from 'vite';
-import {syncAllSeoArtifacts} from './scripts/sync-seo';
+import {syncAllSeoArtifacts} from './scripts/sync-seo.ts';
 
 const VIRTUAL_BUILD_META_ID = 'virtual:vcpl-build-meta';
 const RESOLVED_VIRTUAL_BUILD_META_ID = '\0' + VIRTUAL_BUILD_META_ID;
@@ -83,6 +83,11 @@ const TOOL_KIND_FILES: Record<string, string[]> = {
   'tulusiri-pro': ['src/components/tools/TulusiriProView.tsx'],
   'keyboard-shortcuts': ['src/components/tools/KeyboardShortcutsView.tsx'],
   'tally-shortcuts': ['src/components/tools/TallyShortcutsView.tsx'],
+  'google-workspace': [
+    'src/components/tools/GoogleWorkspaceSuiteView.tsx',
+    'src/services/googleWorkspaceAuth.ts',
+    'src/services/googleWorkspaceApis.ts',
+  ],
 };
 
 function formatIstStamp(ms: number) {

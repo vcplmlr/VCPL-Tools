@@ -16,8 +16,10 @@ import {
   Search,
   ShieldCheck,
   Unlock,
+  UserCheck,
   X,
 } from 'lucide-react';
+import { useEnterpriseAuth } from '../context/EnterpriseAuthContext';
 import { PUBLIC_TOOLS_CATALOG } from '../data/toolsCatalog';
 import { ToolCatalogItem } from '../types/tools';
 
@@ -28,6 +30,7 @@ interface LockedToolsPageProps {
   onLock: () => void;
   onBackHome: () => void;
   onOpenTool: (tool: ToolCatalogItem, fullScreen?: boolean) => void;
+  onOpenPortal?: () => void;
 }
 
 type VaultScopeFilter = 'all' | 'recon-banking' | 'dealership-tax' | 'letters-docs';
@@ -64,7 +67,11 @@ export function LockedToolsPage({
   onLock,
   onBackHome,
   onOpenTool,
+  onOpenPortal,
 }: LockedToolsPageProps) {
+  const { user, isAuthenticated, isSuperAdmin, requiresPasswordChange, hasPermission } =
+    useEnterpriseAuth();
+  const effectiveUnlocked = isUnlocked || (isAuthenticated && !requiresPasswordChange);
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -77,12 +84,17 @@ export function LockedToolsPage({
   const passwordFieldRef = useRef<HTMLInputElement | null>(null);
 
   const lockedTools = useMemo(() => {
-    return PUBLIC_TOOLS_CATALOG.filter(
-      (tool) =>
+    return PUBLIC_TOOLS_CATALOG.filter((tool) => {
+      const isVaultItem =
         tool.statusLabel.toLowerCase().includes('passcode locked') ||
-        LETTERS_DOCS_IDS.has(tool.id)
-    );
-  }, []);
+        LETTERS_DOCS_IDS.has(tool.id);
+      if (!isVaultItem) return false;
+      if (isAuthenticated && !isSuperAdmin && !requiresPasswordChange) {
+        return hasPermission(tool.id, 'view');
+      }
+      return true;
+    });
+  }, [hasPermission, isAuthenticated, isSuperAdmin, requiresPasswordChange]);
 
   const filteredTools = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -117,7 +129,7 @@ export function LockedToolsPage({
   }, [onLock]);
 
   useEffect(() => {
-    if (!isUnlocked) {
+    if (!effectiveUnlocked) {
       let active = true;
       void fetch('/api/vault/status')
         .then((res) => (res.ok ? res.json() : null))
@@ -136,7 +148,7 @@ export function LockedToolsPage({
         window.clearTimeout(id);
       };
     }
-  }, [isUnlocked]);
+  }, [effectiveUnlocked]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,7 +236,7 @@ export function LockedToolsPage({
     }
   };
 
-  if (!isUnlocked) {
+  if (!effectiveUnlocked) {
     return (
       <section className="w-full bg-[#FEF2C8] dark:bg-[#0B1120] py-10 sm:py-16 min-h-[calc(100dvh-140px)] transition-colors duration-200 flex items-center">
         <div className="w-full max-w-lg mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6">
@@ -249,6 +261,17 @@ export function LockedToolsPage({
               {lockedTools.length} restricted enterprise, banking, covering letter, and rent
               payment letter utilities directly.
             </p>
+
+            {onOpenPortal && (
+              <button
+                type="button"
+                onClick={onOpenPortal}
+                className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#2F3E4E] hover:bg-[#1E293B] text-[#F9C80E] text-xs font-display font-extrabold cursor-pointer"
+              >
+                <UserCheck className="w-4 h-4 shrink-0" />
+                <span>Sign In via VCPL Pro Username Portal (Employees &amp; Admin)</span>
+              </button>
+            )}
 
             {setupRequired && (
               <div className="rounded-xl border border-[#2F3E4E]/25 dark:border-amber-400/40 bg-[#FEF2C8]/75 dark:bg-amber-950/40 px-3.5 py-2.5 text-xs font-medium text-[#2F3E4E] dark:text-amber-200">
@@ -452,10 +475,10 @@ export function LockedToolsPage({
                   <Unlock className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>VAULT UNLOCKED</span>
                 </span>
-                {vaultEmail && (
+                {(vaultEmail || user?.displayUsername) && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#FEF2C8] dark:bg-slate-800 border border-[#2F3E4E]/25 dark:border-slate-600 text-[#2F3E4E] dark:text-slate-200">
                     <Mail className="w-3 h-3 text-[#9E2A2B] dark:text-[#F9C80E]" aria-hidden="true" />
-                    <span>{vaultEmail}</span>
+                    <span>{vaultEmail || `@${user?.displayUsername}`}</span>
                   </span>
                 )}
                 <span className="text-[#475569] dark:text-slate-400 tabular-nums">
