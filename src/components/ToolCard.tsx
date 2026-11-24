@@ -260,6 +260,7 @@ function getToolIcon(id: string) {
     case 'database-file-compressor':
       return Database;
     case 'tulusiri-pro':
+    case 'ai-text-cleaner':
       return Sparkles;
     default:
       return SlidersHorizontal;
@@ -331,7 +332,12 @@ export const ToolCard = memo(function ToolCard({ tool, onOpenTool, variant = 'de
             </div>
           </div>
 
-          {tool.statusLabel.toLowerCase().includes('upgrading') ? (
+          {tool.isNew ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#12805C] dark:bg-emerald-500 border border-[#0A4F38] dark:border-emerald-400 text-white dark:text-[#0F172A] font-display font-extrabold text-[10px] uppercase tracking-wider shrink-0 shadow-[0_1px_0_#0A4F38]">
+              <Sparkles className="w-3 h-3" aria-hidden="true" />
+              <span>NEW</span>
+            </span>
+          ) : tool.statusLabel.toLowerCase().includes('upgrading') ? (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FEF2C8] dark:bg-amber-500/20 border border-[#B45309]/40 dark:border-amber-400/40 text-[#B45309] dark:text-amber-300 font-display font-extrabold text-[10px] uppercase tracking-wider shrink-0">
               <Wrench className="w-3 h-3" aria-hidden="true" />
               <span>Upgrading</span>
@@ -366,14 +372,9 @@ export const ToolCard = memo(function ToolCard({ tool, onOpenTool, variant = 'de
               ? 'font-bold text-[#B45309] dark:text-amber-400'
               : tool.statusLabel.toLowerCase().includes('beta')
               ? 'font-bold text-[#B45309] dark:text-amber-400'
-              : tool.statusLabel.toLowerCase().includes('passcode locked')
-              ? 'font-bold text-[#2F3E4E] dark:text-slate-200'
               : 'font-medium text-[#475569] dark:text-slate-400'
           }`}
         >
-          {tool.statusLabel.toLowerCase().includes('passcode locked') && (
-            <Lock className="w-3 h-3 shrink-0 text-[#B45309] dark:text-amber-400" aria-hidden="true" />
-          )}
           {tool.statusLabel.toLowerCase().includes('upgrading') && (
             <Wrench className="w-3 h-3 shrink-0 text-[#B45309] dark:text-amber-400" aria-hidden="true" />
           )}
@@ -393,9 +394,7 @@ export const ToolCard = memo(function ToolCard({ tool, onOpenTool, variant = 'de
           }`}
         >
           <span>
-            {tool.statusLabel.toLowerCase().includes('passcode locked')
-              ? 'Unlock Tool'
-              : tool.statusLabel.toLowerCase().includes('upgrading')
+            {tool.statusLabel.toLowerCase().includes('upgrading')
               ? 'View Status'
               : 'Open Tool'}
           </span>

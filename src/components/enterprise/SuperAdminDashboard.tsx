@@ -20,7 +20,9 @@ import {
   Layers,
   Loader2,
   Lock,
+  Megaphone,
   PauseCircle,
+  Pin,
   PlayCircle,
   Plus,
   RefreshCw,
@@ -29,6 +31,7 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Trash2,
   Upload,
   UserCheck,
@@ -51,6 +54,7 @@ import {
   type UserPermissionMatrix,
   createEmptyPermissionSet,
 } from '../../data/enterpriseModules.ts';
+import { PUBLIC_TOOLS_CATALOG } from '../../data/toolsCatalog.ts';
 import { CentralWorkspaceModules } from './CentralWorkspaceModules.tsx';
 
 interface SuperAdminDashboardProps {
@@ -65,7 +69,26 @@ type AdminTabId =
   | 'resets'
   | 'logs'
   | 'reports'
-  | 'vault';
+  | 'vault'
+  | 'announcements';
+
+interface HomepageAnnouncementAdminRow {
+  id: string;
+  title: string;
+  badge: 'NEW' | 'UPGRADE' | 'BETA' | 'INFO';
+  summary: string;
+  launchDate: string;
+  toolId: string;
+  actionLabel: string;
+  actionUrl: string;
+  isPinned: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface ResetRequestRow {
   id: string;
@@ -330,6 +353,34 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [restoreConfirmPhrase, setRestoreConfirmPhrase] = useState('');
   const [restoreSnapshotJson, setRestoreSnapshotJson] = useState('');
 
+  // Homepage Announcements Manager state
+  const [announcements, setAnnouncements] = useState<HomepageAnnouncementAdminRow[]>([]);
+  const [annBusy, setAnnBusy] = useState(false);
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
+  const [confirmDeleteAnnouncementId, setConfirmDeleteAnnouncementId] = useState<string | null>(null);
+  const [annTitle, setAnnTitle] = useState('');
+  const [annBadge, setAnnBadge] = useState<'NEW' | 'UPGRADE' | 'BETA' | 'INFO'>('NEW');
+  const [annLaunchDate, setAnnLaunchDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [annToolId, setAnnToolId] = useState('');
+  const [annActionLabel, setAnnActionLabel] = useState('Open Tool');
+  const [annActionUrl, setAnnActionUrl] = useState('');
+  const [annSummary, setAnnSummary] = useState('');
+  const [annPinned, setAnnPinned] = useState(true);
+  const [annActive, setAnnActive] = useState(true);
+
+  const resetAnnouncementForm = () => {
+    setEditingAnnouncementId(null);
+    setAnnTitle('');
+    setAnnBadge('NEW');
+    setAnnLaunchDate(new Date().toISOString().slice(0, 10));
+    setAnnToolId('');
+    setAnnActionLabel('Open Tool');
+    setAnnActionUrl('');
+    setAnnSummary('');
+    setAnnPinned(true);
+    setAnnActive(true);
+  };
+
   const loadAllAdminData = useCallback(async () => {
     if (!isSuperAdmin) return;
     setLoading(true);
@@ -347,6 +398,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         repRes,
         bakRes,
         audRes,
+        annRes,
       ] = await Promise.all([
         apiFetch(`/api/enterprise/admin/users?includeArchived=${showArchivedUsers ? '1' : '0'}`),
         apiFetch('/api/enterprise/admin/reset-requests'),
@@ -367,6 +419,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         apiFetch('/api/enterprise/admin/reports/summary'),
         apiFetch('/api/enterprise/admin/backups'),
         apiFetch('/api/enterprise/admin/audit-logs'),
+        apiFetch('/api/enterprise/admin/announcements'),
       ]);
 
       if (uRes.ok) {
@@ -418,6 +471,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       if (audRes.ok) {
         const d = (await audRes.json()) as { auditLogs?: AuditLogRow[] };
         setAuditLogs(d.auditLogs || []);
+      }
+      if (annRes.ok) {
+        const d = (await annRes.json()) as { announcements?: HomepageAnnouncementAdminRow[] };
+        setAnnouncements(d.announcements || []);
       }
     } catch (err) {
       setBannerError(err instanceof Error ? err.message : 'Unable to load admin console data.');
@@ -913,6 +970,90 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     }
   };
 
+  const handleSaveAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (annBusy) return;
+    setAnnBusy(true);
+    setBannerError('');
+    setBannerSuccess('');
+    try {
+      const payload = {
+        title: annTitle.trim(),
+        badge: annBadge,
+        launchDate: annLaunchDate,
+        toolId: annToolId,
+        actionLabel: annActionLabel.trim() || 'Open Tool',
+        actionUrl: annActionUrl.trim(),
+        summary: annSummary.trim(),
+        isPinned: annPinned,
+        isActive: annActive,
+      };
+      const url = editingAnnouncementId
+        ? `/api/enterprise/admin/announcements/${encodeURIComponent(editingAnnouncementId)}`
+        : '/api/enterprise/admin/announcements';
+      const res = await apiFetch(url, {
+        method: editingAnnouncementId ? 'PATCH' : 'POST',
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        throw new Error(data?.error || 'Unable to save homepage announcement.');
+      }
+      setBannerSuccess(
+        editingAnnouncementId
+          ? 'Homepage announcement updated.'
+          : 'New homepage announcement published to What’s New at VCPL.'
+      );
+      resetAnnouncementForm();
+      await loadAllAdminData();
+    } catch (err) {
+      setBannerError(err instanceof Error ? err.message : 'Unable to save announcement.');
+    } finally {
+      setAnnBusy(false);
+    }
+  };
+
+  const handleToggleAnnouncementField = async (
+    item: HomepageAnnouncementAdminRow,
+    field: 'isActive' | 'isPinned'
+  ) => {
+    setAnnBusy(true);
+    setBannerError('');
+    try {
+      const res = await apiFetch(`/api/enterprise/admin/announcements/${encodeURIComponent(item.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ [field]: !item[field] }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error || 'Update failed.');
+      await loadAllAdminData();
+    } catch (err) {
+      setBannerError(err instanceof Error ? err.message : 'Unable to update announcement.');
+    } finally {
+      setAnnBusy(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    setAnnBusy(true);
+    setBannerError('');
+    try {
+      const res = await apiFetch(`/api/enterprise/admin/announcements/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error || 'Delete failed.');
+      setConfirmDeleteAnnouncementId(null);
+      if (editingAnnouncementId === id) resetAnnouncementForm();
+      setBannerSuccess('Announcement deleted.');
+      await loadAllAdminData();
+    } catch (err) {
+      setBannerError(err instanceof Error ? err.message : 'Unable to delete announcement.');
+    } finally {
+      setAnnBusy(false);
+    }
+  };
+
   const filteredUsers = useMemo(() => {
     const q = userSearch.trim().toLowerCase();
     return users.filter((u) => {
@@ -1117,6 +1258,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               { id: 'logs', label: 'Login & Activity Logs', icon: History },
               { id: 'reports', label: 'Reports & Backups', icon: FileSpreadsheet },
               { id: 'vault', label: 'Central Vault & Records', icon: Cloud },
+              {
+                id: 'announcements',
+                label: `Homepage Announcements (${announcements.filter((a) => a.isActive).length})`,
+                icon: Megaphone,
+              },
             ] as const
           ).map((tab) => {
             const Icon = tab.icon;
@@ -2719,6 +2865,317 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         {/* TAB 7: CENTRAL DOCUMENT VAULT & WORKSPACE RECORDS               */}
         {/* =============================================================== */}
         {activeTab === 'vault' && <CentralWorkspaceModules />}
+
+        {/* =============================================================== */}
+        {/* TAB 8: HOMEPAGE "WHAT'S NEW AT VCPL" ANNOUNCEMENTS MANAGER      */}
+        {/* =============================================================== */}
+        {activeTab === 'announcements' && (
+          <div className="space-y-5">
+            <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-5 sm:p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-display font-extrabold text-base sm:text-lg text-[#2F3E4E] dark:text-slate-50 flex items-center gap-2">
+                    <Megaphone className="w-5 h-5 text-[#12805C] dark:text-[#F9C80E]" />
+                    <span>
+                      {editingAnnouncementId
+                        ? 'Edit Homepage Announcement'
+                        : 'Publish to "What’s New at VCPL" Homepage Section'}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-[#475569] dark:text-slate-300 mt-0.5">
+                    Manage future tool launches, upgrades, and release notices shown publicly on the
+                    VCPL Tools homepage without editing source code.
+                  </p>
+                </div>
+                {editingAnnouncementId && (
+                  <button
+                    type="button"
+                    onClick={resetAnnouncementForm}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 text-xs font-bold text-[#2F3E4E] dark:text-slate-200 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Cancel Edit</span>
+                  </button>
+                )}
+              </div>
+
+              <form onSubmit={(e) => void handleSaveAnnouncement(e)} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  <div className="lg:col-span-2 space-y-1">
+                    <label className="block text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                      Announcement Title *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={140}
+                      value={annTitle}
+                      onChange={(e) => setAnnTitle(e.target.value)}
+                      placeholder="e.g. VCPL AI Text Cleaner"
+                      className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-semibold text-[#2F3E4E] dark:text-slate-100"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                      Badge Type
+                    </label>
+                    <select
+                      value={annBadge}
+                      onChange={(e) =>
+                        setAnnBadge(e.target.value as 'NEW' | 'UPGRADE' | 'BETA' | 'INFO')
+                      }
+                      className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-semibold text-[#2F3E4E] dark:text-slate-100"
+                    >
+                      <option value="NEW">NEW</option>
+                      <option value="UPGRADE">UPGRADE</option>
+                      <option value="BETA">BETA</option>
+                      <option value="INFO">INFO</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                      Launch Date *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={annLaunchDate}
+                      onChange={(e) => setAnnLaunchDate(e.target.value)}
+                      className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-mono text-[#2F3E4E] dark:text-slate-100"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                      Link to VCPL Tool (Optional)
+                    </label>
+                    <select
+                      value={annToolId}
+                      onChange={(e) => setAnnToolId(e.target.value)}
+                      className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-semibold text-[#2F3E4E] dark:text-slate-100"
+                    >
+                      <option value="">-- No direct tool link / Use custom URL --</option>
+                      {PUBLIC_TOOLS_CATALOG.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          [{t.code}] {t.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                      CTA Button Label
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={50}
+                      value={annActionLabel}
+                      onChange={(e) => setAnnActionLabel(e.target.value)}
+                      placeholder="Open Tool"
+                      className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-semibold text-[#2F3E4E] dark:text-slate-100"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                      Custom URL (Optional if no tool selected)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={300}
+                      value={annActionUrl}
+                      onChange={(e) => setAnnActionUrl(e.target.value)}
+                      placeholder="/typing-text/ai-text-cleaner"
+                      className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-mono text-[#2F3E4E] dark:text-slate-100"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                    Short Homepage Description *
+                  </label>
+                  <textarea
+                    required
+                    rows={2}
+                    maxLength={500}
+                    value={annSummary}
+                    onChange={(e) => setAnnSummary(e.target.value)}
+                    placeholder="Concise description highlighting the new tool or upgrade..."
+                    className="w-full px-3 py-2 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs text-[#2F3E4E] dark:text-slate-100"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex flex-wrap items-center gap-5">
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-[#2F3E4E] dark:text-slate-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={annPinned}
+                        onChange={(e) => setAnnPinned(e.target.checked)}
+                        className="w-4 h-4 accent-[#12805C]"
+                      />
+                      <span>Pin to Top</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-[#2F3E4E] dark:text-slate-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={annActive}
+                        onChange={(e) => setAnnActive(e.target.checked)}
+                        className="w-4 h-4 accent-[#12805C]"
+                      />
+                      <span>Published on Homepage</span>
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={annBusy}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl bg-[#12805C] hover:bg-[#0E6A4B] text-white text-xs font-display font-extrabold cursor-pointer disabled:opacity-60"
+                  >
+                    {annBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    <span>
+                      {editingAnnouncementId ? 'Update Announcement' : 'Publish Announcement'}
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Announcements List */}
+            <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-5 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-display font-extrabold text-sm text-[#2F3E4E] dark:text-slate-100 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#12805C]" />
+                  <span>Configured Homepage Announcements ({announcements.length})</span>
+                </h3>
+              </div>
+
+              {announcements.length === 0 ? (
+                <p className="text-xs text-[#64748B] dark:text-slate-400 py-4 text-center">
+                  No homepage announcements configured yet. Publish one using the form above.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {announcements.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-[#2F3E4E]/20 dark:border-slate-700 bg-white dark:bg-[#0B1120] p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1.5 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+                          <span className="px-2 py-0.5 rounded bg-[#12805C] text-white font-bold">
+                            {item.badge}
+                          </span>
+                          <span className="text-[#475569] dark:text-slate-300">
+                            Launch: {item.launchDate}
+                          </span>
+                          {item.isPinned && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#FEF2C8] text-[#B45309] font-bold">
+                              <Pin className="w-3 h-3" />
+                              Pinned
+                            </span>
+                          )}
+                          <span
+                            className={`px-2 py-0.5 rounded font-bold ${
+                              item.isActive
+                                ? 'bg-[#CEE5DC] text-[#12805C]'
+                                : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                            }`}
+                          >
+                            {item.isActive ? 'Published' : 'Hidden'}
+                          </span>
+                          {item.toolId && (
+                            <span className="text-[#4338CA] dark:text-indigo-300">
+                              Tool: {item.toolId}
+                            </span>
+                          )}
+                        </div>
+                        <p className="font-display font-extrabold text-sm text-[#2F3E4E] dark:text-slate-100">
+                          {item.title}
+                        </p>
+                        <p className="text-xs text-[#475569] dark:text-slate-300">
+                          {item.summary}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          disabled={annBusy}
+                          onClick={() => void handleToggleAnnouncementField(item, 'isPinned')}
+                          className="px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/25 dark:border-slate-600 text-xs font-bold text-[#2F3E4E] dark:text-slate-200 cursor-pointer"
+                        >
+                          {item.isPinned ? 'Unpin' : 'Pin'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={annBusy}
+                          onClick={() => void handleToggleAnnouncementField(item, 'isActive')}
+                          className="px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/25 dark:border-slate-600 text-xs font-bold text-[#2F3E4E] dark:text-slate-200 cursor-pointer"
+                        >
+                          {item.isActive ? 'Hide' : 'Publish'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingAnnouncementId(item.id);
+                            setAnnTitle(item.title);
+                            setAnnBadge(item.badge);
+                            setAnnLaunchDate(item.launchDate);
+                            setAnnToolId(item.toolId);
+                            setAnnActionLabel(item.actionLabel || 'Open Tool');
+                            setAnnActionUrl(item.actionUrl || '');
+                            setAnnSummary(item.summary);
+                            setAnnPinned(item.isPinned);
+                            setAnnActive(item.isActive);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/25 dark:border-slate-600 text-xs font-bold text-[#2F3E4E] dark:text-slate-200 cursor-pointer"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                        {confirmDeleteAnnouncementId === item.id ? (
+                          <span className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={annBusy}
+                              onClick={() => void handleDeleteAnnouncement(item.id)}
+                              className="px-2.5 py-1.5 rounded-lg bg-[#9E2A2B] text-white text-xs font-bold cursor-pointer"
+                            >
+                              Confirm Delete
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteAnnouncementId(null)}
+                              className="px-2 py-1.5 rounded-lg border border-[#2F3E4E]/25 text-xs font-bold cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteAnnouncementId(item.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#9E2A2B]/40 text-xs font-bold text-[#9E2A2B] dark:text-rose-300 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

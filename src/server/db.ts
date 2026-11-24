@@ -441,6 +441,27 @@ export function ensureSchema(db: DatabaseSync): void {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS homepage_announcements (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      badge TEXT NOT NULL DEFAULT 'NEW',
+      summary TEXT NOT NULL,
+      launch_date TEXT NOT NULL,
+      tool_id TEXT NOT NULL DEFAULT '',
+      action_label TEXT NOT NULL DEFAULT 'Open Tool',
+      action_url TEXT NOT NULL DEFAULT '',
+      is_pinned INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_by TEXT NOT NULL DEFAULT 'system',
+      updated_by TEXT NOT NULL DEFAULT 'system',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_homepage_announcements_active
+      ON homepage_announcements(is_active, is_pinned DESC, sort_order ASC, launch_date DESC);
+
 
     CREATE VIRTUAL TABLE IF NOT EXISTS india_pincodes_fts USING fts5(
       pincode,

@@ -1904,6 +1904,33 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     keywords: ['typing test', 'wpm', 'kannada typing', 'hindi typing', 'ssc', 'kpsc'],
   },
   {
+    id: 'ai-text-cleaner',
+    code: 'TT-10',
+    suite: 'Typing & Text',
+    suiteAccent: '#4338CA',
+    category: 'Typing & Text',
+    alsoInCategories: ['Utilities'],
+    categoryName: 'AI Text Cleanup & Formatting',
+    kind: 'ai-text-cleaner',
+    title: 'VCPL AI Text Cleaner',
+    description:
+      'Remove AI filler, Markdown, citations, invisible characters, stray symbols & uneven spacing locally in your browser while preserving original meaning.',
+    priorityStars: 5,
+    statusLabel: 'New · Free Offline · Stable',
+    featuredPrimary: true,
+    isNew: true,
+    launchDate: '2026-11-24',
+    keywords: [
+      'vcpl ai text cleaner',
+      'ai text cleaner',
+      'clean chatgpt text',
+      'remove markdown',
+      'strip invisible characters',
+      'remove citations',
+      'paragraph formatter',
+    ],
+  },
+  {
     id: 'word-counter',
     code: 'TT-02',
     suite: 'Typing & Text',
@@ -2652,13 +2679,14 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     suite: 'Office Utilities',
     suiteAccent: '#047857',
     category: 'Utilities',
+    alsoInCategories: ['VCPL'],
     categoryName: 'Vehicle & Transport Directory',
     kind: 'rto-code-finder',
     title: 'India RTO Code Finder',
     description:
       'Find Indian Regional Transport Office (RTO) codes, office locations, states and registration authorities using vehicle registration codes.',
     priorityStars: 5,
-    statusLabel: 'Passcode Locked · Admin Only',
+    statusLabel: 'Free Offline · Verified',
     keywords: [
       'rto code finder',
       'rto office',
@@ -2963,7 +2991,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile incentive Excel sheets with Tally ledger PDFs & deal-sheet screenshots or PDFs locally with Review, Ledger_Lines, Checks & SC_Summary tabs.',
     priorityStars: 4,
-    statusLabel: 'Passcode Locked · Offline',
+    statusLabel: 'Free Offline · Stable',
     keywords: ['incentive', 'vin audit', 'tally ledger', 'sc summary'],
   },
   {
@@ -2978,7 +3006,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Analyze BMW dealer DBS ZIP or CSV monthly exports locally—Summary, P&L, Departmental P&L, NV Model Margins & 7-sheet .XLSX reports.',
     priorityStars: 4,
-    statusLabel: 'Passcode Locked · Offline',
+    statusLabel: 'Free Offline · Stable',
     keywords: ['dbs', 'p&l', 'departmental profit', 'trial balance'],
   },
   {
@@ -2993,7 +3021,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Cross-check multi-quarter BMW Statements of Account against Tally ledger exports locally with 4-tier matching, open-item aging & 14-sheet XLSX export.',
     priorityStars: 4,
-    statusLabel: 'Passcode Locked · Offline',
+    statusLabel: 'Free Offline · Stable',
     keywords: ['bmw soa', 'customer ledger', 'purchase only', 'aging'],
   },
   {
@@ -3008,7 +3036,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Transform IOCL XTRAPOWER / Easy Fuel Statement PDFs or Transaction Excel/CSV files into standardized monthly accounting reports with live SUMIF formulas.',
     priorityStars: 4,
-    statusLabel: 'Passcode Locked · Offline',
+    statusLabel: 'Free Offline · Stable',
     keywords: ['iocl', 'xtrapower', 'easy fuel', 'fuel report', 'ccms'],
   },
   {
@@ -3023,7 +3051,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Read Tally customer ledger PDFs, receipt vouchers & RC/TR scans locally to auto-build payment schedules and export A4 PDF or Word (.doc) covering letters.',
     priorityStars: 4,
-    statusLabel: 'Passcode Locked · Beta',
+    statusLabel: 'Free Offline · Beta',
     keywords: ['covering letter', 'customer ledger', 'rc tr', 'word doc'],
   },
   {
@@ -3039,7 +3067,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile BMW SAP vendor ledgers against multi-sheet Tally ledgers & warranty claims locally with opening-to-closing bridge, claim-code checks & ExcelJS workbooks.',
     priorityStars: 5,
-    statusLabel: 'Passcode Locked · Offline',
+    statusLabel: 'Free Offline · Stable',
     keywords: [
       'bmw vendor ledger',
       'sap ledger reconciliation',
@@ -3061,7 +3089,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile DMS BMW Service Invoices against Credit/Debit Memos & Warranty Claim trackers with auto-mapped columns, multi-claim splits, ageing & styled ExcelJS export.',
     priorityStars: 5,
-    statusLabel: 'Passcode Locked · Offline',
+    statusLabel: 'Free Offline · Stable',
     keywords: [
       'bmw claims reconciler',
       'warranty claims',
@@ -3083,7 +3111,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Generate print-ready A4 Same Bank (SBI intra-bank Payment Transfer Request Letter) & NEFT / RTGS remittance letters with built-in Varsha Cars letterhead, saved accounts, INR words, Excel batch upload & Word/PDF/Excel exports.',
     priorityStars: 5,
-    statusLabel: 'Passcode Locked · Offline',
+    statusLabel: 'Free Offline · Stable',
     keywords: [
       'vcpl bulk bank transfer form',
       'same bank transfer letter',
@@ -3109,7 +3137,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile multi-sheet Tally TDS/TCS asset ledgers against Form 26AS / ATS (.pdf, .txt, .xlsx, .csv) with union-find deductor mapping, G/B reversal netting, many-to-one matching, 18 period filters, SVG dashboard & ExcelJS formulas.',
     priorityStars: 5,
-    statusLabel: 'Passcode Locked · Offline',
+    statusLabel: 'Free Offline · Stable',
     keywords: [
       '26as to tally ledger reco',
       'form 26as tally reconciliation',
@@ -3132,7 +3160,7 @@ export const TOOLS_CATALOG: ToolCatalogItem[] = [
     description:
       'Reconcile Bajaj Allianz claim payment reports, cheque/NEFT reports, DMS service invoices, credit notes, Tally registers & bank statements with GST pending ageing, UTR verification, 27 automated audit checks & Excel/CSV export.',
     priorityStars: 5,
-    statusLabel: 'Passcode Locked · Offline',
+    statusLabel: 'Free Offline · Stable',
     keywords: [
       'bajaj reconciliation desk',
       'bajaj allianz claims reconciliation',

@@ -17,7 +17,6 @@ import {
   HardDrive,
   IndianRupee,
   Landmark,
-  Lock,
   MapPin,
   PenTool,
   Receipt,
@@ -56,7 +55,6 @@ interface SpotlightBoxItem {
   comingSoon?: boolean;
   isNew?: boolean;
   betaLabel?: string;
-  locked?: boolean;
 }
 
 const HERO_SPOTLIGHT_BOXES: SpotlightBoxItem[] = [
@@ -155,10 +153,9 @@ const HERO_SPOTLIGHT_BOXES: SpotlightBoxItem[] = [
     step: '13',
     id: 'covering-letter-generator',
     title: 'Covering Letter Generator',
-    subtitle: 'Passcode locked · Tally ledger PDF & OCR to Word & PDF',
+    subtitle: 'Open access · Tally ledger PDF & OCR to Word & PDF',
     icon: FileText,
     isNew: true,
-    locked: true,
   },
   {
     step: '14',
@@ -620,15 +617,6 @@ export function HeroSection({
                           {box.betaLabel}
                         </span>
                       )}
-                      {box.locked && (
-                        <span
-                          title="Passcode required"
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#CEE5DC] dark:bg-emerald-950/70 border border-[#2F3E4E]/35 dark:border-emerald-500/40 text-[#2F3E4E] dark:text-emerald-300 text-[9px] font-display font-extrabold uppercase tracking-wider"
-                        >
-                          <Lock className="w-2.5 h-2.5" aria-hidden="true" />
-                          <span>Lock</span>
-                        </span>
-                      )}
                       {box.isNew && (
                         <span className="px-1.5 py-0.5 rounded bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#F9C80E] dark:text-[#0F172A] text-[9px] font-display font-extrabold uppercase tracking-wider">
                           New
@@ -654,7 +642,7 @@ export function HeroSection({
                 </div>
 
                 <div className="pt-2 border-t border-[#2F3E4E]/10 dark:border-slate-700/80 flex items-center justify-between text-xs font-bold text-[#2F3E4E] dark:text-slate-200 group-hover:text-[#2F3E4E] dark:group-hover:text-[#F9C80E]">
-                  <span>{box.locked ? 'Unlock Tool' : 'Open Tool'}</span>
+                  <span>Open Tool</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
                 </div>
               </button>
@@ -824,7 +812,7 @@ export function HeroSection({
                       }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2F3E4E] dark:bg-[#F9C80E] hover:bg-[#1E293B] dark:hover:bg-[#FDE047] text-[#F9C80E] dark:text-[#0F172A] text-[11px] font-bold cursor-pointer"
                     >
-                      <span>Open RTO Registry &amp; Admin Import</span>
+                      <span>Open India RTO Code Finder</span>
                       <ArrowRight className="w-3 h-3" aria-hidden="true" />
                     </button>
                   </div>

@@ -11,7 +11,6 @@ export type WhatsAppPageView =
   | 'tool'
   | 'legal'
   | 'blog'
-  | 'locked'
   | 'portal'
   | 'super-admin'
   | 'sitemap'
@@ -52,9 +51,6 @@ export function WhatsAppChatWidget({
     }
     if (view === 'blog') {
       return 'Blog & Guides Page';
-    }
-    if (view === 'locked') {
-      return 'Locked Vault Page';
     }
     if (view === 'portal') {
       return 'Enterprise Portal';

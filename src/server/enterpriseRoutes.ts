@@ -14,19 +14,23 @@ import {
   createEmptyPermissionSet,
 } from '../data/enterpriseModules.ts';
 import {
+  type AnnouncementBadge,
   type EnterpriseDocumentRow,
   type EnterpriseUserRow,
   type ExtendedAccountStatus,
   addDocumentVersionRecord,
   countActiveSuperAdmins,
+  countAnySuperAdmin,
   createDepartment,
   createDesignation,
   createDocumentWithVersion,
+  createHomepageAnnouncement,
   createReportRecord,
   createSessionRecord,
   createUserRecord,
   createWorkspaceRecord,
   deleteDocumentMetadata,
+  deleteHomepageAnnouncement,
   deleteWorkspaceRecord,
   ensureEnvSuperAdminSeeded,
   findUserById,
@@ -42,17 +46,20 @@ import {
   hardDeleteUser,
   hasActiveSuperAdmin,
   hashPasswordBcrypt,
+  isSuperAdminBootstrapCompleted,
   listActivityLogs,
   listAuditLogs,
   listDepartments,
   listDesignations,
   listDocumentVersions,
   listDocuments,
+  listHomepageAnnouncements,
   listLoginHistory,
   listReportRecords,
   listResetRequests,
   listUsers,
   listWorkspaceRecords,
+  markSuperAdminBootstrapCompleted,
   recordActivityEvent,
   recordAuditTrail,
   recordLoginEvent,
@@ -64,6 +71,7 @@ import {
   setSharedSetting,
   touchSessionActivity,
   updateDocumentMetadata,
+  updateHomepageAnnouncement,
   updateUserFields,
   updateWorkspaceRecord,
   upsertPendingResetRequest,
@@ -539,33 +547,52 @@ async function resolveTargetDriveFolder(folderKey: string): Promise<{
 export function createEnterpriseRouter(): Router {
   const router = express.Router();
   const authLimiter = createRateLimiter(30, 5 * 60_000);
+  const bootstrapLimiter = createRateLimiter(10, 15 * 60_000);
   const resetLimiter = createRateLimiter(15, 10 * 60_000);
 
   // =========================================================================
-  // 1. SUPER ADMIN STATUS & PROTECTED PROVISIONING (NO PUBLIC SIGNUP)
+  // 1. SUPER ADMIN STATUS & ONE-TIME PROTECTED BOOTSTRAP (LOCKS AFTER SETUP)
   // =========================================================================
   router.get('/auth/super-admin-status', async (_req, res) => {
     try {
-      const configured = await hasActiveSuperAdmin();
+      const bootstrapCompleted = await isSuperAdminBootstrapCompleted();
+      const configured = await hasActiveSuperAdmin({ skipEnvSeed: bootstrapCompleted });
+      const anySuperAdminCount = configured ? 1 : await countAnySuperAdmin();
+      const tokenConfigured = Boolean((process.env.VCPL_SUPER_ADMIN_BOOTSTRAP_TOKEN || '').trim());
+      const bootstrapAvailable = !bootstrapCompleted && anySuperAdminCount === 0 && tokenConfigured;
       const mode = getPersistenceMode();
       res.json({
         configured,
+        bootstrapAvailable,
+        bootstrapCompleted: bootstrapCompleted || anySuperAdminCount > 0,
         bootstrapProtected: true,
         databaseMode: mode,
       });
     } catch {
-      res.json({ configured: true, bootstrapProtected: true, databaseMode: getPersistenceMode() });
+      res.json({
+        configured: true,
+        bootstrapAvailable: false,
+        bootstrapCompleted: true,
+        bootstrapProtected: true,
+        databaseMode: getPersistenceMode(),
+      });
     }
   });
 
-  // Protected one-time provisioning (requires VCPL_SUPER_ADMIN_BOOTSTRAP_TOKEN env var when called via API)
-  router.post('/auth/bootstrap-super-admin', authLimiter, async (req, res) => {
+  // One-time bootstrap endpoint: validates VCPL_SUPER_ADMIN_BOOTSTRAP_TOKEN, creates initial Super Admin,
+  // and permanently disables itself via persisted lock + Super Admin check.
+  router.post('/auth/bootstrap-super-admin', bootstrapLimiter, async (req, res) => {
     try {
-      await ensureEnvSuperAdminSeeded();
-      const alreadyConfigured = await hasActiveSuperAdmin();
-      if (alreadyConfigured) {
-        res.status(409).json({
-          error: 'Super Admin account is already provisioned. Sign in with your User ID and password.',
+      const bootstrapCompleted = await isSuperAdminBootstrapCompleted();
+      const existingSuperAdminCount = await countAnySuperAdmin();
+      if (bootstrapCompleted || existingSuperAdminCount > 0) {
+        if (!bootstrapCompleted && existingSuperAdminCount > 0) {
+          await markSuperAdminBootstrapCompleted('existing-super-admin');
+        }
+        res.status(410).json({
+          disabled: true,
+          error:
+            'Super Admin bootstrap endpoint has been permanently disabled after initial setup. Sign in with your User ID and password.',
         });
         return;
       }
@@ -580,7 +607,7 @@ export function createEnterpriseRouter(): Router {
       if (!bootstrapTokenEnv || !suppliedToken || !safeEqualStrings(suppliedToken, bootstrapTokenEnv)) {
         res.status(403).json({
           error:
-            'Public Super Admin self-registration is disabled. Provision Super Admin via SUPER_ADMIN_USERNAME / SUPER_ADMIN_PASSWORD or VCPL_SUPER_ADMIN_BOOTSTRAP_TOKEN in server environment variables.',
+            'Valid one-time VCPL_SUPER_ADMIN_BOOTSTRAP_TOKEN is required to initialize the first Super Admin.',
         });
         return;
       }
@@ -629,8 +656,11 @@ export function createEnterpriseRouter(): Router {
         role: 'super_admin',
         status: 'Approved',
         mustChangePassword: false,
-        createdBy: 'protected-bootstrap',
+        createdBy: 'one-time-bootstrap',
       });
+
+      // Permanently disable bootstrap endpoint once initial Super Admin is created
+      await markSuperAdminBootstrapCompleted(created.username);
 
       const token = await signEnterpriseToken({
         uid: created.id,
@@ -653,7 +683,19 @@ export function createEnterpriseRouter(): Router {
         displayUsername: created.display_username,
         role: 'super_admin',
         outcome: 'success',
-        detail: 'Protected Super Admin provisioning completed.',
+        detail: 'One-time Super Admin bootstrap completed and endpoint locked.',
+        ipAddress: getClientIp(req),
+        userAgent: getUserAgent(req),
+      });
+
+      await recordAuditTrail({
+        actorUserId: created.id,
+        actorUsername: created.username,
+        category: 'security',
+        eventType: 'SUPER_ADMIN_BOOTSTRAP_COMPLETED',
+        targetType: 'user',
+        targetId: created.id,
+        after: { username: created.username, bootstrapDisabled: true },
         ipAddress: getClientIp(req),
         userAgent: getUserAgent(req),
       });
@@ -661,6 +703,7 @@ export function createEnterpriseRouter(): Router {
       setSessionCookie(req, res, token);
       res.status(201).json({
         token,
+        bootstrapDisabled: true,
         requiresPasswordChange: false,
         user: sanitizeUserForClient(created, buildFullAdminPermissionMatrix(), { includeAdminFields: true }),
       });
@@ -2987,6 +3030,205 @@ export function createEnterpriseRouter(): Router {
       statuses: ENTERPRISE_ACCOUNT_STATUSES,
     });
   });
+
+  // =========================================================================
+  // 9. HOMEPAGE "WHAT'S NEW AT VCPL" ANNOUNCEMENTS (SUPER ADMIN CRUD)
+  // =========================================================================
+  const parseAnnouncementBadge = (raw: unknown): AnnouncementBadge => {
+    const val = String(raw ?? 'NEW').trim().toUpperCase();
+    if (val === 'UPGRADE' || val === 'BETA' || val === 'INFO') return val;
+    return 'NEW';
+  };
+
+  const sanitizeActionUrl = (raw: unknown): string => {
+    const val = String(raw ?? '').trim();
+    if (!val) return '';
+    if (val.startsWith('/') || /^https?:\/\//i.test(val)) {
+      return val.slice(0, 300);
+    }
+    return '';
+  };
+
+  router.get(
+    '/admin/announcements',
+    authenticateEnterprise(),
+    requireSuperAdmin,
+    async (_req, res) => {
+      try {
+        const announcements = await listHomepageAnnouncements({ activeOnly: false });
+        res.json({ announcements });
+      } catch (err) {
+        res.status(500).json({
+          error: err instanceof Error ? err.message : 'Unable to load announcements.',
+        });
+      }
+    }
+  );
+
+  router.post(
+    '/admin/announcements',
+    authenticateEnterprise(),
+    requireSuperAdmin,
+    async (req: AuthedRequest, res) => {
+      try {
+        const actor = req.enterpriseUser!;
+        const body = (req.body || {}) as Record<string, unknown>;
+        const title = String(body.title ?? '').trim();
+        const summary = String(body.summary ?? '').trim();
+        const launchDate = String(body.launchDate ?? new Date().toISOString().slice(0, 10)).trim();
+
+        if (title.length < 2 || title.length > 140) {
+          res.status(400).json({ error: 'Announcement title is required (2–140 characters).' });
+          return;
+        }
+        if (summary.length < 5 || summary.length > 500) {
+          res.status(400).json({ error: 'Description summary is required (5–500 characters).' });
+          return;
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(launchDate)) {
+          res.status(400).json({ error: 'Launch date must be in YYYY-MM-DD format.' });
+          return;
+        }
+
+        const created = await createHomepageAnnouncement({
+          title,
+          badge: parseAnnouncementBadge(body.badge),
+          summary,
+          launchDate,
+          toolId: String(body.toolId ?? '').trim().slice(0, 120),
+          actionLabel: String(body.actionLabel ?? 'Open Tool').trim().slice(0, 50) || 'Open Tool',
+          actionUrl: sanitizeActionUrl(body.actionUrl),
+          isPinned: Boolean(body.isPinned),
+          isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
+          sortOrder: Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : 0,
+          actorUsername: actor.username,
+        });
+
+        await recordActivityEvent({
+          actorUserId: actor.id,
+          actorUsername: actor.username,
+          action: 'ANNOUNCEMENT_CREATED',
+          targetType: 'announcement',
+          targetId: created.id,
+          summary: `Published homepage announcement "${created.title}" (${created.badge})`,
+        });
+
+        res.status(201).json({ announcement: created });
+      } catch (err) {
+        res.status(500).json({
+          error: err instanceof Error ? err.message : 'Unable to create announcement.',
+        });
+      }
+    }
+  );
+
+  router.patch(
+    '/admin/announcements/:id',
+    authenticateEnterprise(),
+    requireSuperAdmin,
+    async (req: AuthedRequest, res) => {
+      try {
+        const actor = req.enterpriseUser!;
+        const id = String(req.params.id || '').trim();
+        if (!id) {
+          res.status(400).json({ error: 'Announcement ID is required.' });
+          return;
+        }
+
+        const body = (req.body || {}) as Record<string, unknown>;
+        const patch: Parameters<typeof updateHomepageAnnouncement>[1] = {};
+
+        if (body.title !== undefined) {
+          const title = String(body.title).trim();
+          if (title.length < 2 || title.length > 140) {
+            res.status(400).json({ error: 'Title must be 2–140 characters.' });
+            return;
+          }
+          patch.title = title;
+        }
+        if (body.summary !== undefined) {
+          const summary = String(body.summary).trim();
+          if (summary.length < 5 || summary.length > 500) {
+            res.status(400).json({ error: 'Description summary must be 5–500 characters.' });
+            return;
+          }
+          patch.summary = summary;
+        }
+        if (body.launchDate !== undefined) {
+          const launchDate = String(body.launchDate).trim();
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(launchDate)) {
+            res.status(400).json({ error: 'Launch date must be in YYYY-MM-DD format.' });
+            return;
+          }
+          patch.launchDate = launchDate;
+        }
+        if (body.badge !== undefined) patch.badge = parseAnnouncementBadge(body.badge);
+        if (body.toolId !== undefined) patch.toolId = String(body.toolId).trim().slice(0, 120);
+        if (body.actionLabel !== undefined) {
+          patch.actionLabel = String(body.actionLabel).trim().slice(0, 50) || 'Open Tool';
+        }
+        if (body.actionUrl !== undefined) patch.actionUrl = sanitizeActionUrl(body.actionUrl);
+        if (body.isPinned !== undefined) patch.isPinned = Boolean(body.isPinned);
+        if (body.isActive !== undefined) patch.isActive = Boolean(body.isActive);
+        if (body.sortOrder !== undefined && Number.isFinite(Number(body.sortOrder))) {
+          patch.sortOrder = Number(body.sortOrder);
+        }
+
+        const updated = await updateHomepageAnnouncement(id, patch, actor.username);
+        if (!updated) {
+          res.status(404).json({ error: 'Announcement not found.' });
+          return;
+        }
+
+        await recordActivityEvent({
+          actorUserId: actor.id,
+          actorUsername: actor.username,
+          action: 'ANNOUNCEMENT_UPDATED',
+          targetType: 'announcement',
+          targetId: id,
+          summary: `Updated homepage announcement "${updated.title}"`,
+        });
+
+        res.json({ announcement: updated });
+      } catch (err) {
+        res.status(500).json({
+          error: err instanceof Error ? err.message : 'Unable to update announcement.',
+        });
+      }
+    }
+  );
+
+  router.delete(
+    '/admin/announcements/:id',
+    authenticateEnterprise(),
+    requireSuperAdmin,
+    async (req: AuthedRequest, res) => {
+      try {
+        const actor = req.enterpriseUser!;
+        const id = String(req.params.id || '').trim();
+        const removed = await deleteHomepageAnnouncement(id);
+        if (!removed) {
+          res.status(404).json({ error: 'Announcement not found.' });
+          return;
+        }
+
+        await recordActivityEvent({
+          actorUserId: actor.id,
+          actorUsername: actor.username,
+          action: 'ANNOUNCEMENT_DELETED',
+          targetType: 'announcement',
+          targetId: id,
+          summary: `Removed homepage announcement (${id})`,
+        });
+
+        res.json({ ok: true });
+      } catch (err) {
+        res.status(500).json({
+          error: err instanceof Error ? err.message : 'Unable to delete announcement.',
+        });
+      }
+    }
+  );
 
   return router;
 }

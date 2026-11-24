@@ -16,7 +16,6 @@ import {
   History,
   Info,
   Loader2,
-  Lock,
   MapPin,
   Search,
   ShieldCheck,
@@ -38,11 +37,9 @@ import { DirectoryAdminPanel } from './DirectoryAdminPanel';
 import { RtoHighlightText } from './RtoHighlightText';
 import { RtoResultCard } from './RtoResultCard';
 import { RtoStateDirectorySection } from './RtoStateDirectorySection';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface RtoCodeFinderViewProps {
   initialCode?: string;
-  isVaultUnlocked?: boolean;
   onSyncUrlCode?: (code: string | null) => void;
   onBack?: () => void;
 }
@@ -113,40 +110,8 @@ function writeJsonArray(key: string, items: string[]) {
 
 export function RtoCodeFinderView({
   initialCode,
-  isVaultUnlocked = false,
   onSyncUrlCode,
-  onBack,
 }: RtoCodeFinderViewProps) {
-  return (
-    <ToolPasscodeGate
-      toolCode="UT-43"
-      toolTitle="India RTO Code Finder"
-      sessionKey="vcpl_rto_admin_unlocked"
-      verifyWithServerAdminAuth
-      bypassGate={isVaultUnlocked}
-      description="This directory tool is restricted for authorized administrative access only. Enter the 6-digit admin passcode to open India RTO Code Finder."
-      onBack={onBack}
-    >
-      {({ lockTool }) => (
-        <RtoCodeFinderUnlocked
-          initialCode={initialCode}
-          onSyncUrlCode={onSyncUrlCode}
-          lockTool={lockTool}
-        />
-      )}
-    </ToolPasscodeGate>
-  );
-}
-
-function RtoCodeFinderUnlocked({
-  initialCode,
-  onSyncUrlCode,
-  lockTool,
-}: {
-  initialCode?: string;
-  onSyncUrlCode?: (code: string | null) => void;
-  lockTool: () => void;
-}) {
   const { preference, setPreference } = useTheme();
 
   const [query, setQuery] = useState<string>(() => initialCode || '');
@@ -559,11 +524,6 @@ function RtoCodeFinderUnlocked({
                   UT-43
                 </span>
                 <span aria-hidden="true">·</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#2F3E4E] text-[11px] font-bold text-[#F9C80E]">
-                  <Lock className="w-3 h-3" aria-hidden="true" />
-                  <span>Admin Passcode Unlocked</span>
-                </span>
-                <span aria-hidden="true">·</span>
                 <span>All {rtoMetadata.totalStatesAndUts} States &amp; UTs</span>
                 <span aria-hidden="true">·</span>
                 <span className="font-mono tabular-nums">
@@ -587,14 +547,6 @@ function RtoCodeFinderUnlocked({
           </div>
 
           <div className="flex flex-wrap items-center justify-between lg:justify-end gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={lockTool}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[34px] rounded-lg border-[1.5px] border-[#2F3E4E] dark:border-slate-500 bg-[#FEF2C8] dark:bg-slate-800 hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] dark:text-slate-100 dark:hover:text-[#2F3E4E] cursor-pointer transition"
-            >
-              <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Lock Tool</span>
-            </button>
             <button
               type="button"
               onClick={() => setShowAdminPanel((prev) => !prev)}

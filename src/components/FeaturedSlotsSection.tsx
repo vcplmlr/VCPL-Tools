@@ -33,7 +33,7 @@ interface FeaturedSlotsSectionProps {
 }
 
 const HOMEPAGE_MAX_PER_SECTION = 5;
-const HOMEPAGE_VCPL_MAX = 10;
+const HOMEPAGE_VCPL_MAX = 16;
 
 const SUITE_KEYS: { key: Exclude<ToolFilterType, 'All'>; label: string }[] = [
   { key: 'Banking', label: 'Banking' },

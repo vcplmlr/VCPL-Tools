@@ -205,9 +205,10 @@ const TYPING_SUBGROUPS: SubGroupDefinition[] = [
   },
   {
     id: 'typing-writing',
-    label: 'Word Counter, Case, Sorter & Documents',
-    description: 'UPSC word counter, Rich Text & DOCX viewer, line sorter/deduper, TXT to PDF & ATS Resume Builder.',
+    label: 'Word Counter, AI Text Cleaner, Case & Documents',
+    description: 'AI Text Cleaner, UPSC word counter, Rich Text & DOCX viewer, line sorter/deduper, TXT to PDF & ATS Resume Builder.',
     toolIds: [
+      'ai-text-cleaner',
       'word-counter',
       'case-converter',
       'text-sorter-deduper',
@@ -273,6 +274,7 @@ const UTILITIES_SUBGROUPS: SubGroupDefinition[] = [
       'base64-encoder-decoder',
       'url-encoder-decoder',
       'slug-filename-cleaner',
+      'ai-text-cleaner',
       'text-compare-tool',
       'password-generator',
       'password-strength-checker',

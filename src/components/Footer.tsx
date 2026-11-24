@@ -24,7 +24,6 @@ interface FooterProps {
   activeTool?: ToolCatalogItem | null;
   onHomeClick: () => void;
   onOpenAllTools: (filter?: ToolFilterType) => void;
-  onOpenLockedVault?: () => void;
   onOpenPortal?: () => void;
   onOpenSuperAdmin?: () => void;
   onOpenLegalPage: (slug: LegalPageSlug) => void;
@@ -112,7 +111,6 @@ export function Footer({
   activeTool = null,
   onHomeClick,
   onOpenAllTools,
-  onOpenLockedVault,
   onOpenPortal,
   onOpenSuperAdmin,
   onOpenLegalPage,

@@ -12,7 +12,6 @@ import {
   FileText,
   Image as ImageIcon,
   Loader2,
-  Lock,
   Play,
   RefreshCw,
   RotateCcw,
@@ -59,37 +58,16 @@ import {
   TemplateSheetPreview,
 } from '../../utils/incentiveReconEngine';
 import * as pdfjsLib from 'pdfjs-dist';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface IncentiveReportToolViewProps {
   tool?: ToolCatalogItem;
-  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
 const STORAGE_KEY = 'incRules';
 type TargetBox = 1 | 2 | 3;
 
-export const IncentiveReportToolView: React.FC<IncentiveReportToolViewProps> = ({
-  tool,
-  isVaultUnlocked = false,
-  onBack,
-}) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={`${tool?.code ?? 'VC-03'} · ${tool?.suite ?? 'VCPL Tools'}`}
-      toolTitle={tool?.title ?? 'Incentive Report Tool'}
-      sessionKey="vcpl_incentive_report_unlocked_v1"
-      bypassGate={isVaultUnlocked}
-      description="Authorized dealership access required for Incentive Report Tool. Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {() => <IncentiveReportWorkspace tool={tool} />}
-    </ToolPasscodeGate>
-  );
-};
-
-const IncentiveReportWorkspace: React.FC<{ tool?: ToolCatalogItem }> = ({ tool }) => {
+export const IncentiveReportToolView: React.FC<IncentiveReportToolViewProps> = ({ tool }) => {
 
   // Box cursor/focus targeting for effortless Ctrl+V placement
   const [hoveredBox, setHoveredBox] = useState<TargetBox | null>(null);
@@ -1391,10 +1369,6 @@ const IncentiveReportWorkspace: React.FC<{ tool?: ToolCatalogItem }> = ({ tool }
             </span>
             <span className="px-2.5 py-0.5 rounded-md bg-[#F9C80E] border border-[#2F3E4E] text-[11px] font-bold text-[#2F3E4E]">
               100% Browser-Local
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#2F3E4E] text-[11px] font-bold text-[#F9C80E]">
-              <Lock className="w-3 h-3" aria-hidden="true" />
-              <span>Locked Vault Access</span>
             </span>
           </div>
           <h2 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E]">

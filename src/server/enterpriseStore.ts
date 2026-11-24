@@ -422,9 +422,53 @@ function ensureSqliteGovernanceSeeds(): void {
 
 let envAdminSeededAttempted = false;
 
+export async function isSuperAdminBootstrapCompleted(): Promise<boolean> {
+  try {
+    const raw = await getSharedSetting('super_admin_bootstrap_completed');
+    if (!raw) return false;
+    if (raw === 'true' || raw === '1') return true;
+    const parsed = JSON.parse(raw) as { disabled?: boolean };
+    return Boolean(parsed?.disabled);
+  } catch {
+    return false;
+  }
+}
+
+export async function markSuperAdminBootstrapCompleted(username: string): Promise<void> {
+  await setSharedSetting(
+    'super_admin_bootstrap_completed',
+    JSON.stringify({
+      disabled: true,
+      completedAt: new Date().toISOString(),
+      username,
+    })
+  );
+}
+
+export async function countAnySuperAdmin(): Promise<number> {
+  const sb = getSupabaseAdminClient();
+  if (sb) {
+    const { count, error } = await sb
+      .from('enterprise_users')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'super_admin');
+    if (!error && typeof count === 'number') {
+      return count;
+    }
+  }
+  const db = getDb();
+  const row = db
+    .prepare("SELECT COUNT(*) AS cnt FROM enterprise_users WHERE role = 'super_admin'")
+    .get() as { cnt?: number } | undefined;
+  return Number(row?.cnt || 0);
+}
+
 export async function ensureEnvSuperAdminSeeded(): Promise<void> {
   if (envAdminSeededAttempted) return;
   envAdminSeededAttempted = true;
+
+  // Never auto-create an account when bootstrap was already completed or when only VCPL_SUPER_ADMIN_BOOTSTRAP_TOKEN is present
+  if (await isSuperAdminBootstrapCompleted()) return;
 
   const rawUser = (process.env.SUPER_ADMIN_USERNAME || '').trim();
   const rawPass = (process.env.SUPER_ADMIN_PASSWORD || '').trim();
@@ -461,8 +505,10 @@ export async function ensureEnvSuperAdminSeeded(): Promise<void> {
 // =========================================================================
 // USERS
 // =========================================================================
-export async function hasActiveSuperAdmin(): Promise<boolean> {
-  await ensureEnvSuperAdminSeeded();
+export async function hasActiveSuperAdmin(options?: { skipEnvSeed?: boolean }): Promise<boolean> {
+  if (!options?.skipEnvSeed) {
+    await ensureEnvSuperAdminSeeded();
+  }
   const sb = getSupabaseAdminClient();
   if (sb) {
     const { data, error } = await sb
@@ -2688,4 +2734,405 @@ export async function getEnterprisePersistenceSummary(): Promise<{
     recordCount: records.length,
     reportCount: reports.length,
   };
+}
+
+// =========================================================================
+// HOMEPAGE "WHAT'S NEW AT VCPL" ANNOUNCEMENTS (SUPABASE + APP_SETTINGS + SQLITE)
+// =========================================================================
+export type AnnouncementBadge = 'NEW' | 'UPGRADE' | 'BETA' | 'INFO';
+
+export interface HomepageAnnouncement {
+  id: string;
+  title: string;
+  badge: AnnouncementBadge;
+  summary: string;
+  launchDate: string;
+  toolId: string;
+  actionLabel: string;
+  actionUrl: string;
+  isPinned: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const ANNOUNCEMENTS_SETTINGS_KEY = 'vcpl_homepage_announcements_v1';
+const ANNOUNCEMENTS_SEEDED_KEY = 'vcpl_homepage_announcements_seeded_v1';
+
+const DEFAULT_ANNOUNCEMENTS: HomepageAnnouncement[] = [
+  {
+    id: 'ann_vcpl_ai_text_cleaner',
+    title: 'VCPL AI Text Cleaner',
+    badge: 'NEW',
+    summary:
+      'Clean ChatGPT, Claude, Gemini & Copilot text 100% locally in your browser—strip Markdown, citations, invisible characters, stray symbols & uneven spacing while preserving original meaning.',
+    launchDate: '2026-11-24',
+    toolId: 'ai-text-cleaner',
+    actionLabel: 'Open Tool',
+    actionUrl: '',
+    isPinned: true,
+    isActive: true,
+    sortOrder: 1,
+    createdBy: 'system',
+    updatedBy: 'system',
+    createdAt: '2026-11-24T00:00:00.000Z',
+    updatedAt: '2026-11-24T00:00:00.000Z',
+  },
+];
+
+function normalizeAnnouncementRow(raw: Record<string, unknown>): HomepageAnnouncement {
+  const badgeRaw = String(raw.badge ?? 'NEW').toUpperCase();
+  const badge: AnnouncementBadge =
+    badgeRaw === 'UPGRADE' || badgeRaw === 'BETA' || badgeRaw === 'INFO' ? badgeRaw : 'NEW';
+  return {
+    id: String(raw.id || ''),
+    title: String(raw.title || ''),
+    badge,
+    summary: String(raw.summary || ''),
+    launchDate: String(raw.launch_date ?? raw.launchDate ?? new Date().toISOString().slice(0, 10)),
+    toolId: String(raw.tool_id ?? raw.toolId ?? ''),
+    actionLabel: String(raw.action_label ?? raw.actionLabel ?? 'Open Tool') || 'Open Tool',
+    actionUrl: String(raw.action_url ?? raw.actionUrl ?? ''),
+    isPinned: Boolean(raw.is_pinned ?? raw.isPinned ?? false),
+    isActive: raw.is_active !== undefined ? Boolean(raw.is_active) : raw.isActive !== undefined ? Boolean(raw.isActive) : true,
+    sortOrder: Number(raw.sort_order ?? raw.sortOrder ?? 0) || 0,
+    createdBy: String(raw.created_by ?? raw.createdBy ?? 'system'),
+    updatedBy: String(raw.updated_by ?? raw.updatedBy ?? 'system'),
+    createdAt: String(raw.created_at ?? raw.createdAt ?? new Date().toISOString()),
+    updatedAt: String(raw.updated_at ?? raw.updatedAt ?? new Date().toISOString()),
+  };
+}
+
+function sortAnnouncements(list: HomepageAnnouncement[]): HomepageAnnouncement[] {
+  return [...list].sort((a, b) => {
+    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return b.launchDate.localeCompare(a.launchDate) || b.createdAt.localeCompare(a.createdAt);
+  });
+}
+
+async function readFallbackAnnouncementsList(): Promise<HomepageAnnouncement[]> {
+  const raw = await getSharedSetting(ANNOUNCEMENTS_SETTINGS_KEY);
+  if (!raw) {
+    const seeded = await getSharedSetting(ANNOUNCEMENTS_SEEDED_KEY);
+    if (!seeded) {
+      await setSharedSetting(ANNOUNCEMENTS_SETTINGS_KEY, JSON.stringify(DEFAULT_ANNOUNCEMENTS));
+      await setSharedSetting(ANNOUNCEMENTS_SEEDED_KEY, '1');
+      return DEFAULT_ANNOUNCEMENTS;
+    }
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as Array<Record<string, unknown>>;
+    if (!Array.isArray(parsed)) return DEFAULT_ANNOUNCEMENTS;
+    return sortAnnouncements(parsed.map(normalizeAnnouncementRow));
+  } catch {
+    return DEFAULT_ANNOUNCEMENTS;
+  }
+}
+
+async function writeFallbackAnnouncementsList(list: HomepageAnnouncement[]): Promise<void> {
+  await setSharedSetting(ANNOUNCEMENTS_SETTINGS_KEY, JSON.stringify(sortAnnouncements(list)));
+  await setSharedSetting(ANNOUNCEMENTS_SEEDED_KEY, '1');
+}
+
+export async function listHomepageAnnouncements(options?: {
+  activeOnly?: boolean;
+}): Promise<HomepageAnnouncement[]> {
+  const activeOnly = Boolean(options?.activeOnly);
+  const sb = getSupabaseAdminClient();
+  if (sb) {
+    let query = sb.from('homepage_announcements').select('*');
+    if (activeOnly) query = query.eq('is_active', true);
+    const { data, error } = await query;
+    if (!error && data) {
+      if (data.length === 0) {
+        const seeded = await getSharedSetting(ANNOUNCEMENTS_SEEDED_KEY);
+        if (!seeded) {
+          for (const item of DEFAULT_ANNOUNCEMENTS) {
+            await sb.from('homepage_announcements').upsert({
+              id: item.id,
+              title: item.title,
+              badge: item.badge,
+              summary: item.summary,
+              launch_date: item.launchDate,
+              tool_id: item.toolId,
+              action_label: item.actionLabel,
+              action_url: item.actionUrl,
+              is_pinned: item.isPinned,
+              is_active: item.isActive,
+              sort_order: item.sortOrder,
+              created_by: item.createdBy,
+              updated_by: item.updatedBy,
+              created_at: item.createdAt,
+              updated_at: item.updatedAt,
+            });
+          }
+          await setSharedSetting(ANNOUNCEMENTS_SEEDED_KEY, '1');
+          return DEFAULT_ANNOUNCEMENTS.filter((item) => !activeOnly || item.isActive);
+        }
+      }
+      return sortAnnouncements(data.map((r) => normalizeAnnouncementRow(r as Record<string, unknown>)));
+    }
+    const fallback = await readFallbackAnnouncementsList();
+    return activeOnly ? fallback.filter((item) => item.isActive) : fallback;
+  }
+
+  const db = getDb();
+  const countRow = db.prepare('SELECT COUNT(*) AS cnt FROM homepage_announcements').get() as
+    | { cnt?: number }
+    | undefined;
+  if ((countRow?.cnt ?? 0) === 0) {
+    const seededRow = db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get(ANNOUNCEMENTS_SEEDED_KEY) as { value?: string } | undefined;
+    if (!seededRow) {
+      const insertStmt = db.prepare(`
+        INSERT OR IGNORE INTO homepage_announcements (
+          id, title, badge, summary, launch_date, tool_id, action_label, action_url,
+          is_pinned, is_active, sort_order, created_by, updated_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const item of DEFAULT_ANNOUNCEMENTS) {
+        insertStmt.run(
+          item.id,
+          item.title,
+          item.badge,
+          item.summary,
+          item.launchDate,
+          item.toolId,
+          item.actionLabel,
+          item.actionUrl,
+          item.isPinned ? 1 : 0,
+          item.isActive ? 1 : 0,
+          item.sortOrder,
+          item.createdBy,
+          item.updatedBy,
+          item.createdAt,
+          item.updatedAt
+        );
+      }
+      await setSharedSetting(ANNOUNCEMENTS_SEEDED_KEY, '1');
+    }
+  }
+
+  const rows = db
+    .prepare(
+      activeOnly
+        ? 'SELECT * FROM homepage_announcements WHERE is_active = 1'
+        : 'SELECT * FROM homepage_announcements'
+    )
+    .all() as Array<Record<string, unknown>>;
+  return sortAnnouncements(rows.map(normalizeAnnouncementRow));
+}
+
+export async function createHomepageAnnouncement(input: {
+  title: string;
+  badge: AnnouncementBadge;
+  summary: string;
+  launchDate: string;
+  toolId?: string;
+  actionLabel?: string;
+  actionUrl?: string;
+  isPinned?: boolean;
+  isActive?: boolean;
+  sortOrder?: number;
+  actorUsername: string;
+}): Promise<HomepageAnnouncement> {
+  const now = new Date().toISOString();
+  const record: HomepageAnnouncement = {
+    id: `ann_${crypto.randomUUID().slice(0, 12)}`,
+    title: input.title,
+    badge: input.badge,
+    summary: input.summary,
+    launchDate: input.launchDate,
+    toolId: input.toolId || '',
+    actionLabel: input.actionLabel || 'Open Tool',
+    actionUrl: input.actionUrl || '',
+    isPinned: Boolean(input.isPinned),
+    isActive: input.isActive !== undefined ? Boolean(input.isActive) : true,
+    sortOrder: Number.isFinite(input.sortOrder) ? Number(input.sortOrder) : 0,
+    createdBy: input.actorUsername,
+    updatedBy: input.actorUsername,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const sb = getSupabaseAdminClient();
+  if (sb) {
+    const { data, error } = await sb
+      .from('homepage_announcements')
+      .insert({
+        id: record.id,
+        title: record.title,
+        badge: record.badge,
+        summary: record.summary,
+        launch_date: record.launchDate,
+        tool_id: record.toolId,
+        action_label: record.actionLabel,
+        action_url: record.actionUrl,
+        is_pinned: record.isPinned,
+        is_active: record.isActive,
+        sort_order: record.sortOrder,
+        created_by: record.createdBy,
+        updated_by: record.updatedBy,
+        created_at: record.createdAt,
+        updated_at: record.updatedAt,
+      })
+      .select('*')
+      .single();
+    if (!error && data) {
+      await setSharedSetting(ANNOUNCEMENTS_SEEDED_KEY, '1');
+      return normalizeAnnouncementRow(data as Record<string, unknown>);
+    }
+    const existing = await readFallbackAnnouncementsList();
+    existing.unshift(record);
+    await writeFallbackAnnouncementsList(existing);
+    return record;
+  }
+
+  getDb()
+    .prepare(`
+      INSERT INTO homepage_announcements (
+        id, title, badge, summary, launch_date, tool_id, action_label, action_url,
+        is_pinned, is_active, sort_order, created_by, updated_by, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      record.id,
+      record.title,
+      record.badge,
+      record.summary,
+      record.launchDate,
+      record.toolId,
+      record.actionLabel,
+      record.actionUrl,
+      record.isPinned ? 1 : 0,
+      record.isActive ? 1 : 0,
+      record.sortOrder,
+      record.createdBy,
+      record.updatedBy,
+      record.createdAt,
+      record.updatedAt
+    );
+  await setSharedSetting(ANNOUNCEMENTS_SEEDED_KEY, '1');
+  return record;
+}
+
+export async function updateHomepageAnnouncement(
+  id: string,
+  patch: Partial<{
+    title: string;
+    badge: AnnouncementBadge;
+    summary: string;
+    launchDate: string;
+    toolId: string;
+    actionLabel: string;
+    actionUrl: string;
+    isPinned: boolean;
+    isActive: boolean;
+    sortOrder: number;
+  }>,
+  actorUsername: string
+): Promise<HomepageAnnouncement | null> {
+  const now = new Date().toISOString();
+  const sb = getSupabaseAdminClient();
+  if (sb) {
+    const payload: Record<string, unknown> = {
+      updated_by: actorUsername,
+      updated_at: now,
+    };
+    if (patch.title !== undefined) payload.title = patch.title;
+    if (patch.badge !== undefined) payload.badge = patch.badge;
+    if (patch.summary !== undefined) payload.summary = patch.summary;
+    if (patch.launchDate !== undefined) payload.launch_date = patch.launchDate;
+    if (patch.toolId !== undefined) payload.tool_id = patch.toolId;
+    if (patch.actionLabel !== undefined) payload.action_label = patch.actionLabel;
+    if (patch.actionUrl !== undefined) payload.action_url = patch.actionUrl;
+    if (patch.isPinned !== undefined) payload.is_pinned = patch.isPinned;
+    if (patch.isActive !== undefined) payload.is_active = patch.isActive;
+    if (patch.sortOrder !== undefined) payload.sort_order = patch.sortOrder;
+
+    const { data, error } = await sb
+      .from('homepage_announcements')
+      .update(payload)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+    if (!error) {
+      return data ? normalizeAnnouncementRow(data as Record<string, unknown>) : null;
+    }
+
+    const list = await readFallbackAnnouncementsList();
+    const idx = list.findIndex((item) => item.id === id);
+    if (idx < 0) return null;
+    const updated: HomepageAnnouncement = {
+      ...list[idx],
+      ...patch,
+      updatedBy: actorUsername,
+      updatedAt: now,
+    };
+    list[idx] = updated;
+    await writeFallbackAnnouncementsList(list);
+    return updated;
+  }
+
+  const db = getDb();
+  const existing = db
+    .prepare('SELECT * FROM homepage_announcements WHERE id = ?')
+    .get(id) as Record<string, unknown> | undefined;
+  if (!existing) return null;
+  const current = normalizeAnnouncementRow(existing);
+  const next: HomepageAnnouncement = {
+    ...current,
+    ...patch,
+    updatedBy: actorUsername,
+    updatedAt: now,
+  };
+  db.prepare(`
+    UPDATE homepage_announcements
+    SET title = ?, badge = ?, summary = ?, launch_date = ?, tool_id = ?,
+        action_label = ?, action_url = ?, is_pinned = ?, is_active = ?, sort_order = ?,
+        updated_by = ?, updated_at = ?
+    WHERE id = ?
+  `).run(
+    next.title,
+    next.badge,
+    next.summary,
+    next.launchDate,
+    next.toolId,
+    next.actionLabel,
+    next.actionUrl,
+    next.isPinned ? 1 : 0,
+    next.isActive ? 1 : 0,
+    next.sortOrder,
+    next.updatedBy,
+    next.updatedAt,
+    id
+  );
+  return next;
+}
+
+export async function deleteHomepageAnnouncement(id: string): Promise<boolean> {
+  const sb = getSupabaseAdminClient();
+  if (sb) {
+    const { error, count } = await sb
+      .from('homepage_announcements')
+      .delete({ count: 'exact' })
+      .eq('id', id);
+    if (!error) {
+      return (count ?? 0) > 0;
+    }
+    const list = await readFallbackAnnouncementsList();
+    const filtered = list.filter((item) => item.id !== id);
+    if (filtered.length === list.length) return false;
+    await writeFallbackAnnouncementsList(filtered);
+    return true;
+  }
+
+  const info = getDb().prepare('DELETE FROM homepage_announcements WHERE id = ?').run(id);
+  return Number(info.changes || 0) > 0;
 }

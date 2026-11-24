@@ -2108,11 +2108,6 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
     ],
     howToUse: [
       {
-        stepTitle: 'Unlock with Your Authorized Passcode',
-        detail:
-          'Enter the 6-digit dealership passcode to unlock the workspace before uploading financial exports.',
-      },
-      {
         stepTitle: 'Drop Monthly DBS .ZIP or .CSV Export',
         detail:
           'Drag and drop or click to choose the monthly DBS export file (even nested zip archives up to 4 levels deep).',
@@ -2215,7 +2210,7 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
 
   'bmw-statement-reconciler': {
     toolId: 'bmw-statement-reconciler',
-    seoTitle: 'Customer Ledger (Purchase Only) Tool (Passcode-Locked) – VCPL Tools',
+    seoTitle: 'Customer Ledger (Purchase Only) Tool – VCPL Tools',
     seoDescription:
       'Reconcile multi-quarter BMW Statements of Account against Tally ledger exports locally inside your browser with 4-tier matching, open-item aging, continuity checks & 14-sheet XLSX export.',
     adTopic: 'Automotive Dealership Accounting & Ledger Reconciliation',
@@ -2232,9 +2227,9 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
     ],
     howToUse: [
       {
-        stepTitle: 'Unlock Workspace & Upload BMW Statements',
+        stepTitle: 'Upload Multi-Quarter BMW Statements',
         detail:
-          'Enter the authorized 6-digit dealership passcode, then select one or multiple BMW Statement of Account Excel files (.xlsx/.xls) across any quarter or dealer code.',
+          'Select one or multiple BMW Statement of Account Excel files (.xlsx/.xls) across any quarter or dealer code directly inside the open workspace.',
       },
       {
         stepTitle: 'Upload Tally Ledger Exports & Verify Column Mapping',
@@ -2261,9 +2256,9 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
     ],
     faqs: [
       {
-        question: 'Does the tool auto-lock when I leave or refresh the page?',
+        question: 'Does Customer Ledger (Purchase Only) require any passcode?',
         answer:
-          'Yes. For dealership security, VC-06 resets its passcode lock automatically whenever you refresh the browser or navigate away from the workspace.',
+          'No. VC-06 opens directly in your browser without a passcode and clears temporary uploaded data whenever you refresh or click Clear Tool.',
       },
       {
         question: 'Are BMW statements or Tally vouchers uploaded to a server?',
@@ -2277,7 +2272,7 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
     toolId: 'fuel-report-generator',
     seoTitle: 'Monthly Fuel Report Generator (IOCL XTRAPOWER / Easy Fuel) – VCPL Tools',
     seoDescription:
-      'Passcode-locked IOCL Easy Fuel & XTRAPOWER monthly Sale report generator — upload either PDF or Excel with drag-and-drop, Qty × Price & CCMS SALE audit checks, and live SUM/SUMIF Excel formulas.',
+      'Browser-local IOCL Easy Fuel & XTRAPOWER monthly Sale report generator — upload either PDF or Excel with drag-and-drop, Qty × Price & CCMS SALE audit checks, and live SUM/SUMIF Excel formulas.',
     adTopic: 'Fleet Fuel Expense Audit & Dealership Accounting',
     focusKeywords: [
       'Monthly Fuel Report Generator',
@@ -2286,15 +2281,10 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
       'fleet petrol diesel monthly statement Excel',
     ],
     overview: [
-      'Monthly Fuel Report Generator (VC-07) is a passcode-protected dealership workspace that transforms either IOCL XTRAPOWER / Easy Fuel Statement PDFs or Transaction Details Excel/CSV downloads into the standardized monthly accounting report directly inside your browser.',
+      'Monthly Fuel Report Generator (VC-07) is an open browser-local dealership workspace that transforms either IOCL XTRAPOWER / Easy Fuel Statement PDFs or Transaction Details Excel/CSV downloads into the standardized monthly accounting report directly inside your browser.',
       'Drag and drop either a PDF or an Excel workbook (or both for automatic CCMS SALE cross-verification). It auto-detects rows, filters strictly for Txn Type = "Sale" (excluding recharge, allocation, and incentive rows), sorts chronologically by Txn ID, runs automated Qty × Price and status checks, and exports a clean .xlsx workbook with live SUM and SUMIF formulas.',
     ],
     howToUse: [
-      {
-        stepTitle: 'Unlock with Authorized Passcode',
-        detail:
-          'Enter the 6-digit dealership passcode to unlock the VC-07 Monthly Fuel Report workspace. The workspace auto-locks cleanly when refreshed or closed.',
-      },
       {
         stepTitle: 'Drag & Drop Either IOCL PDF or Excel File (or Both)',
         detail:
@@ -2313,9 +2303,9 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
           'Works directly from either PDF statements or Excel transaction exports — plus full drag-and-drop upload — producing standardized Calibri-formatted XLSX reports with live SUM and SUMIF formulas.',
       },
       {
-        title: 'Passcode Security & Automated Audit Checks',
+        title: '100% Browser Privacy & Automated Audit Checks',
         detail:
-          'Protected by the 6-digit VCPL passcode gate and flags duplicate Txn IDs, non-PT statuses, missing fields, out-of-period dates, Qty × RSP mismatches, and CCMS SALE variances in seconds.',
+          'Processes everything offline in your browser and flags duplicate Txn IDs, non-PT statuses, missing fields, out-of-period dates, Qty × RSP mismatches, and CCMS SALE variances in seconds.',
       },
     ],
     faqs: [
@@ -2327,7 +2317,7 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
       {
         question: 'Does my IOCL fuel Excel or PDF leave my computer?',
         answer:
-          'No. Excel parsing, PDF extraction, passcode verification, sanity checks, and ExcelJS workbook generation all execute 100% locally in your browser.',
+          'No. Excel parsing, PDF extraction, sanity checks, and ExcelJS workbook generation all execute 100% locally in your browser.',
       },
     ],
   },
@@ -2345,19 +2335,14 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
       'vehicle delivery payment receipt schedule',
     ],
     overview: [
-      'Covering Letter Generator (VC-08) is a passcode-protected dealership workspace that streamlines post-delivery customer documentation by reading Tally customer ledger PDFs, receipt vouchers, RC/TR certificates, sale contracts, and scanned screenshots directly inside your browser.',
+      'Covering Letter Generator (VC-08) is an open dealership documentation workspace that streamlines post-delivery customer covering letters by reading Tally customer ledger PDFs, receipt vouchers, RC/TR certificates, sale contracts, and scanned screenshots directly inside your browser.',
       'It automatically compiles customer details, car model & colour, VIN/engine reference, loan disbursement breakdowns, and payment rows sorted chronologically—flagging cash limit, third-party payer, bank-date mismatch, and closing balance checks before exporting a clean A4 Print/PDF or Microsoft Word (.doc) covering letter.',
     ],
     howToUse: [
       {
-        stepTitle: 'Unlock with Authorized Passcode',
-        detail:
-          'Enter the 6-digit dealership passcode to unlock the VC-08 Covering Letter Generator workspace. The workspace locks automatically when closed or refreshed.',
-      },
-      {
         stepTitle: 'Drag & Drop Tally Ledger PDFs or Screenshots',
         detail:
-          'Drop or select digital Tally customer ledger PDFs, receipt vouchers, RC/TR copies, or screenshots. Digital PDFs parse instantly while scanned pages and images run through local Tesseract OCR.',
+          'Drop or select digital Tally customer ledger PDFs, receipt vouchers, RC/TR copies, or screenshots directly inside the workspace. Digital PDFs parse instantly while scanned pages and images run through local Tesseract OCR.',
       },
       {
         stepTitle: 'Review Audit Flags, Confirm & Export Print/PDF or Word (.doc)',
@@ -2372,21 +2357,21 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
           'Combines instant coordinate-based PDF text extraction with local browser OCR for scanned documents and receipt screenshots.',
       },
       {
-        title: 'Passcode Security & Ledger Audit Checks',
+        title: 'Offline Privacy & Ledger Audit Checks',
         detail:
-          'Protected by the 6-digit VCPL passcode gate and audits closing balances, bank clearance dates, loan net disbursements, and Rs. 2,00,000 cash thresholds before exporting Cambria A4 letters or .doc files.',
+          'Audits closing balances, bank clearance dates, loan net disbursements, and Rs. 2,00,000 cash thresholds before exporting Cambria A4 letters or .doc files locally in your browser.',
       },
     ],
     faqs: [
       {
-        question: 'Does the tool auto-lock when I leave or refresh the page?',
+        question: 'Does Covering Letter Generator require a passcode?',
         answer:
-          'Yes. For dealership security, VC-08 resets its passcode lock automatically whenever you refresh or navigate away from the workspace.',
+          'No. VC-08 opens directly with full access in your browser and never uploads customer documents.',
       },
       {
         question: 'Are customer ledger PDFs or screenshots uploaded anywhere?',
         answer:
-          'No. Passcode verification, PDF parsing, Tesseract OCR, ledger reconciliation, and Word (.doc) generation all run 100% locally in your browser.',
+          'No. PDF parsing, Tesseract OCR, ledger reconciliation, and Word (.doc) generation all run 100% locally in your browser.',
       },
       {
         question: 'Why are the Print and Download Word buttons disabled initially?',
@@ -2534,7 +2519,7 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
     toolId: 'bmw-vendor-ledger-reconciler',
     seoTitle: 'BMW Vendor Ledger Reconciliation (SAP vs Tally Bridge & Claims) – VCPL Tools',
     seoDescription:
-      'Passcode-locked BMW SAP vendor ledger vs multi-sheet Tally ledger reconciliation with opening-to-closing bridge, payment subset matching, TDS analysis, ageing & ExcelJS exports.',
+      'Browser-local BMW SAP vendor ledger vs multi-sheet Tally ledger reconciliation with opening-to-closing bridge, payment subset matching, TDS analysis, ageing & ExcelJS exports.',
     adTopic: 'Automotive Dealership Accounting & SAP Ledger Reconciliation',
     focusKeywords: [
       'BMW Vendor Ledger Reconciliation',
@@ -2543,15 +2528,10 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
       'BMW warranty claim code check Excel',
     ],
     overview: [
-      'BMW Vendor Ledger Reconciliation (VC-11) is a passcode-protected dealership reconciliation engine that cross-checks BMW India SAP vendor ledger exports against any number of Tally ledger sheets and warranty claim details completely offline in your browser.',
+      'BMW Vendor Ledger Reconciliation (VC-11) is a dealership reconciliation engine that cross-checks BMW India SAP vendor ledger exports against any number of Tally ledger sheets and warranty claim details completely offline in your browser.',
       'It reconciles both directions (BMW → Tally and Tally → BMW), computes a full opening-to-closing receivable bridge explaining every rupee of difference, matches single or combined payment receipts (subset sum), isolates prior-period/accrual items and TDS deductions, checks claim codes against credited amounts, and exports 16-sheet styled ExcelJS workbooks.',
     ],
     howToUse: [
-      {
-        stepTitle: 'Unlock with Authorized 6-Digit Passcode',
-        detail:
-          'Enter the 6-digit dealership passcode to unlock VC-11. The workspace automatically re-locks when you refresh or leave the page.',
-      },
       {
         stepTitle: 'Upload BMW Vendor Ledger, Tally Ledgers & Optional Claim Details',
         detail:
@@ -2577,9 +2557,9 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
     ],
     faqs: [
       {
-        question: 'Does BMW Vendor Ledger Reconciliation auto-lock on refresh?',
+        question: 'Does BMW Vendor Ledger Reconciliation require a passcode?',
         answer:
-          'Yes. For dealership data privacy, VC-11 is gated by the 6-digit VCPL passcode and resets automatically whenever the page reloads.',
+          'No. VC-11 opens directly in your browser without a passcode while keeping every uploaded SAP and Tally ledger 100% offline.',
       },
       {
         question: 'Are SAP ledgers or Tally exports uploaded to any server?',
@@ -2593,7 +2573,7 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
     toolId: 'bmw-claims-reconciler',
     seoTitle: 'BMW Claims Reconciler (DMS Invoices vs Credit/Debit Notes & Warranty Tracker) – VCPL Tools',
     seoDescription:
-      'Passcode-locked BMW warranty claims reconciliation engine matching DMS Service Invoices, Credit Memos, Debit Notes & multi-sheet claim trackers with multi-claim split sheets & ExcelJS export.',
+      'Browser-local BMW warranty claims reconciliation engine matching DMS Service Invoices, Credit Memos, Debit Notes & multi-sheet claim trackers with multi-claim split sheets & ExcelJS export.',
     adTopic: 'Automotive Dealership Warranty Claims & DMS Audit',
     focusKeywords: [
       'BMW Claims Reconciler',
@@ -2602,14 +2582,14 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
       'multi-claim invoice split audit',
     ],
     overview: [
-      'BMW Claims Reconciler (VC-12) is a passcode-protected dealership audit workbench that links DMS Service Invoices, Service Credit Memos, Debit Notes, and multi-month Warranty Claim trackers directly inside your browser.',
+      'BMW Claims Reconciler (VC-12) is an open dealership audit workbench that links DMS Service Invoices, Service Credit Memos, Debit Notes, and multi-month Warranty Claim trackers directly inside your browser.',
       'It auto-detects and maps Excel headers across files, supports Bill-To filtering and Bajaj EW toggles, prevents double counting when BMW Credit Notes repeat across split claim lines, detects possible VIN re-bills/duplicates, filters every tab globally by date period, and exports formatted multi-sheet ExcelJS reports with live SUBTOTAL formulas.',
     ],
     howToUse: [
       {
-        stepTitle: 'Unlock Workspace & Drop Your Excel Exports',
+        stepTitle: 'Drop Your DMS, Credit/Debit Note & Claim Tracker Exports',
         detail:
-          'Enter the 6-digit dealership passcode, then drop DMS Service Invoices (required) plus optional Credit Memos, Debit Notes, and Warranty Claim / Credit tracker files.',
+          'Drop DMS Service Invoices (required) plus optional Credit Memos, Debit Notes, and Warranty Claim / Credit tracker files directly into the workspace.',
       },
       {
         stepTitle: 'Verify Column Mappings & Reconciliation Options',
@@ -2661,15 +2641,10 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
       'state-wise RTO directory',
     ],
     overview: [
-      'The India RTO Code Finder (UT-43) is an admin-passcode-protected directory utility that helps authorized dealership documentation teams, compliance officers, and vehicle administrators identify Regional Transport Offices (RTOs), District Transport Offices (DTOs), and Registering & Licensing Authorities (RLAs) across all 36 Indian States and Union Territories.',
-      'Access is gated by the 6-digit admin passcode and automatically re-locks on page refresh or navigation exit. Once unlocked, searches, code normalisations (such as KA19, KA-19, or KA 19), and vehicle registration prefix extractions execute rapidly without external third-party API lookups.',
+      'The India RTO Code Finder (UT-43) is an open browser-local directory utility that helps dealership documentation teams, compliance officers, and vehicle owners identify Regional Transport Offices (RTOs), District Transport Offices (DTOs), and Registering & Licensing Authorities (RLAs) across all 36 Indian States and Union Territories.',
+      'Searches, code normalisations (such as KA19, KA-19, or KA 19), and vehicle registration prefix extractions execute rapidly without logins, passcodes, or external third-party API lookups.',
     ],
     howToUse: [
-      {
-        stepTitle: 'Unlock with the 6-Digit Admin Passcode',
-        detail:
-          'Enter the authorized 6-digit admin passcode on the lock screen to open the India RTO Code Finder workspace. Use the Lock Tool button or refresh to re-lock anytime.',
-      },
       {
         stepTitle: 'Enter an RTO Code, City, State, or Full Plate',
         detail:
@@ -3207,6 +3182,86 @@ export const TOOL_ARTICLES: Record<string, ToolArticleData> = {
         question: 'Can I export the complete reconciliation workbook offline?',
         answer:
           'Yes. Click Export Excel to download a multi-sheet .xlsx workbook containing Summary, Bajaj_Master, Bajaj Insurance, Bajaj Warranty, GST_Tracker, UTR_Bank, Tally_DMS_Reco, Exceptions, and Audit.',
+      },
+    ],
+  },
+
+  'ai-text-cleaner': {
+    toolId: 'ai-text-cleaner',
+    seoTitle: 'VCPL AI Text Cleaner – Strip Markdown, Citations, Invisible Chars & Spacing | VCPL Tools',
+    seoDescription:
+      'Clean pasted ChatGPT, Claude, Gemini, and Copilot text 100% offline in your browser. Remove Markdown, unwanted symbols, invisible characters, and AI filler while preserving original meaning.',
+    adTopic: 'AI Text Formatting, Markdown Removal & Document Preparation',
+    focusKeywords: [
+      'VCPL AI Text Cleaner',
+      'remove Markdown from ChatGPT text',
+      'clean AI text formatting online',
+      'strip invisible Unicode characters',
+      'preserve original meaning text cleaner',
+    ],
+    overview: [
+      'Copying drafts directly from ChatGPT, Claude, Gemini, or Copilot into emails, Microsoft Word, GST notices, or business documents leaves behind Markdown hashes (#), double asterisks (**), citation tokens ([1], 【4†source】), invisible zero-width Unicode spaces, curly quotes, decorative symbols, and chatty intro/outro filler.',
+      'VCPL AI Text Cleaner processes your pasted or uploaded text deterministically inside local browser memory—no external AI APIs, zero server uploads, and zero rewriting or paraphrasing so your exact wording and meaning remain untouched.',
+    ],
+    howToUse: [
+      {
+        stepTitle: 'Paste AI Output or Upload a Text / Markdown File',
+        detail:
+          'Paste copied text from ChatGPT, Claude, Gemini, or any editor into the Original AI Text pane, or upload a .txt, .md, or .html file.',
+      },
+      {
+        stepTitle: 'Pick a Preset, Clean All, or Toggle Individual Rules',
+        detail:
+          'Click Clean All for full cleanup, select a quick preset (Plain Text, Email Ready, LinkedIn, Strict Clean, Markdown Only), or toggle individual Markdown, symbol, invisible-character, citation, punctuation, list, table, and paragraph rules.',
+      },
+      {
+        stepTitle: 'Review Before & After Comparison and Telemetry',
+        detail:
+          'Switch to Before & After Diff to inspect exact line changes, and monitor live input/output word counts, character counts, removed clutter count, and rule hits.',
+      },
+      {
+        stepTitle: 'Copy or Download Clean Output',
+        detail:
+          'Click Copy to send clean text straight to your clipboard, or download as a clean .txt or .md file. Use Reset Rules or Reset All anytime to start fresh.',
+      },
+    ],
+    keyBenefits: [
+      {
+        title: 'Zero Meaning Distortion or Rewriting',
+        detail:
+          'Deterministic rule-based formatting strips clutter without altering your vocabulary, tone, numbers, or sentence meaning.',
+      },
+      {
+        title: 'Catches Hidden Unicode & Stray Symbols',
+        detail:
+          'Removes zero-width joiners, BOM headers, bidi control codes, odd non-breaking spaces, replacement glyphs, and ornamental symbols invisible in regular editors.',
+      },
+      {
+        title: 'Granular Controls + Smart Table Formatting',
+        detail:
+          'Convert Markdown pipe tables into aligned plain-text columns, tab-separated rows, or CSV while controlling lists, quotes, links, and code blocks.',
+      },
+      {
+        title: '100% Browser-Based Privacy',
+        detail:
+          'No API keys, no paid limits, and zero server transmission—safe for confidential client emails, legal memos, and internal reports.',
+      },
+    ],
+    faqs: [
+      {
+        question: 'Does VCPL AI Text Cleaner rewrite or paraphrase my sentences?',
+        answer:
+          'No. Every cleanup step is strictly rule-based inside your browser. It strips formatting marks, hidden characters, citations, and optional chat filler while preserving your original wording and meaning.',
+      },
+      {
+        question: 'Does any text get sent to OpenAI, Gemini, or an external server?',
+        answer:
+          'Never. VCPL AI Text Cleaner runs 100% locally in JavaScript inside your web browser with zero network calls or paid AI APIs.',
+      },
+      {
+        question: 'What is the difference between Clean All and Reset?',
+        answer:
+          'Clean All activates every AI, Markdown, symbol, invisible-character, punctuation, and spacing cleaner at once. Reset Rules restores default cleaning checkboxes, while Reset All also clears the workspace.',
       },
     ],
   },

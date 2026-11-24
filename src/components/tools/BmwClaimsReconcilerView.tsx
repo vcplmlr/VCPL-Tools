@@ -6,7 +6,6 @@ import {
   FileSpreadsheet,
   GitCompareArrows,
   HardDrive,
-  Lock,
   Search,
   Trash2,
   Upload,
@@ -55,11 +54,9 @@ import {
 import { filesToFileList } from '../../utils/fileDropUtils';
 import { FileDropZone } from './FileDropZone';
 import { RecoPeriodFilterBar } from './RecoPeriodFilterBar';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface BmwClaimsReconcilerViewProps {
   tool?: ToolCatalogItem;
-  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -160,27 +157,8 @@ function todayISO(): string {
 
 export const BmwClaimsReconcilerView: React.FC<BmwClaimsReconcilerViewProps> = ({
   tool,
-  isVaultUnlocked = false,
   onBack,
 }) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={`${tool?.code ?? 'VC-12'} · ${tool?.suite ?? 'VCPL Tools'}`}
-      toolTitle={tool?.title ?? 'BMW Claims Reconciler'}
-      sessionKey="vcpl_bmw_claims_unlocked_v1"
-      bypassGate={isVaultUnlocked}
-      description="Authorized dealership access required for BMW Claims Reconciler. Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {() => <BmwClaimsReconcilerWorkspace tool={tool} onBack={onBack} />}
-    </ToolPasscodeGate>
-  );
-};
-
-const BmwClaimsReconcilerWorkspace: React.FC<{
-  tool?: ToolCatalogItem;
-  onBack?: () => void;
-}> = ({ tool, onBack }) => {
   const initialOpts = useMemo(
     () => safeReadStorage<SavedClaimsOptions>(OPTS_STORAGE_KEY, DEFAULT_OPTS),
     []
@@ -549,10 +527,6 @@ const BmwClaimsReconcilerWorkspace: React.FC<{
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#CEE5DC] dark:bg-emerald-950/60 border border-[#2F3E4E] dark:border-emerald-700 text-[11px] font-mono font-bold text-[#2F3E4E] dark:text-emerald-200">
               <GitCompareArrows className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{tool?.code ?? 'VC-12'} · Warranty Claims Reco</span>
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#2F3E4E] dark:bg-slate-800 text-[11px] font-bold text-[#F9C80E]">
-              <Lock className="w-3 h-3" aria-hidden="true" />
-              <span>Locked Vault Access</span>
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white dark:bg-[#0B1120] border border-[#12805C]/35 dark:border-emerald-700/50 text-[11px] font-bold text-[#12805C] dark:text-emerald-300">
               <HardDrive className="w-3 h-3" aria-hidden="true" />

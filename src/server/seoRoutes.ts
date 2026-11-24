@@ -287,9 +287,6 @@ export function injectServerSideSeoIntoHtml(
       keywords = [tool.title, tool.categoryName, tool.suite, ...(tool.keywords ?? []), 'VCPL Tools'].join(
         ', '
       );
-      if (tool.vaultOnly) {
-        robots = 'noindex, nofollow';
-      }
       breadcrumbItems.push(
         { name: tool.categoryName, item: `${cleanOrigin}${getAllToolsPath(tool.category)}` },
         { name: tool.title, item: `${cleanOrigin}${canonicalPath}` }
@@ -329,7 +326,7 @@ export function injectServerSideSeoIntoHtml(
       ogType = 'article';
       breadcrumbItems.push({ name: page.navTitle, item: `${cleanOrigin}${canonicalPath}` });
     }
-  } else if (route.view === 'locked' || route.view === 'not-found') {
+  } else if (route.view === 'not-found') {
     robots = 'noindex, nofollow';
   }
 

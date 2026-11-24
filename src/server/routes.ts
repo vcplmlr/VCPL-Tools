@@ -9,6 +9,7 @@ import {
 } from './blogScheduler.ts';
 import { buildFtsQuery, getDb } from './db.ts';
 import { createEnterpriseRouter } from './enterpriseRoutes.ts';
+import { listHomepageAnnouncements } from './enterpriseStore.ts';
 import {
   IFSC_REGEX,
   PINCODE_REGEX,
@@ -2515,6 +2516,15 @@ export function createApiRouter(): Router {
         ok: false,
         error: err instanceof Error ? err.message : 'Translation failed.',
       });
+    }
+  });
+
+  router.get('/announcements', async (_req, res) => {
+    try {
+      const announcements = await listHomepageAnnouncements({ activeOnly: true });
+      res.json({ announcements });
+    } catch {
+      res.json({ announcements: [] });
     }
   });
 

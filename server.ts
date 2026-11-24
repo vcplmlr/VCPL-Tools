@@ -15,14 +15,56 @@ import {
 const STATIC_EXT_REGEX =
   /\.(?:js|mjs|cjs|css|map|json|wasm|svg|png|jpe?g|webp|gif|ico|woff2?|ttf|pdf|xml|txt)$/i;
 
+function resolveCliFlag(flag: string): string | undefined {
+  const args = process.argv.slice(2);
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === flag && args[i + 1] && !args[i + 1].startsWith('-')) {
+      return args[i + 1];
+    }
+    if (arg.startsWith(`${flag}=`)) {
+      return arg.slice(flag.length + 1);
+    }
+  }
+  return undefined;
+}
+
+function resolveServerPort(): number {
+  const cliPort = Number(resolveCliFlag('--port'));
+  if (Number.isInteger(cliPort) && cliPort > 0 && cliPort <= 65535) {
+    return cliPort;
+  }
+  const envPortRaw = process.env.PORT?.trim();
+  const nginxPortRaw = process.env.NGINX_PORT?.trim();
+  if (envPortRaw && (!nginxPortRaw || envPortRaw !== nginxPortRaw)) {
+    const envPort = Number(envPortRaw);
+    if (Number.isInteger(envPort) && envPort > 0 && envPort <= 65535) {
+      return envPort;
+    }
+  }
+  const defaultPort = Number(process.env.DEFAULT_APP_PORT);
+  if (Number.isInteger(defaultPort) && defaultPort > 0 && defaultPort <= 65535) {
+    return defaultPort;
+  }
+  return 3000;
+}
+
+function resolveServerHost(): string {
+  const cliHost = resolveCliFlag('--host')?.trim();
+  if (cliHost && cliHost !== 'true') {
+    return cliHost;
+  }
+  return '0.0.0.0';
+}
+
 async function startServer() {
-  // Initialize SQLite database, indexes, and baseline RTO table
+  // Initialize SQLite database & schema synchronously (<20ms)
   getDb();
-  seedRtoIfEmpty();
 
   const app = express();
   app.set('trust proxy', 1);
-  const port = Number(process.env.PORT) || 3000;
+  const port = resolveServerPort();
+  const host = resolveServerHost();
 
   // Support chunked CSV/XLSX/JSON bulk import payloads up to 25 MB
   app.use(express.json({ limit: '25mb' }));
@@ -31,9 +73,15 @@ async function startServer() {
   app.use('/api', createApiRouter());
 
   if (process.env.NODE_ENV !== 'production') {
+    const disableHmr = process.env.DISABLE_HMR === 'true';
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: !disableHmr,
+        ws: disableHmr ? (false as const) : undefined,
+        watch: disableHmr ? null : {},
+      },
       appType: 'custom',
     });
     app.use(vite.middlewares);
@@ -88,10 +136,17 @@ async function startServer() {
     });
   }
 
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`VCPL Tools server running on http://0.0.0.0:${port}`);
-    warmDirectoryCache();
-    startBackendBlogScheduler();
+  app.listen(port, host, () => {
+    console.log(`VCPL Tools server running on http://${host}:${port}`);
+    setImmediate(() => {
+      try {
+        seedRtoIfEmpty();
+      } catch (err) {
+        console.error('Baseline RTO dataset seed failed:', err);
+      }
+      warmDirectoryCache();
+      startBackendBlogScheduler();
+    });
   });
 }
 

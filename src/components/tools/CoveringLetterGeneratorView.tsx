@@ -12,7 +12,6 @@ import {
   FileText,
   HardDrive,
   Loader2,
-  Lock,
   PenTool,
   Plus,
   Printer,
@@ -49,11 +48,9 @@ import {
   todayDotDate,
 } from '../../utils/coveringLetterEngine';
 import { FileDropZone } from './FileDropZone';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface CoveringLetterGeneratorViewProps {
   tool?: ToolCatalogItem;
-  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -141,35 +138,7 @@ function getInitialFormState(): CoveringLetterFormState {
 
 export const CoveringLetterGeneratorView: React.FC<CoveringLetterGeneratorViewProps> = ({
   tool,
-  isVaultUnlocked = false,
   onBack,
-}) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={`${tool?.code ?? 'VC-08'} · ${tool?.suite ?? 'VCPL Tools'}`}
-      toolTitle={tool?.title ?? 'Covering Letter Generator'}
-      sessionKey="vcpl_covering_letter_unlocked_v1"
-      bypassGate={isVaultUnlocked}
-      description="Authorized dealership access required for Covering Letter Generator. Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {({ lockTool }) => (
-        <CoveringLetterGeneratorInner tool={tool} onBack={onBack} lockTool={lockTool} />
-      )}
-    </ToolPasscodeGate>
-  );
-};
-
-interface CoveringLetterGeneratorInnerProps {
-  tool?: ToolCatalogItem;
-  onBack?: () => void;
-  lockTool: () => void;
-}
-
-const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> = ({
-  tool,
-  onBack,
-  lockTool,
 }) => {
   const [form, setForm] = useState<CoveringLetterFormState>(getInitialFormState);
   const [pays, setPays] = useState<CoveringPaymentRow[]>([]);
@@ -1079,11 +1048,6 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
                 {tool?.code || 'VC-08'} · {tool?.suite || 'VCPL Tools'}
               </span>
               <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#2F3E4E] text-[11px] font-bold text-[#F9C80E]">
-                <Lock className="w-3 h-3" aria-hidden="true" />
-                <span>Passcode Unlocked</span>
-              </span>
-              <span aria-hidden="true">·</span>
               <span>Varsha Cars Pvt Ltd</span>
               <span aria-hidden="true">·</span>
               <span>Tally Ledger PDF &amp; OCR</span>
@@ -1110,14 +1074,6 @@ const CoveringLetterGeneratorInner: React.FC<CoveringLetterGeneratorInnerProps> 
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset All</span>
-          </button>
-          <button
-            type="button"
-            onClick={lockTool}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#FEF2C8] hover:bg-[#F9C80E] text-xs font-bold text-[#2F3E4E] cursor-pointer transition whitespace-nowrap"
-          >
-            <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Lock Tool</span>
           </button>
           {onBack && (
             <button

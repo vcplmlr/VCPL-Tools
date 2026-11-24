@@ -15,20 +15,17 @@ import {
   Fuel,
   HardDrive,
   Info,
-  Lock,
   RotateCcw,
   Search,
   Upload,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
 import { useFileDrop } from './FileDropZone';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 interface FuelReportGeneratorViewProps {
   tool?: ToolCatalogItem;
-  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -1192,30 +1189,6 @@ type SortKey =
 
 export const FuelReportGeneratorView: React.FC<FuelReportGeneratorViewProps> = ({
   tool,
-  isVaultUnlocked = false,
-  onBack,
-}) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={`${tool?.code ?? 'VC-07'} · ${tool?.suite ?? 'VCPL Tools'}`}
-      toolTitle={tool?.title ?? 'Monthly Fuel Report Generator'}
-      sessionKey="vcpl_fuel_report_unlocked_v1"
-      bypassGate={isVaultUnlocked}
-      description="Authorized dealership access required for Monthly Fuel Report Generator. Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {() => <FuelReportGeneratorInner tool={tool} onBack={onBack} />}
-    </ToolPasscodeGate>
-  );
-};
-
-interface FuelReportGeneratorInnerProps {
-  tool?: ToolCatalogItem;
-  onBack?: () => void;
-}
-
-const FuelReportGeneratorInner: React.FC<FuelReportGeneratorInnerProps> = ({
-  tool,
   onBack,
 }) => {
   const excelInputRef = useRef<HTMLInputElement | null>(null);
@@ -1441,10 +1414,6 @@ const FuelReportGeneratorInner: React.FC<FuelReportGeneratorInnerProps> = ({
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#CEE5DC] border border-[#2F3E4E] text-[11px] font-mono font-bold text-[#2F3E4E]">
               <Fuel className="w-3.5 h-3.5 text-[#12805C]" aria-hidden="true" />
               <span>{tool?.code ?? 'VC-07'} · IOCL Easy Fuel</span>
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#2F3E4E] text-[11px] font-bold text-[#F9C80E]">
-              <Lock className="w-3 h-3" aria-hidden="true" />
-              <span>Locked Vault Access</span>
             </span>
             <span className="inline-flex items-center gap-1 text-[#12805C] font-bold">
               <HardDrive className="w-3.5 h-3.5" aria-hidden="true" />

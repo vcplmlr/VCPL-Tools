@@ -47,7 +47,6 @@ export type ParsedRoute =
   | { view: 'tool'; toolId: string; fullScreen?: boolean; subParam?: string }
   | { view: 'legal'; slug: LegalPageSlug }
   | { view: 'blog'; slug?: string }
-  | { view: 'locked' }
   | { view: 'portal' }
   | { view: 'super-admin' }
   | { view: 'sitemap' }
@@ -134,7 +133,7 @@ export function parseLocationToRoute(pathname: string, search: string): ParsedRo
       return { view: 'not-found', path: pathname, statusCode: ERROR_SLUG_ALIASES[seg] };
     }
     if (seg === 'locked' || seg === 'locked-tools') {
-      return { view: 'locked' };
+      return { view: 'all-tools', filter: 'VCPL', initialQuery };
     }
     if (seg === 'portal' || seg === 'login' || seg === 'change-password') {
       return { view: 'portal' };
@@ -400,9 +399,6 @@ export function applySeoForRoute(route: ParsedRoute) {
         'Arjun Bangera',
         'Kaushik Bangera',
       ].join(', ');
-      if (tool.vaultOnly) {
-        robots = 'noindex, nofollow';
-      }
       breadcrumbItems.push(
         { name: tool.categoryName, item: `${origin}${catPath}` },
         { name: tool.title, item: `${origin}${path}` }
@@ -450,13 +446,6 @@ export function applySeoForRoute(route: ParsedRoute) {
         'VCPL Tools Blog, Form 26AS Excel guide, GSTR-1 JSON tutorial, GSTR-2B Tally matching, NPCI UPI QR standards, offline PDF privacy';
       breadcrumbItems.push({ name: 'Blog', item: `${origin}/blog` });
     }
-  } else if (route.view === 'locked') {
-    path = '/locked';
-    title = 'Locked Enterprise Vault | VCPL Tools';
-    description =
-      'Restricted access vault for authorized VCPL dealership, banking, and administrative modules.';
-    robots = 'noindex, nofollow';
-    breadcrumbItems.push({ name: 'Locked Vault', item: `${origin}/locked` });
   } else if (route.view === 'portal') {
     path = '/portal';
     title = 'VCPL Pro Enterprise Portal | Employee Sign In';

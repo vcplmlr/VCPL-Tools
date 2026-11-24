@@ -7,7 +7,6 @@ import {
   FileText,
   GitCompareArrows,
   HardDrive,
-  Lock,
   Printer,
   RotateCcw,
   Search,
@@ -29,11 +28,9 @@ import {
 } from '../../utils/recoPeriodFilter';
 import { FileDropZone } from './FileDropZone';
 import { RecoPeriodFilterBar } from './RecoPeriodFilterBar';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface BmwStatementReconcilerViewProps {
   tool?: ToolCatalogItem;
-  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -339,27 +336,8 @@ function parseBmwSheet(rows: unknown[][], name: string): BmwFileParsed | null {
 
 export const BmwStatementReconcilerView: React.FC<BmwStatementReconcilerViewProps> = ({
   tool,
-  isVaultUnlocked = false,
   onBack,
 }) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={`${tool?.code ?? 'VC-06'} · ${tool?.suite ?? 'VCPL Tools'}`}
-      toolTitle={tool?.title ?? 'Customer Ledger (Purchase Only)'}
-      sessionKey="vcpl_bmw_statement_unlocked_v1"
-      bypassGate={isVaultUnlocked}
-      description="Authorized dealership access required for Customer Ledger (Purchase Only). Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {() => <BmwStatementWorkspace tool={tool} onBack={onBack} />}
-    </ToolPasscodeGate>
-  );
-};
-
-const BmwStatementWorkspace: React.FC<{
-  tool?: ToolCatalogItem;
-  onBack?: () => void;
-}> = ({ tool, onBack }) => {
   const initialPrefs = useMemo(
     () => safeReadStorage<SavedPrefs>(PREFS_STORAGE_KEY, DEFAULT_PREFS),
     []
@@ -1327,10 +1305,6 @@ const BmwStatementWorkspace: React.FC<{
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#CEE5DC] border border-[#2F3E4E] text-[11px] font-mono font-bold text-[#2F3E4E]">
               <GitCompareArrows className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{tool?.code ?? 'VC-06'} · Account Statement Audit</span>
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#2F3E4E] text-[11px] font-bold text-[#F9C80E]">
-              <Lock className="w-3 h-3" aria-hidden="true" />
-              <span>Locked Vault Access</span>
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-white border border-[#12805C]/35 text-[11px] font-bold text-[#12805C]">
               <HardDrive className="w-3 h-3" aria-hidden="true" />

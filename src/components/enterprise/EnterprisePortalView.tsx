@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -76,6 +76,43 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
 
   // Tool search inside employee dashboard
   const [toolSearch, setToolSearch] = useState('');
+
+  // Conditional One-Time Super Admin Bootstrap state (hidden permanently once configured/disabled)
+  const [bootstrapAvailable, setBootstrapAvailable] = useState(false);
+  const [bootstrapOpen, setBootstrapOpen] = useState(false);
+  const [bootstrapToken, setBootstrapToken] = useState('');
+  const [bootstrapUsername, setBootstrapUsername] = useState('');
+  const [bootstrapFullName, setBootstrapFullName] = useState('');
+  const [bootstrapPassword, setBootstrapPassword] = useState('');
+  const [bootstrapSubmitting, setBootstrapSubmitting] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState('');
+
+  useEffect(() => {
+    if (isAuthenticated || sessionLoading) return;
+    let active = true;
+    fetch('/api/enterprise/auth/super-admin-status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then(
+        (
+          data: {
+            configured?: boolean;
+            bootstrapAvailable?: boolean;
+            bootstrapCompleted?: boolean;
+          } | null
+        ) => {
+          if (!active || !data) return;
+          setBootstrapAvailable(
+            Boolean(!data.configured && !data.bootstrapCompleted && data.bootstrapAvailable)
+          );
+        }
+      )
+      .catch(() => {
+        if (active) setBootstrapAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, sessionLoading]);
 
   const passwordRules = useMemo(
     () => ({
@@ -197,6 +234,52 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
       setPwdError(err instanceof Error ? err.message : 'Unable to update password.');
     } finally {
       setPwdSubmitting(false);
+    }
+  };
+
+  const handleOneTimeBootstrapSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (bootstrapSubmitting) return;
+    setBootstrapError('');
+    setBootstrapSubmitting(true);
+    try {
+      const res = await fetch('/api/enterprise/auth/bootstrap-super-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          bootstrapToken: bootstrapToken.trim(),
+          username: bootstrapUsername.trim(),
+          fullName: bootstrapFullName.trim(),
+          password: bootstrapPassword,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        token?: string;
+      } | null;
+      if (!res.ok) {
+        throw new Error(data?.error || 'One-time Super Admin setup failed.');
+      }
+      if (data?.token) {
+        try {
+          window.localStorage.setItem('vcpl_enterprise_token', data.token);
+        } catch {
+          // Ignore storage error; httpOnly cookie is set
+        }
+      }
+      setBootstrapToken('');
+      setBootstrapPassword('');
+      setBootstrapOpen(false);
+      setBootstrapAvailable(false);
+      // Reload clean session so EnterpriseAuthContext picks up initial Super Admin
+      window.location.assign('/super-admin');
+    } catch (err) {
+      setBootstrapError(
+        err instanceof Error ? err.message : 'Unable to complete one-time bootstrap.'
+      );
+    } finally {
+      setBootstrapSubmitting(false);
     }
   };
 
@@ -478,7 +561,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                   </button>
                 </div>
 
-                <div className="pt-3 border-t border-[#2F3E4E]/15 dark:border-slate-700 flex items-center justify-between text-xs">
+                <div className="pt-3 border-t border-[#2F3E4E]/15 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2 text-xs">
                   <button
                     type="button"
                     onClick={() => {
@@ -492,7 +575,81 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                     <HelpCircle className="w-3.5 h-3.5" />
                     <span>Forgot Password?</span>
                   </button>
+
+                  {bootstrapAvailable && (
+                    <button
+                      type="button"
+                      onClick={() => setBootstrapOpen((prev) => !prev)}
+                      className="inline-flex items-center gap-1.5 font-bold text-[#12805C] dark:text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Initial Super Admin Setup</span>
+                    </button>
+                  )}
                 </div>
+
+                {bootstrapAvailable && bootstrapOpen && (
+                  <div className="mt-3 p-4 rounded-xl border-[1.5px] border-[#12805C]/50 bg-[#CEE5DC]/45 dark:bg-emerald-950/35 space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-xs font-display font-extrabold text-[#12805C] dark:text-emerald-300">
+                        One-Time Super Admin Setup
+                      </p>
+                      <p className="text-[11px] text-[#334155] dark:text-slate-300 leading-snug">
+                        Enter the server bootstrap token along with your initial Super Admin User ID
+                        and strong password. This endpoint disables itself permanently once setup
+                        completes.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <input
+                        type="password"
+                        value={bootstrapToken}
+                        onChange={(e) => setBootstrapToken(e.target.value)}
+                        placeholder="One-time VCPL_SUPER_ADMIN_BOOTSTRAP_TOKEN"
+                        className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-mono"
+                      />
+                      <input
+                        type="text"
+                        value={bootstrapUsername}
+                        onChange={(e) => setBootstrapUsername(e.target.value)}
+                        placeholder="Initial Super Admin User ID"
+                        className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={bootstrapFullName}
+                        onChange={(e) => setBootstrapFullName(e.target.value)}
+                        placeholder="Full Name"
+                        className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs"
+                      />
+                      <input
+                        type="password"
+                        value={bootstrapPassword}
+                        onChange={(e) => setBootstrapPassword(e.target.value)}
+                        placeholder="Strong password (8+ chars, upper, lower, number/symbol)"
+                        className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-mono"
+                      />
+                    </div>
+
+                    {bootstrapError && (
+                      <p className="text-xs font-semibold text-[#7D0B0B] dark:text-rose-300">
+                        {bootstrapError}
+                      </p>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={bootstrapSubmitting}
+                      onClick={(e) => void handleOneTimeBootstrapSubmit(e)}
+                      className="w-full h-10 rounded-lg bg-[#12805C] hover:bg-[#0E6A4B] text-white text-xs font-display font-extrabold cursor-pointer disabled:opacity-60"
+                    >
+                      {bootstrapSubmitting
+                        ? 'Provisioning Initial Super Admin...'
+                        : 'Validate Token & Create Super Admin'}
+                    </button>
+                  </div>
+                )}
               </form>
             ) : (
               /* Forgot Password Manual Admin Queue */

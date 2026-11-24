@@ -323,27 +323,13 @@ export default defineConfig(() => {
         'firebase/firestore',
         'lucide-react',
         'motion/react',
-        'exceljs',
-        'fflate',
-        '@pdfsmaller/pdf-decrypt',
-        '@pdfsmaller/pdf-encrypt',
-        'html2canvas-pro',
-        'jsbarcode',
-        'jspdf',
-        'jszip',
-        'mammoth',
-        'pdf-lib',
-        'pdfjs-dist',
-        'pptxgenjs',
-        'qrcode',
-        'tesseract.js',
-        'xlsx',
       ],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
+      ws: process.env.DISABLE_HMR === 'true' ? (false as const) : undefined,
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },

@@ -61,7 +61,8 @@ export type ToolKind =
   | 'tulusiri-pro'
   | 'keyboard-shortcuts'
   | 'tally-shortcuts'
-  | 'google-workspace';
+  | 'google-workspace'
+  | 'ai-text-cleaner';
 
 export interface ToolCatalogItem {
   id: string;
@@ -77,6 +78,8 @@ export interface ToolCatalogItem {
   priorityStars: number;
   statusLabel: string;
   featuredPrimary?: boolean;
+  isNew?: boolean;
+  launchDate?: string;
   defaultOpenBulk?: boolean;
   vaultOnly?: boolean;
   embedHtmlPath?: string;

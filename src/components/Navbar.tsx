@@ -12,7 +12,6 @@ import {
   Keyboard,
   Landmark,
   Linkedin,
-  Lock,
   LogIn,
   LogOut,
   Menu,
@@ -20,7 +19,6 @@ import {
   Receipt,
   ShieldCheck,
   Sparkles,
-  Unlock,
   UserCheck,
   X,
   Youtube,
@@ -42,7 +40,6 @@ export type IconMenuKey =
   | 'special-tools'
   | 'learn-tools'
   | 'blog'
-  | 'locked'
   | 'portal'
   | 'super-admin'
   | 'calculator'
@@ -50,7 +47,6 @@ export type IconMenuKey =
 
 interface NavbarProps {
   activeIconMenu: IconMenuKey | null;
-  isVaultUnlocked?: boolean;
   onHomeClick: () => void;
   onSelectIconMenu: (key: IconMenuKey) => void;
   themePreference: ThemePreference;
@@ -125,7 +121,6 @@ const ICON_MENU_ITEMS: {
   { key: 'learn-tools', label: 'LEARN', Icon: GraduationCap },
   { key: 'special-tools', label: 'SPECIAL', Icon: Sparkles },
   { key: 'blog', label: 'BLOG', Icon: BookOpen },
-  { key: 'locked', label: 'LOCKED', Icon: Lock },
 ];
 
 const SOCIAL_LINKS = [
@@ -162,7 +157,6 @@ const SOCIAL_LINKS = [
 
 export function Navbar({
   activeIconMenu,
-  isVaultUnlocked = false,
   onHomeClick,
   onSelectIconMenu,
   themePreference,
@@ -291,9 +285,6 @@ export function Navbar({
           >
             {ICON_MENU_ITEMS.map(({ key, label, Icon }) => {
               const isActive = activeIconMenu === key;
-              const isLockedItem = key === 'locked';
-              const ItemIcon = isLockedItem && isVaultUnlocked ? Unlock : Icon;
-              const itemLabel = isLockedItem && isVaultUnlocked ? 'UNLOCKED' : label;
               return (
                 <button
                   key={key}
@@ -303,32 +294,21 @@ export function Navbar({
                     onSelectIconMenu(key);
                   }}
                   aria-current={isActive ? 'page' : undefined}
-                  title={
-                    isLockedItem
-                      ? isVaultUnlocked
-                        ? 'Locked Enterprise Vault (Unlocked)'
-                        : 'Open Locked Enterprise Vault'
-                      : undefined
-                  }
                   className={`inline-flex items-center gap-1 xl:gap-1.5 px-1.5 xl:px-2 py-1.5 rounded-lg text-[9.5px] xl:text-[10px] 2xl:text-[10.5px] font-display font-extrabold tracking-tight 2xl:tracking-wide transition-all duration-150 whitespace-nowrap shrink-0 cursor-pointer border ${
                     isActive
                       ? 'bg-[#2F3E4E] text-[#F9C80E] border-[#2F3E4E] dark:bg-[#F9C80E] dark:text-[#0F172A] dark:border-[#F9C80E] shadow-[0_2px_0_#1E293B]'
-                      : isLockedItem && isVaultUnlocked
-                        ? 'bg-[#CEE5DC]/90 dark:bg-emerald-950/80 text-[#12805C] dark:text-emerald-300 border-[#12805C]/40 dark:border-emerald-700 hover:bg-[#CEE5DC] dark:hover:bg-emerald-900'
-                        : 'bg-[#FFFDF5]/90 dark:bg-slate-900/90 text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/15 dark:border-slate-700 hover:bg-[#F9C80E]/55 dark:hover:bg-slate-800 hover:border-[#2F3E4E]/45 dark:hover:border-slate-500'
+                      : 'bg-[#FFFDF5]/90 dark:bg-slate-900/90 text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/15 dark:border-slate-700 hover:bg-[#F9C80E]/55 dark:hover:bg-slate-800 hover:border-[#2F3E4E]/45 dark:hover:border-slate-500'
                   }`}
                 >
-                  <ItemIcon
+                  <Icon
                     className={`w-3 h-3 xl:w-3.5 xl:h-3.5 shrink-0 ${
                       isActive
                         ? 'text-[#F9C80E] dark:text-[#0F172A]'
-                        : isLockedItem && isVaultUnlocked
-                          ? 'text-[#12805C] dark:text-emerald-300'
-                          : 'text-[#2F3E4E] dark:text-slate-300'
+                        : 'text-[#2F3E4E] dark:text-slate-300'
                     }`}
                     aria-hidden="true"
                   />
-                  <span>{itemLabel}</span>
+                  <span>{label}</span>
                 </button>
               );
             })}
@@ -401,9 +381,6 @@ export function Navbar({
             >
               {ICON_MENU_ITEMS.map(({ key, label, Icon }) => {
                 const isActive = activeIconMenu === key;
-                const isLockedItem = key === 'locked';
-                const ItemIcon = isLockedItem && isVaultUnlocked ? Unlock : Icon;
-                const itemLabel = isLockedItem && isVaultUnlocked ? 'UNLOCKED' : label;
                 return (
                   <button
                     key={key}
@@ -416,22 +393,18 @@ export function Navbar({
                     className={`inline-flex items-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg text-xs font-display font-extrabold tracking-wide border-[1.5px] transition-colors cursor-pointer ${
                       isActive
                         ? 'bg-[#2F3E4E] text-[#F9C80E] border-[#2F3E4E] dark:bg-[#F9C80E] dark:text-[#0F172A] dark:border-[#F9C80E]'
-                        : isLockedItem && isVaultUnlocked
-                          ? 'bg-[#CEE5DC]/90 dark:bg-emerald-950/80 text-[#12805C] dark:text-emerald-300 border-[#12805C]/45 dark:border-emerald-700'
-                          : 'bg-[#FFFDF5] dark:bg-slate-900 text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/40 dark:border-slate-700 hover:bg-[#F9C80E]/40 dark:hover:bg-slate-800'
+                        : 'bg-[#FFFDF5] dark:bg-slate-900 text-[#2F3E4E] dark:text-slate-200 border-[#2F3E4E]/40 dark:border-slate-700 hover:bg-[#F9C80E]/40 dark:hover:bg-slate-800'
                     }`}
                   >
-                    <ItemIcon
+                    <Icon
                       className={`w-4 h-4 shrink-0 ${
                         isActive
                           ? 'text-[#F9C80E] dark:text-[#0F172A]'
-                          : isLockedItem && isVaultUnlocked
-                            ? 'text-[#12805C] dark:text-emerald-300'
-                            : 'text-[#2F3E4E] dark:text-slate-300'
+                          : 'text-[#2F3E4E] dark:text-slate-300'
                       }`}
                       aria-hidden="true"
                     />
-                    <span className="truncate">{itemLabel}</span>
+                    <span className="truncate">{label}</span>
                   </button>
                 );
               })}

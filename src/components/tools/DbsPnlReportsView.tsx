@@ -9,18 +9,15 @@ import {
   FileArchive,
   FileSpreadsheet,
   FileText,
-  Lock,
   Printer,
   RotateCcw,
   Upload,
 } from 'lucide-react';
 import { ToolCatalogItem } from '../../types/tools';
 import { exportElementToPdf, printTargetElement } from '../../utils/printReport';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface DbsPnlReportsViewProps {
   tool?: ToolCatalogItem;
-  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -477,26 +474,7 @@ const pct = (a: number, b: number): string => (b ? `${((a / b) * 100).toFixed(1)
 const lakh = (n: number): string =>
   (n / 100000).toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-export const DbsPnlReportsView: React.FC<DbsPnlReportsViewProps> = ({
-  tool,
-  isVaultUnlocked = false,
-  onBack,
-}) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={`${tool?.code ?? 'VC-05'} · ${tool?.suite ?? 'VCPL Tools'}`}
-      toolTitle={tool?.title ?? 'DBS P&L & Reports Tool'}
-      sessionKey="vcpl_dbs_pnl_unlocked_v1"
-      bypassGate={isVaultUnlocked}
-      description="Authorized dealership access required for DBS P&L & Reports Tool. Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {() => <DbsPnlReportsInner tool={tool} onBack={onBack} />}
-    </ToolPasscodeGate>
-  );
-};
-
-const DbsPnlReportsInner: React.FC<DbsPnlReportsViewProps> = ({ tool, onBack }) => {
+export const DbsPnlReportsView: React.FC<DbsPnlReportsViewProps> = ({ tool, onBack }) => {
   const [data, setData] = useState<DbsDataset | null>(null);
   const [statusMsg, setStatusMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -931,10 +909,6 @@ const DbsPnlReportsInner: React.FC<DbsPnlReportsViewProps> = ({ tool, onBack }) 
             </span>
             <span className="px-2.5 py-0.5 rounded-md bg-[#F9C80E] border border-[#2F3E4E] text-[11px] font-bold text-[#2F3E4E]">
               100% Browser-Local
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#2F3E4E] text-[11px] font-bold text-[#F9C80E]">
-              <Lock className="w-3 h-3" aria-hidden="true" />
-              <span>Locked Vault Access</span>
             </span>
           </div>
           <h2 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E]">

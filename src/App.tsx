@@ -14,10 +14,12 @@ import { Footer } from './components/Footer';
 import { HeroSection } from './components/HeroSection';
 import { HighlightsBanner } from './components/HighlightsBanner';
 import { IconMenuKey, Navbar } from './components/Navbar';
+import { NewlyAddedUpgradedSection } from './components/NewlyAddedUpgradedSection';
 import { RequestSection } from './components/RequestSection';
 import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { TopLoadingBar, emitGlobalProgress } from './components/TopLoadingBar';
 import { WhatsAppChatWidget } from './components/WhatsAppChatWidget';
+import { WhatsNewSection } from './components/WhatsNewSection';
 import { OPEN_COOKIE_BANNER_EVENT } from './config/adsense';
 import { EnterpriseAuthProvider, useEnterpriseAuth } from './context/EnterpriseAuthContext';
 import { mergeDynamicBlogPosts } from './data/blogPostsData';
@@ -48,9 +50,6 @@ const AllToolsPage = lazy(() =>
 );
 const BlogPage = lazy(() =>
   import('./components/BlogPage').then((m) => ({ default: m.BlogPage }))
-);
-const LockedToolsPage = lazy(() =>
-  import('./components/LockedToolsPage').then((m) => ({ default: m.LockedToolsPage }))
 );
 const LegalPageView = lazy(() =>
   import('./components/LegalPageView').then((m) => ({ default: m.LegalPageView }))
@@ -146,9 +145,7 @@ function AppShell() {
   );
   const [blogFeedLoaded, setBlogFeedLoaded] = useState(false);
   const [navTriggerKey, setNavTriggerKey] = useState(0);
-  const [vaultSession, setVaultSession] = useState<{ token: string; email: string } | null>(null);
   const { isAuthenticated, isSuperAdmin, sessionLoading, requiresPasswordChange } = useEnterpriseAuth();
-  const isVaultUnlocked = Boolean(vaultSession?.token) || (isAuthenticated && !requiresPasswordChange);
   const [selectedBankForSlip, setSelectedBankForSlip] = useState<BankId | undefined>(undefined);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [cookieOpen, setCookieOpen] = useState(() => {
@@ -165,18 +162,6 @@ function AppShell() {
   const [recents, setRecents] = useState<string[]>(() =>
     safeReadStorage<string[]>(RECENTS_KEY, [])
   );
-
-  useEffect(() => {
-    const handlePageExit = () => {
-      setVaultSession(null);
-    };
-    window.addEventListener('pagehide', handlePageExit);
-    window.addEventListener('beforeunload', handlePageExit);
-    return () => {
-      window.removeEventListener('pagehide', handlePageExit);
-      window.removeEventListener('beforeunload', handlePageExit);
-    };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -283,9 +268,7 @@ function AppShell() {
     (toolOrId: ToolCatalogItem | string, fullScreen = false) => {
       const tool = typeof toolOrId === 'string' ? getToolById(toolOrId) : toolOrId;
       if (!tool) return;
-      if (!tool.vaultOnly) {
-        recordRecentTool(tool.id);
-      }
+      recordRecentTool(tool.id);
       const targetPath = fullScreen ? getToolFullPath(tool) : getToolPath(tool);
       navigateToRoute({ view: 'tool', toolId: tool.id, fullScreen }, targetPath);
     },
@@ -298,10 +281,6 @@ function AppShell() {
     },
     [navigateToRoute]
   );
-
-  const handleOpenLockedVault = useCallback(() => {
-    navigateToRoute({ view: 'locked' }, '/locked');
-  }, [navigateToRoute]);
 
   const handleOpenPortal = useCallback(() => {
     navigateToRoute({ view: 'portal' }, '/portal');
@@ -353,10 +332,6 @@ function AppShell() {
         handleOpenBlog();
         return;
       }
-      if (key === 'locked') {
-        handleOpenLockedVault();
-        return;
-      }
       if (key === 'portal') {
         handleOpenPortal();
         return;
@@ -372,7 +347,6 @@ function AppShell() {
       handleGoHome,
       handleOpenAllTools,
       handleOpenBlog,
-      handleOpenLockedVault,
       handleOpenPortal,
       handleOpenSuperAdmin,
     ]
@@ -388,12 +362,9 @@ function AppShell() {
   const activeTool =
     route.view === 'tool' ? getToolById(route.toolId) : undefined;
 
-  const isBlockedVaultTool = false;
-
   const activeIconMenu: IconMenuKey | null = useMemo(() => {
     if (route.view === 'home') return 'home';
     if (route.view === 'blog') return 'blog';
-    if (route.view === 'locked') return 'locked';
     if (route.view === 'portal') return 'portal';
     if (route.view === 'super-admin') return 'super-admin';
     if (route.view === 'all-tools') return FILTER_TO_ICON_MENU[route.filter];
@@ -408,8 +379,7 @@ function AppShell() {
     return found?.id ?? '';
   }, [activeFilter]);
 
-  const isToolFullScreen =
-    route.view === 'tool' && Boolean(route.fullScreen) && !isBlockedVaultTool;
+  const isToolFullScreen = route.view === 'tool' && Boolean(route.fullScreen);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFDF5] dark:bg-[#0B1120] text-[#2F3E4E] dark:text-slate-100">
@@ -419,7 +389,6 @@ function AppShell() {
       {!isToolFullScreen && (
         <Navbar
           activeIconMenu={activeIconMenu}
-          isVaultUnlocked={isVaultUnlocked}
           onHomeClick={handleGoHome}
           onSelectIconMenu={handleSelectIconMenu}
           themePreference={themePreference}
@@ -446,6 +415,11 @@ function AppShell() {
               onOpenSearch={() => setSearchModalOpen(true)}
             />
             <HighlightsBanner />
+            <WhatsNewSection onOpenTool={(toolId) => handleOpenTool(toolId)} />
+            <NewlyAddedUpgradedSection
+              onOpenTool={(toolId) => handleOpenTool(toolId)}
+              onOpenAllTools={() => handleOpenAllTools('All')}
+            />
             <CategoriesSection
               selectedCategoryId={selectedCategoryId}
               onSelectCategory={(_catId, filterKey) => handleOpenAllTools(filterKey)}
@@ -493,18 +467,6 @@ function AppShell() {
             />
           )}
 
-          {(route.view === 'locked' || isBlockedVaultTool) && (
-            <LockedToolsPage
-              isUnlocked={isVaultUnlocked}
-              vaultEmail={vaultSession?.email || ''}
-              onUnlock={(token, email) => setVaultSession({ token, email })}
-              onLock={() => setVaultSession(null)}
-              onBackHome={handleGoHome}
-              onOpenTool={(tool, fullScreen) => handleOpenTool(tool, fullScreen)}
-              onOpenPortal={handleOpenPortal}
-            />
-          )}
-
           {route.view === 'portal' && (
             <EnterprisePortalView
               onBackHome={handleGoHome}
@@ -534,13 +496,12 @@ function AppShell() {
               />
             ))}
 
-          {route.view === 'tool' && activeTool && !isBlockedVaultTool && (
+          {route.view === 'tool' && activeTool && (
             <ToolWorkspace
               tool={activeTool}
               initialBank={selectedBankForSlip}
               initialSubParam={route.subParam}
               isRouteFullScreen={Boolean(route.fullScreen)}
-              isVaultUnlocked={isVaultUnlocked}
               onToggleRouteFullScreen={(full) => handleOpenTool(activeTool, full)}
               onSyncToolSubParam={(subParam) => {
                 if (activeTool.id === 'rto-code-finder') {
@@ -626,7 +587,6 @@ function AppShell() {
           activeTool={activeTool}
           onHomeClick={handleGoHome}
           onOpenAllTools={(filter) => handleOpenAllTools(filter ?? 'All')}
-          onOpenLockedVault={handleOpenLockedVault}
           onOpenPortal={handleOpenPortal}
           onOpenSuperAdmin={handleOpenSuperAdmin}
           onOpenLegalPage={handleOpenLegalPage}
@@ -681,9 +641,9 @@ function AppShell() {
 
       {!isToolFullScreen && (
         <WhatsAppChatWidget
-          view={isBlockedVaultTool ? 'locked' : route.view}
+          view={route.view}
           activeFilter={activeFilter}
-          activeTool={isBlockedVaultTool ? undefined : activeTool}
+          activeTool={activeTool}
           activeLegalSlug={route.view === 'legal' ? route.slug : undefined}
         />
       )}

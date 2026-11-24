@@ -65,11 +65,9 @@ import {
 } from '../../utils/tds26asTallyRecoEngine';
 import { emitGlobalProgress } from '../TopLoadingBar';
 import { FileDropZone } from './FileDropZone';
-import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface Tds26asTallyRecoViewProps {
   tool?: ToolCatalogItem;
-  isVaultUnlocked?: boolean;
   onBack?: () => void;
 }
 
@@ -159,26 +157,7 @@ function triggerBlobDownload(blob: Blob, filename: string) {
 const p2 = (n: number) => String(n).padStart(2, '0');
 const monthChipLabel = (k: string) => `${MN[+k.slice(5) - 1]}-${k.slice(2, 4)}`;
 
-export const Tds26asTallyRecoView: React.FC<Tds26asTallyRecoViewProps> = ({
-  tool,
-  isVaultUnlocked = false,
-  onBack,
-}) => {
-  return (
-    <ToolPasscodeGate
-      toolCode={`${tool?.code ?? 'VC-14'} · ${tool?.suite ?? 'VCPL Tools'}`}
-      toolTitle={tool?.title ?? '26AS ⇄ Tally Ledger Reco'}
-      sessionKey="vcpl_tds_26as_tally_reco_unlocked_v1"
-      bypassGate={isVaultUnlocked}
-      description="Authorized dealership access required for 26AS ⇄ Tally Ledger Reco. Enter the 6-digit passcode to unlock."
-      onBack={onBack}
-    >
-      {() => <Tds26asTallyRecoInner tool={tool} />}
-    </ToolPasscodeGate>
-  );
-};
-
-const Tds26asTallyRecoInner: React.FC<{ tool?: ToolCatalogItem }> = ({ tool }) => {
+export const Tds26asTallyRecoView: React.FC<Tds26asTallyRecoViewProps> = ({ tool }) => {
   // Uploaded Sources
   const [tallySources, setTallySources] = useState<UploadedTallySource[]>([]);
   const [sources26, setSources26] = useState<Uploaded26Source[]>([]);
