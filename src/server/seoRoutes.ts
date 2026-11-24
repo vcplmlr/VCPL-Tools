@@ -25,7 +25,8 @@ import { parseLocationToRoute } from '../utils/seoRouting.ts';
 import {
   getAutoPublishedBlogPostBySlug,
   getAutoPublishedBlogPosts,
-  getAutoPublishedCoverSvg,
+  getAutoPublishedBlogPostsAsync,
+  getAutoPublishedCoverSvgAsync,
   getIndexNowKey,
   runScheduledBlogCatchUp,
 } from './blogScheduler.ts';
@@ -424,8 +425,6 @@ export function injectServerSideSeoIntoHtml(
 export { buildSitemapXmlString };
 
 export function registerSeoAndAdSenseRoutes(app: express.Express): void {
-  const indexNowKey = getIndexNowKey();
-
   app.get('/ads.txt', (_req, res) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -439,11 +438,17 @@ export function registerSeoAndAdSenseRoutes(app: express.Express): void {
     res.send('google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0\n');
   });
 
-  // Microsoft Bing / IndexNow domain ownership verification file
-  app.get(`/${indexNowKey}.txt`, (_req, res) => {
+  // Microsoft Bing / IndexNow domain ownership verification file (evaluated dynamically; 404 when unset)
+  app.get(/^\/([a-zA-Z0-9-]{8,128})\.txt$/, (req, res, next) => {
+    const configuredKey = getIndexNowKey();
+    const requestedKey = req.params[0];
+    if (!configuredKey || !requestedKey || requestedKey !== configuredKey) {
+      next();
+      return;
+    }
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.send(indexNowKey);
+    res.send(configuredKey);
   });
 
   app.get('/robots.txt', (req, res) => {
@@ -455,7 +460,7 @@ export function registerSeoAndAdSenseRoutes(app: express.Express): void {
     res.send(body);
   });
 
-  app.get('/blog/:slug.svg', (req, res, next) => {
+  app.get('/blog/:slug.svg', async (req, res, next) => {
     const slug = String(req.params.slug || '').trim().replace(/[^a-z0-9-]/gi, '');
     if (!slug) {
       next();
@@ -470,7 +475,7 @@ export function registerSeoAndAdSenseRoutes(app: express.Express): void {
       return;
     }
 
-    const dbSvg = getAutoPublishedCoverSvg(slug);
+    const dbSvg = await getAutoPublishedCoverSvgAsync(slug);
     if (dbSvg) {
       res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -481,20 +486,20 @@ export function registerSeoAndAdSenseRoutes(app: express.Express): void {
     next();
   });
 
-  app.get(['/rss.xml', '/feed.xml'], (req, res) => {
+  app.get(['/rss.xml', '/feed.xml'], async (req, res) => {
     void runScheduledBlogCatchUp();
     const origin = resolveRequestOrigin(req).replace(/\/+$/, '');
-    const dynamicPosts = getAutoPublishedBlogPosts();
+    const dynamicPosts = await getAutoPublishedBlogPostsAsync();
     const rss = buildRssFeedXmlString(origin, dynamicPosts);
     res.setHeader('Content-Type', 'application/rss+xml; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=900');
     res.send(rss);
   });
 
-  app.get('/sitemap.xml', (req, res) => {
+  app.get('/sitemap.xml', async (req, res) => {
     void runScheduledBlogCatchUp();
     const origin = resolveRequestOrigin(req).replace(/\/+$/, '');
-    const dynamicPosts = getAutoPublishedBlogPosts();
+    const dynamicPosts = await getAutoPublishedBlogPostsAsync();
     const xml = buildSitemapXmlString(origin, undefined, dynamicPosts);
 
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');

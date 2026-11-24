@@ -39,23 +39,15 @@ export interface EnterpriseUserProfile {
 interface EnterpriseAuthContextValue {
   token: string | null;
   user: EnterpriseUserProfile | null;
+  sessionLoading: boolean;
   requiresPasswordChange: boolean;
-  superAdminConfigured: boolean | null;
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
-  refreshSuperAdminStatus: () => Promise<boolean>;
   refreshSession: () => Promise<void>;
   login: (username: string, password: string) => Promise<{
     requiresPasswordChange: boolean;
     user: EnterpriseUserProfile;
   }>;
-  bootstrapSuperAdmin: (payload: {
-    username: string;
-    password: string;
-    fullName: string;
-    designation?: string;
-    contactNumber?: string;
-  }) => Promise<EnterpriseUserProfile>;
   changePassword: (
     currentPassword: string,
     newPassword: string,
@@ -71,49 +63,23 @@ interface EnterpriseAuthContextValue {
 const EnterpriseAuthContext = createContext<EnterpriseAuthContextValue | null>(null);
 
 export const EnterpriseAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Strictly in-memory token storage (never saved to localStorage or sessionStorage)
+  // HttpOnly session cookie is primary; optional in-memory token kept for backward Bearer header compatibility
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<EnterpriseUserProfile | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
-  const [superAdminConfigured, setSuperAdminConfigured] = useState<boolean | null>(null);
   const tokenRef = useRef<string | null>(null);
   tokenRef.current = token;
+  const userRef = useRef<EnterpriseUserProfile | null>(null);
+  userRef.current = user;
 
   const clearAuthState = useCallback(() => {
     setToken(null);
     tokenRef.current = null;
     setUser(null);
+    userRef.current = null;
     setRequiresPasswordChange(false);
   }, []);
-
-  useEffect(() => {
-    const onPageExit = () => {
-      clearAuthState();
-    };
-    window.addEventListener('pagehide', onPageExit);
-    window.addEventListener('beforeunload', onPageExit);
-    return () => {
-      window.removeEventListener('pagehide', onPageExit);
-      window.removeEventListener('beforeunload', onPageExit);
-    };
-  }, [clearAuthState]);
-
-  const refreshSuperAdminStatus = useCallback(async (): Promise<boolean> => {
-    try {
-      const res = await fetch('/api/enterprise/auth/super-admin-status');
-      if (!res.ok) return true;
-      const data = (await res.json()) as { configured?: boolean };
-      const configured = Boolean(data.configured);
-      setSuperAdminConfigured(configured);
-      return configured;
-    } catch {
-      return true;
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshSuperAdminStatus();
-  }, [refreshSuperAdminStatus]);
 
   const apiFetch = useCallback(
     async (path: string, init: RequestInit = {}): Promise<Response> => {
@@ -121,11 +87,16 @@ export const EnterpriseAuthProvider: React.FC<{ children: React.ReactNode }> = (
       if (tokenRef.current) {
         headers.set('Authorization', `Bearer ${tokenRef.current}`);
       }
+      headers.set('X-Requested-With', 'VCPL-Workspace');
       if (init.body && !headers.has('Content-Type') && typeof init.body === 'string') {
         headers.set('Content-Type', 'application/json');
       }
-      const res = await fetch(path, { ...init, headers });
-      if (res.status === 401 && tokenRef.current) {
+      const res = await fetch(path, {
+        ...init,
+        credentials: 'include',
+        headers,
+      });
+      if (res.status === 401 && (tokenRef.current || userRef.current)) {
         clearAuthState();
       }
       return res;
@@ -134,28 +105,48 @@ export const EnterpriseAuthProvider: React.FC<{ children: React.ReactNode }> = (
   );
 
   const refreshSession = useCallback(async () => {
-    if (!tokenRef.current) return;
     try {
-      const res = await apiFetch('/api/enterprise/auth/me');
+      const headers = new Headers({ 'X-Requested-With': 'VCPL-Workspace' });
+      if (tokenRef.current) {
+        headers.set('Authorization', `Bearer ${tokenRef.current}`);
+      }
+      const res = await fetch('/api/enterprise/auth/me', {
+        credentials: 'include',
+        headers,
+      });
       if (!res.ok) {
         clearAuthState();
         return;
       }
       const data = (await res.json()) as {
-        user: EnterpriseUserProfile;
-        requiresPasswordChange: boolean;
+        user?: EnterpriseUserProfile;
+        requiresPasswordChange?: boolean;
       };
+      if (!data.user) {
+        clearAuthState();
+        return;
+      }
       setUser(data.user);
       setRequiresPasswordChange(Boolean(data.requiresPasswordChange));
     } catch {
       // Ignore transient network failures
+    } finally {
+      setSessionLoading(false);
     }
-  }, [apiFetch, clearAuthState]);
+  }, [clearAuthState]);
+
+  useEffect(() => {
+    void refreshSession();
+  }, [refreshSession]);
 
   const login = useCallback(async (username: string, password: string) => {
     const res = await fetch('/api/enterprise/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'VCPL-Workspace',
+      },
       body: JSON.stringify({ username, password }),
     });
     const data = (await res.json().catch(() => null)) as {
@@ -165,53 +156,20 @@ export const EnterpriseAuthProvider: React.FC<{ children: React.ReactNode }> = (
       error?: string;
     } | null;
 
-    if (!res.ok || !data?.token || !data?.user) {
-      throw new Error(data?.error || 'Unable to sign in. Please verify your credentials.');
+    if (!res.ok || !data?.user) {
+      throw new Error(data?.error || 'Unable to sign in. Please verify your User ID and Password.');
     }
 
-    setToken(data.token);
-    tokenRef.current = data.token;
+    setToken(data.token || null);
+    tokenRef.current = data.token || null;
     setUser(data.user);
     setRequiresPasswordChange(Boolean(data.requiresPasswordChange));
-    setSuperAdminConfigured(true);
+    setSessionLoading(false);
     return {
       requiresPasswordChange: Boolean(data.requiresPasswordChange),
       user: data.user,
     };
   }, []);
-
-  const bootstrapSuperAdmin = useCallback(
-    async (payload: {
-      username: string;
-      password: string;
-      fullName: string;
-      designation?: string;
-      contactNumber?: string;
-    }) => {
-      const res = await fetch('/api/enterprise/auth/bootstrap-super-admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = (await res.json().catch(() => null)) as {
-        token?: string;
-        user?: EnterpriseUserProfile;
-        error?: string;
-      } | null;
-
-      if (!res.ok || !data?.token || !data?.user) {
-        throw new Error(data?.error || 'Unable to initialize Super Admin account.');
-      }
-
-      setToken(data.token);
-      tokenRef.current = data.token;
-      setUser(data.user);
-      setRequiresPasswordChange(false);
-      setSuperAdminConfigured(true);
-      return data.user;
-    },
-    []
-  );
 
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string, confirmPassword: string) => {
@@ -225,12 +183,12 @@ export const EnterpriseAuthProvider: React.FC<{ children: React.ReactNode }> = (
         error?: string;
       } | null;
 
-      if (!res.ok || !data?.token || !data?.user) {
+      if (!res.ok || !data?.user) {
         throw new Error(data?.error || 'Unable to change password.');
       }
 
-      setToken(data.token);
-      tokenRef.current = data.token;
+      setToken(data.token || null);
+      tokenRef.current = data.token || null;
       setUser(data.user);
       setRequiresPasswordChange(false);
       return data.user;
@@ -241,7 +199,11 @@ export const EnterpriseAuthProvider: React.FC<{ children: React.ReactNode }> = (
   const requestPasswordReset = useCallback(async (username: string, note = '') => {
     const res = await fetch('/api/enterprise/auth/forgot-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'VCPL-Workspace',
+      },
       body: JSON.stringify({ username, note }),
     });
     const data = (await res.json().catch(() => null)) as { message?: string; error?: string } | null;
@@ -250,15 +212,13 @@ export const EnterpriseAuthProvider: React.FC<{ children: React.ReactNode }> = (
     }
     return (
       data?.message ||
-      'Your password reset request has been submitted to the Super Admin. Contact your administrator directly for your temporary password.'
+      'If your User ID exists in VCPL Tools, your reset request has been logged for the Super Admin. Contact your administrator directly for a one-time temporary password.'
     );
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      if (tokenRef.current) {
-        await apiFetch('/api/enterprise/auth/logout', { method: 'POST' });
-      }
+      await apiFetch('/api/enterprise/auth/logout', { method: 'POST' });
     } catch {
       // Clear local session regardless
     } finally {
@@ -266,44 +226,42 @@ export const EnterpriseAuthProvider: React.FC<{ children: React.ReactNode }> = (
     }
   }, [apiFetch, clearAuthState]);
 
-  const isAuthenticated = Boolean(token && user);
-  const isSuperAdmin = Boolean(token && user?.role === 'super_admin' && !requiresPasswordChange);
+  const isAuthenticated = Boolean(user);
+  const isSuperAdmin = Boolean(user?.role === 'super_admin' && !requiresPasswordChange);
 
   const hasPermission = useCallback(
     (moduleId: string, action: PermissionActionKey): boolean => {
-      if (!token || !user || requiresPasswordChange) return false;
+      if (!user || requiresPasswordChange) return false;
       if (user.role === 'super_admin') return true;
       const modPerms = user.permissions?.[moduleId];
       if (!modPerms) return false;
       if (modPerms.admin) return true;
       return Boolean(modPerms[action]);
     },
-    [requiresPasswordChange, token, user]
+    [requiresPasswordChange, user]
   );
 
   const canAccessTool = useCallback(
     (toolId: string): boolean => {
       if (isSuperAdmin) return true;
-      if (!token || !user || requiresPasswordChange) {
+      if (!user || requiresPasswordChange) {
         return !RESTRICTED_ENTERPRISE_TOOL_IDS.has(toolId);
       }
       return hasPermission(toolId, 'view');
     },
-    [hasPermission, isSuperAdmin, requiresPasswordChange, token, user]
+    [hasPermission, isSuperAdmin, requiresPasswordChange, user]
   );
 
   const value = useMemo<EnterpriseAuthContextValue>(
     () => ({
       token,
       user,
+      sessionLoading,
       requiresPasswordChange,
-      superAdminConfigured,
       isAuthenticated,
       isSuperAdmin,
-      refreshSuperAdminStatus,
       refreshSession,
       login,
-      bootstrapSuperAdmin,
       changePassword,
       requestPasswordReset,
       logout,
@@ -313,7 +271,6 @@ export const EnterpriseAuthProvider: React.FC<{ children: React.ReactNode }> = (
     }),
     [
       apiFetch,
-      bootstrapSuperAdmin,
       canAccessTool,
       changePassword,
       hasPermission,
@@ -322,10 +279,9 @@ export const EnterpriseAuthProvider: React.FC<{ children: React.ReactNode }> = (
       login,
       logout,
       refreshSession,
-      refreshSuperAdminStatus,
       requestPasswordReset,
       requiresPasswordChange,
-      superAdminConfigured,
+      sessionLoading,
       token,
       user,
     ]

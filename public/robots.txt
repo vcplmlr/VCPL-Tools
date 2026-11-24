@@ -20,6 +20,10 @@ Disallow: /api/
 Disallow: /income-tax-fy-2026-27.html
 Disallow: /locked
 Disallow: /locked-tools
+Disallow: /portal
+Disallow: /login
+Disallow: /super-admin
+Disallow: /change-password
 Disallow: /400
 Disallow: /401
 Disallow: /403
@@ -37,4 +41,4 @@ Disallow: /errors/
 Disallow: /status/
 
 # Sitemaps & Daily RSS Discovery
-Sitemap: https://vcpltools.vercel.app/sitemap.xml
+Sitemap: https://vcpl-tools.vercel.app/sitemap.xml

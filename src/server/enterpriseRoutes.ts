@@ -1,5 +1,5 @@
+import ExcelJS from 'exceljs';
 import crypto from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 import type { NextFunction, Request, Response, Router } from 'express';
 import express from 'express';
@@ -7,51 +7,105 @@ import {
   ALL_ENTERPRISE_MODULES,
   ENTERPRISE_ACCOUNT_STATUSES,
   ENTERPRISE_PERMISSION_ACTIONS,
-  type EnterpriseAccountStatus,
   type ModulePermissionSet,
   type PermissionActionKey,
   type UserPermissionMatrix,
   buildFullAdminPermissionMatrix,
   createEmptyPermissionSet,
 } from '../data/enterpriseModules.ts';
-import { DATA_DIR, getDb } from './db.ts';
+import {
+  type EnterpriseDocumentRow,
+  type EnterpriseUserRow,
+  type ExtendedAccountStatus,
+  addDocumentVersionRecord,
+  countActiveSuperAdmins,
+  createDepartment,
+  createDesignation,
+  createDocumentWithVersion,
+  createReportRecord,
+  createSessionRecord,
+  createUserRecord,
+  createWorkspaceRecord,
+  deleteDocumentMetadata,
+  deleteWorkspaceRecord,
+  ensureEnvSuperAdminSeeded,
+  findUserById,
+  findUserByUsername,
+  getActiveSessionByToken,
+  getBatchPermissionsMaps,
+  getDocumentById,
+  getDriveFoldersMap,
+  getEnterprisePersistenceSummary,
+  getSharedSetting,
+  getUserPermissionsMap,
+  getWorkspaceRecordById,
+  hardDeleteUser,
+  hasActiveSuperAdmin,
+  hashPasswordBcrypt,
+  listActivityLogs,
+  listAuditLogs,
+  listDepartments,
+  listDesignations,
+  listDocumentVersions,
+  listDocuments,
+  listLoginHistory,
+  listReportRecords,
+  listResetRequests,
+  listUsers,
+  listWorkspaceRecords,
+  recordActivityEvent,
+  recordAuditTrail,
+  recordLoginEvent,
+  resolveResetRequestsForUser,
+  revokeAllUserSessions,
+  revokeSessionByToken,
+  saveDriveConfigurationAndFolders,
+  saveUserPermissionsMap,
+  setSharedSetting,
+  touchSessionActivity,
+  updateDocumentMetadata,
+  updateUserFields,
+  updateWorkspaceRecord,
+  upsertPendingResetRequest,
+  verifyPasswordWithMigration,
+} from './enterpriseStore.ts';
+import {
+  deleteFileFromCompanyDrive,
+  downloadFileFromCompanyDrive,
+  ensureCompanyDriveFolderHierarchy,
+  getCompanyDriveConfigStatus,
+  moveFileInCompanyDrive,
+  resolveDriveFolderKeyForModule,
+  testCompanyDriveConnection,
+  uploadFileToCompanyDrive,
+} from './googleDriveService.ts';
+import { checkSupabaseHealth, getPersistenceMode } from './supabaseClient.ts';
 
-const VAULT_FILES_DIR = path.resolve(DATA_DIR, 'enterprise_vault');
-const EPHEMERAL_ENTERPRISE_KEY = crypto.randomBytes(32).toString('hex');
+const SESSION_COOKIE_NAME = 'vcpl_session';
+const SESSION_TTL_SECONDS = 12 * 60 * 60;
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
+const EPHEMERAL_SESSION_KEY = crypto.randomBytes(32).toString('hex');
 
-function getSigningKey(): string {
-  return (
-    process.env.VCPL_ENTERPRISE_SECRET?.trim() ||
-    process.env.VCPL_ADMIN_SECRET?.trim() ||
-    EPHEMERAL_ENTERPRISE_KEY
-  );
-}
-
-function getPersistentKeyFileSigningKey(): string {
-  // Ensures issued tokens remain valid across warm reloads if no env secret is set,
-  // using an unpredictable locally generated CSPRNG key persisted in app_settings.
-  const envKey = process.env.VCPL_ENTERPRISE_SECRET?.trim() || process.env.VCPL_ADMIN_SECRET?.trim();
+async function getSessionSigningKey(): Promise<string> {
+  const envKey = (
+    process.env.SESSION_SECRET ||
+    process.env.VCPL_ENTERPRISE_SECRET ||
+    process.env.VCPL_ADMIN_SECRET ||
+    ''
+  ).trim();
   if (envKey) return envKey;
+
   try {
-    const db = getDb();
-    const row = db
-      .prepare('SELECT value FROM app_settings WHERE key = ?')
-      .get('enterprise_signing_key') as { value?: string } | undefined;
-    if (row?.value && row.value.length >= 32) {
-      return row.value;
+    const stored = await getSharedSetting('enterprise_signing_key');
+    if (stored && stored.length >= 32) {
+      return stored;
     }
     const generated = crypto.randomBytes(32).toString('hex');
-    db.prepare('INSERT OR IGNORE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)').run(
-      'enterprise_signing_key',
-      generated,
-      new Date().toISOString()
-    );
-    const refreshed = db
-      .prepare('SELECT value FROM app_settings WHERE key = ?')
-      .get('enterprise_signing_key') as { value?: string } | undefined;
-    return refreshed?.value || getSigningKey();
+    await setSharedSetting('enterprise_signing_key', generated);
+    return generated;
   } catch {
-    return getSigningKey();
+    return EPHEMERAL_SESSION_KEY;
   }
 }
 
@@ -61,32 +115,10 @@ function safeEqualStrings(a: string, b: string): boolean {
   return crypto.timingSafeEqual(hashA, hashB);
 }
 
-function hashPasswordScrypt(password: string): string {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const derived = crypto.scryptSync(password, salt, 64).toString('hex');
-  return `scrypt:${salt}:${derived}`;
-}
-
-function verifyPasswordScrypt(password: string, stored: string): boolean {
-  const parts = stored.split(':');
-  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
-  const [, salt, hashHex] = parts;
-  const candidate = crypto.scryptSync(password, salt, 64);
-  const expected = Buffer.from(hashHex, 'hex');
-  if (candidate.length !== expected.length) return false;
-  return crypto.timingSafeEqual(candidate, expected);
-}
-
 function createRateLimiter(maxRequests: number, windowMs: number) {
   const buckets = new Map<string, { count: number; resetAt: number }>();
   return (req: Request, res: Response, next: NextFunction) => {
-    const ip =
-      (typeof req.headers['x-forwarded-for'] === 'string'
-        ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
-        : undefined) ||
-      req.ip ||
-      'unknown';
-
+    const ip = getClientIp(req);
     const now = Date.now();
     const bucket = buckets.get(ip);
     if (!bucket || now >= bucket.resetAt) {
@@ -106,6 +138,101 @@ function createRateLimiter(maxRequests: number, windowMs: number) {
   };
 }
 
+function getClientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.ip || 'unknown';
+}
+
+function getUserAgent(req: Request): string {
+  return String(req.headers['user-agent'] || '').slice(0, 240);
+}
+
+function isSecureRequest(req: Request): boolean {
+  if (req.secure) return true;
+  const proto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+  return proto.includes('https');
+}
+
+function parseCookies(req: Request): Record<string, string> {
+  const header = String(req.headers.cookie || '');
+  const out: Record<string, string> = {};
+  if (!header) return out;
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq <= 0) continue;
+    const key = part.slice(0, eq).trim();
+    const val = part.slice(eq + 1).trim();
+    if (key) {
+      try {
+        out[key] = decodeURIComponent(val);
+      } catch {
+        out[key] = val;
+      }
+    }
+  }
+  return out;
+}
+
+function setSessionCookie(req: Request, res: Response, token: string): void {
+  const secure = isSecureRequest(req);
+  const attrs = [
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    'Path=/',
+    `Max-Age=${SESSION_TTL_SECONDS}`,
+    'HttpOnly',
+  ];
+  if (secure) {
+    attrs.push('Secure', 'SameSite=None', 'Partitioned');
+  } else {
+    attrs.push('SameSite=Lax');
+  }
+  res.setHeader('Set-Cookie', attrs.join('; '));
+}
+
+function clearSessionCookie(req: Request, res: Response): void {
+  const secure = isSecureRequest(req);
+  const attrs = [
+    `${SESSION_COOKIE_NAME}=`,
+    'Path=/',
+    'Max-Age=0',
+    'Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+    'HttpOnly',
+  ];
+  if (secure) {
+    attrs.push('Secure', 'SameSite=None', 'Partitioned');
+  } else {
+    attrs.push('SameSite=Lax');
+  }
+  res.setHeader('Set-Cookie', attrs.join('; '));
+}
+
+function verifyCookieCsrfOrigin(req: Request): boolean {
+  const method = req.method.toUpperCase();
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return true;
+
+  // Requests authenticating explicitly with Authorization Bearer are not cookie-CSRF vulnerable
+  const authHeader = String(req.headers.authorization || '');
+  if (authHeader.startsWith('Bearer ')) return true;
+
+  // Check Origin/Referer host against Host/X-Forwarded-Host, or verify custom header
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0].toLowerCase();
+  const origin = String(req.headers.origin || '');
+  if (origin) {
+    try {
+      const originHost = new URL(origin).hostname.toLowerCase();
+      if (originHost === host) return true;
+    } catch {
+      return false;
+    }
+    return false;
+  }
+
+  return String(req.headers['x-requested-with'] || '') === 'VCPL-Workspace';
+}
+
 export function normalizeEnterpriseUsername(raw: unknown): {
   displayUsername: string;
   canonicalUsername: string;
@@ -115,14 +242,14 @@ export function normalizeEnterpriseUsername(raw: unknown): {
   const displayUsername = String(raw ?? '').trim();
   const canonicalUsername = displayUsername.toLowerCase();
   if (!displayUsername) {
-    return { displayUsername: '', canonicalUsername: '', valid: false, error: 'Username is required.' };
+    return { displayUsername: '', canonicalUsername: '', valid: false, error: 'User ID is required.' };
   }
   if (canonicalUsername.length < 2 || canonicalUsername.length > 48) {
     return {
       displayUsername,
       canonicalUsername,
       valid: false,
-      error: 'Username must be between 2 and 48 characters.',
+      error: 'User ID must be between 2 and 48 characters.',
     };
   }
   if (!/^[a-z0-9][a-z0-9._-]*$/.test(canonicalUsername)) {
@@ -131,7 +258,7 @@ export function normalizeEnterpriseUsername(raw: unknown): {
       canonicalUsername,
       valid: false,
       error:
-        'Username can contain letters, numbers, dots (.), underscores (_), and hyphens (-), starting with a letter or number.',
+        'User ID can contain letters, numbers, dots (.), underscores (_), and hyphens (-), starting with a letter or number.',
     };
   }
   return { displayUsername, canonicalUsername, valid: true };
@@ -173,40 +300,33 @@ function generateTempPassword(length = 12): string {
   return chars.join('');
 }
 
-function makeInternalAuthId(canonicalUsername: string): string {
-  const token = crypto.randomBytes(8).toString('hex');
-  return `${canonicalUsername}.${token}@auth.vcpl.internal`;
-}
-
 interface EnterpriseTokenPayload {
   uid: string;
   role: 'super_admin' | 'employee';
   tv: number;
   pwdChangeOnly: boolean;
+  jti: string;
   exp: number;
 }
 
-function signEnterpriseToken(payload: Omit<EnterpriseTokenPayload, 'exp'>): string {
+async function signEnterpriseToken(payload: Omit<EnterpriseTokenPayload, 'exp' | 'jti'>): Promise<string> {
   const full: EnterpriseTokenPayload = {
     ...payload,
-    exp: Date.now() + 12 * 60 * 60 * 1000,
+    jti: crypto.randomBytes(12).toString('hex'),
+    exp: Date.now() + SESSION_TTL_SECONDS * 1000,
   };
   const encoded = Buffer.from(JSON.stringify(full)).toString('base64url');
-  const sig = crypto
-    .createHmac('sha256', getPersistentKeyFileSigningKey())
-    .update(encoded)
-    .digest('base64url');
+  const key = await getSessionSigningKey();
+  const sig = crypto.createHmac('sha256', key).update(encoded).digest('base64url');
   return `${encoded}.${sig}`;
 }
 
-function verifyEnterpriseToken(token: string): EnterpriseTokenPayload | null {
+async function verifyEnterpriseToken(token: string): Promise<EnterpriseTokenPayload | null> {
   const parts = token.split('.');
   if (parts.length !== 2) return null;
   const [encoded, sig] = parts;
-  const expected = crypto
-    .createHmac('sha256', getPersistentKeyFileSigningKey())
-    .update(encoded)
-    .digest('base64url');
+  const key = await getSessionSigningKey();
+  const expected = crypto.createHmac('sha256', key).update(encoded).digest('base64url');
   if (!safeEqualStrings(sig, expected)) return null;
   try {
     const parsed = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as EnterpriseTokenPayload;
@@ -226,121 +346,15 @@ function verifyEnterpriseToken(token: string): EnterpriseTokenPayload | null {
   }
 }
 
-interface DbUserRow {
-  id: string;
-  username: string;
-  display_username: string;
-  internal_auth_id: string;
-  password_hash: string;
-  full_name: string;
-  employee_id: string;
-  department: string;
-  designation: string;
-  contact_number: string;
-  role: 'super_admin' | 'employee';
-  status: EnterpriseAccountStatus;
-  is_archived: number;
-  must_change_password: number;
-  token_version: number;
-  last_login_at: string;
-  last_active_at: string;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface DbPermissionRow {
-  user_id: string;
-  module_id: string;
-  can_view: number;
-  can_create: number;
-  can_edit: number;
-  can_upload: number;
-  can_download: number;
-  can_delete: number;
-  can_approve: number;
-  can_export: number;
-  can_admin: number;
-  updated_at: string;
-}
-
-function getUserPermissionsMap(userId: string, role: 'super_admin' | 'employee'): UserPermissionMatrix {
-  if (role === 'super_admin') {
-    return buildFullAdminPermissionMatrix();
-  }
-  const db = getDb();
-  const rows = db
-    .prepare('SELECT * FROM enterprise_permissions WHERE user_id = ?')
-    .all(userId) as unknown as DbPermissionRow[];
-
-  const matrix: UserPermissionMatrix = {};
-  for (const row of rows) {
-    matrix[row.module_id] = {
-      view: Boolean(row.can_view),
-      create: Boolean(row.can_create),
-      edit: Boolean(row.can_edit),
-      upload: Boolean(row.can_upload),
-      download: Boolean(row.can_download),
-      delete: Boolean(row.can_delete),
-      approve: Boolean(row.can_approve),
-      export: Boolean(row.can_export),
-      admin: Boolean(row.can_admin),
-    };
-  }
-  return matrix;
-}
-
-function saveUserPermissionsMap(userId: string, matrix: UserPermissionMatrix): void {
-  const db = getDb();
-  const now = new Date().toISOString();
-  const validModuleIds = new Set(ALL_ENTERPRISE_MODULES.map((m) => m.id));
-  db.exec('BEGIN TRANSACTION;');
-  try {
-    db.prepare('DELETE FROM enterprise_permissions WHERE user_id = ?').run(userId);
-    const insertStmt = db.prepare(`
-      INSERT INTO enterprise_permissions (
-        user_id, module_id, can_view, can_create, can_edit, can_upload,
-        can_download, can_delete, can_approve, can_export, can_admin, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    for (const [moduleId, perms] of Object.entries(matrix)) {
-      if (!validModuleIds.has(moduleId)) continue;
-      const p: ModulePermissionSet = {
-        ...createEmptyPermissionSet(false),
-        ...perms,
-      };
-      const anyEnabled = Object.values(p).some(Boolean);
-      if (!anyEnabled) continue;
-      insertStmt.run(
-        userId,
-        moduleId,
-        p.view ? 1 : 0,
-        p.create ? 1 : 0,
-        p.edit ? 1 : 0,
-        p.upload ? 1 : 0,
-        p.download ? 1 : 0,
-        p.delete ? 1 : 0,
-        p.approve ? 1 : 0,
-        p.export ? 1 : 0,
-        p.admin ? 1 : 0,
-        now
-      );
-    }
-    db.exec('COMMIT;');
-  } catch (err) {
-    db.exec('ROLLBACK;');
-    throw err;
-  }
+function isUserStatusActive(status: string): boolean {
+  return status === 'Approved' || status === 'Active';
 }
 
 function sanitizeUserForClient(
-  row: DbUserRow,
-  options: { includeAdminFields?: boolean; permissions?: UserPermissionMatrix } = {}
+  row: EnterpriseUserRow,
+  permissions: UserPermissionMatrix,
+  options: { includeAdminFields?: boolean } = {}
 ) {
-  const permissions =
-    options.permissions ?? getUserPermissionsMap(row.id, row.role);
-
   const base = {
     id: row.id,
     username: row.username,
@@ -351,7 +365,8 @@ function sanitizeUserForClient(
     designation: row.designation,
     contactNumber: row.contact_number,
     role: row.role,
-    status: row.status,
+    status: row.status === 'Active' ? 'Approved' : row.status,
+    rawStatus: row.status,
     isArchived: Boolean(row.is_archived),
     mustChangePassword: Boolean(row.must_change_password),
     lastLoginAt: row.last_login_at,
@@ -360,224 +375,212 @@ function sanitizeUserForClient(
     updatedAt: row.updated_at,
     permissions,
   };
-
   if (options.includeAdminFields) {
     return {
       ...base,
       internalAuthId: row.internal_auth_id,
       createdBy: row.created_by,
+      failedLoginAttempts: row.failed_login_attempts,
+      lockedUntil: row.locked_until,
     };
   }
   return base;
 }
 
-function getClientIp(req: Request): string {
-  return (
-    (typeof req.headers['x-forwarded-for'] === 'string'
-      ? req.headers['x-forwarded-for'].split(',')[0]?.trim()
-      : undefined) ||
-    req.ip ||
-    'unknown'
-  );
-}
-
-function recordLoginEvent(params: {
-  userId: string;
-  username: string;
-  displayUsername: string;
-  outcome: string;
-  detail: string;
-  req: Request;
-}) {
-  try {
-    const db = getDb();
-    db.prepare(`
-      INSERT INTO enterprise_login_history (
-        id, user_id, username, display_username, outcome, detail, ip_address, user_agent, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      `lgh_${crypto.randomUUID()}`,
-      params.userId,
-      params.username,
-      params.displayUsername,
-      params.outcome,
-      params.detail.slice(0, 400),
-      getClientIp(params.req).slice(0, 80),
-      String(params.req.headers['user-agent'] || '').slice(0, 220),
-      new Date().toISOString()
-    );
-  } catch (err) {
-    console.warn('Unable to record login history:', err);
-  }
-}
-
-function recordActivityEvent(params: {
-  actorUserId: string;
-  actorUsername: string;
-  action: string;
-  targetType: string;
-  targetId: string;
-  summary: string;
-  metadata?: Record<string, unknown>;
-}) {
-  try {
-    const db = getDb();
-    db.prepare(`
-      INSERT INTO enterprise_activity_logs (
-        id, actor_user_id, actor_username, action, target_type, target_id, summary, metadata_json, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      `act_${crypto.randomUUID()}`,
-      params.actorUserId,
-      params.actorUsername,
-      params.action.slice(0, 80),
-      params.targetType.slice(0, 64),
-      params.targetId.slice(0, 128),
-      params.summary.slice(0, 500),
-      JSON.stringify(params.metadata || {}).slice(0, 2000),
-      new Date().toISOString()
-    );
-  } catch (err) {
-    console.warn('Unable to record activity log:', err);
-  }
-}
-
 interface AuthedRequest extends Request {
-  enterpriseUser?: DbUserRow;
+  enterpriseUser?: EnterpriseUserRow;
   enterpriseToken?: EnterpriseTokenPayload;
+  enterpriseRawToken?: string;
+  enterpriseSessionId?: string;
   enterprisePermissions?: UserPermissionMatrix;
 }
 
+function extractRequestToken(req: Request): string {
+  const auth = String(req.headers.authorization || '');
+  if (auth.startsWith('Bearer ')) {
+    return auth.slice(7).trim();
+  }
+  const cookies = parseCookies(req);
+  return String(cookies[SESSION_COOKIE_NAME] || '').trim();
+}
+
 function authenticateEnterprise(options: { allowPwdChangeOnly?: boolean } = {}) {
-  return (req: AuthedRequest, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-    if (!token) {
-      res.status(401).json({ error: 'Authentication required. Please sign in.' });
-      return;
-    }
-    const parsed = verifyEnterpriseToken(token);
-    if (!parsed) {
-      res.status(401).json({ error: 'Session expired or invalid. Please sign in again.' });
-      return;
-    }
+  return async (req: AuthedRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!verifyCookieCsrfOrigin(req)) {
+        res.status(403).json({ error: 'Invalid request origin.' });
+        return;
+      }
 
-    const db = getDb();
-    const user = db
-      .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-      .get(parsed.uid) as DbUserRow | undefined;
+      const rawToken = extractRequestToken(req);
+      if (!rawToken) {
+        res.status(401).json({ error: 'Authentication required. Please sign in.' });
+        return;
+      }
 
-    if (!user) {
-      res.status(401).json({ error: 'Account not found or removed. Please contact your Super Admin.' });
-      return;
-    }
-    if (user.is_archived === 1) {
-      res.status(403).json({ error: 'Your account has been archived by the Super Admin.' });
-      return;
-    }
-    if (user.status !== 'Approved') {
-      res.status(403).json({
-        error:
-          user.status === 'Pending Approval'
-            ? 'Your account is awaiting Super Admin approval. Please contact your administrator.'
-            : user.status === 'Suspended'
-              ? 'Your account has been suspended. Please contact your Super Admin.'
-              : `Your account is ${user.status.toLowerCase()}. Access denied.`,
-      });
-      return;
-    }
-    if (user.token_version !== parsed.tv) {
-      res.status(401).json({ error: 'Your session was invalidated after a security or password update. Please sign in again.' });
-      return;
-    }
+      const payload = await verifyEnterpriseToken(rawToken);
+      if (!payload) {
+        clearSessionCookie(req, res);
+        res.status(401).json({ error: 'Your session has expired or is invalid. Please sign in again.' });
+        return;
+      }
 
-    if (!options.allowPwdChangeOnly && (parsed.pwdChangeOnly || user.must_change_password === 1)) {
-      res.status(403).json({
-        code: 'FORCE_PASSWORD_CHANGE',
-        error: 'Mandatory first-login password change is required before accessing modules.',
-      });
-      return;
+      const activeSession = await getActiveSessionByToken(rawToken);
+      if (!activeSession) {
+        clearSessionCookie(req, res);
+        res.status(401).json({ error: 'Session revoked or expired. Please sign in again.' });
+        return;
+      }
+
+      const user = await findUserById(payload.uid);
+      if (!user || user.is_archived || user.token_version !== payload.tv || !isUserStatusActive(user.status)) {
+        clearSessionCookie(req, res);
+        res.status(401).json({ error: 'Account session revoked or disabled. Contact your Super Admin.' });
+        return;
+      }
+
+      const mustChange = Boolean(user.must_change_password) || payload.pwdChangeOnly;
+      if (mustChange && !options.allowPwdChangeOnly) {
+        res.status(403).json({
+          code: 'PASSWORD_CHANGE_REQUIRED',
+          error: 'Password update required before accessing VCPL Tools modules.',
+        });
+        return;
+      }
+
+      await touchSessionActivity(activeSession.id, user.id);
+
+      req.enterpriseUser = user;
+      req.enterpriseToken = payload;
+      req.enterpriseRawToken = rawToken;
+      req.enterpriseSessionId = activeSession.id;
+      req.enterprisePermissions = await getUserPermissionsMap(user.id, user.role);
+      next();
+    } catch (err) {
+      console.error('Authentication middleware error:', err);
+      res.status(500).json({ error: 'Authentication verification failed.' });
     }
-
-    const now = new Date().toISOString();
-    db.prepare('UPDATE enterprise_users SET last_active_at = ? WHERE id = ?').run(now, user.id);
-    user.last_active_at = now;
-
-    req.enterpriseUser = user;
-    req.enterpriseToken = parsed;
-    req.enterprisePermissions = getUserPermissionsMap(user.id, user.role);
-    next();
   };
 }
 
-function requireSuperAdmin(req: AuthedRequest, res: Response, next: NextFunction) {
+function requireSuperAdmin(req: AuthedRequest, res: Response, next: NextFunction): void {
   if (!req.enterpriseUser || req.enterpriseUser.role !== 'super_admin') {
-    res.status(403).json({ error: 'Super Admin access is strictly required for this operation.' });
+    res.status(403).json({ error: 'Super Admin access is required for this operation.' });
     return;
   }
   next();
 }
 
 function hasModulePermission(
-  user: DbUserRow,
-  matrix: UserPermissionMatrix,
+  user: EnterpriseUserRow,
+  permissions: UserPermissionMatrix,
   moduleId: string,
   action: PermissionActionKey
 ): boolean {
   if (user.role === 'super_admin') return true;
-  const modPerms = matrix[moduleId];
-  if (!modPerms) return false;
-  if (modPerms.admin) return true;
-  return Boolean(modPerms[action]);
+  const mod = permissions[moduleId];
+  if (!mod) return false;
+  if (mod.admin) return true;
+  return Boolean(mod[action]);
 }
 
-function ensureVaultFilesDir(): void {
-  if (!fs.existsSync(VAULT_FILES_DIR)) {
-    fs.mkdirSync(VAULT_FILES_DIR, { recursive: true });
+function isValidStatus(value: unknown): value is ExtendedAccountStatus {
+  return (
+    ENTERPRISE_ACCOUNT_STATUSES.includes(value as (typeof ENTERPRISE_ACCOUNT_STATUSES)[number]) ||
+    value === 'Active' ||
+    value === 'Password Reset Required'
+  );
+}
+
+async function resolveTargetDriveFolder(folderKey: string): Promise<{
+  folderKey: string;
+  driveFolderId: string;
+}> {
+  const driveStatus = getCompanyDriveConfigStatus();
+  if (!driveStatus.configured) {
+    throw new Error(
+      `Central Company Google Drive is not configured (${driveStatus.missingVars.join(', ')}).`
+    );
   }
-}
+  const existingMap = await getDriveFoldersMap();
+  const existing = existingMap[folderKey];
+  if (existing?.drive_folder_id) {
+    return { folderKey, driveFolderId: existing.drive_folder_id };
+  }
 
-function resolveVaultFileSafe(storedFileName: string): string | null {
-  ensureVaultFilesDir();
-  const baseName = path.basename(storedFileName);
-  if (!baseName || baseName !== storedFileName) return null;
-  const resolved = path.resolve(VAULT_FILES_DIR, baseName);
-  if (!resolved.startsWith(VAULT_FILES_DIR + path.sep)) return null;
-  return resolved;
-}
+  // Provision hierarchy in Company Google Drive and persist folder IDs
+  const idLookup: Record<string, string> = {};
+  for (const [k, row] of Object.entries(existingMap)) {
+    if (row.drive_folder_id) idLookup[k] = row.drive_folder_id;
+  }
+  const provisioned = await ensureCompanyDriveFolderHierarchy(idLookup);
+  await saveDriveConfigurationAndFolders({
+    config: {
+      auth_mode: driveStatus.authMode,
+      root_folder_id: driveStatus.rootFolderId,
+      root_folder_name: 'VCPL TOOLS - COMPANY DRIVE',
+      shared_drive_id: driveStatus.sharedDriveId,
+      service_account_email: driveStatus.serviceAccountEmail,
+      status: 'Connected',
+      last_verified_at: new Date().toISOString(),
+      last_error: '',
+      updated_by: 'system',
+    },
+    folders: provisioned,
+  });
 
-function isValidStatus(value: unknown): value is EnterpriseAccountStatus {
-  return ENTERPRISE_ACCOUNT_STATUSES.includes(value as EnterpriseAccountStatus);
+  const matched = provisioned.find((f) => f.folderKey === folderKey);
+  return {
+    folderKey,
+    driveFolderId: matched?.driveFolderId || driveStatus.rootFolderId,
+  };
 }
 
 export function createEnterpriseRouter(): Router {
   const router = express.Router();
-  const authLimiter = createRateLimiter(35, 5 * 60_000);
+  const authLimiter = createRateLimiter(30, 5 * 60_000);
   const resetLimiter = createRateLimiter(15, 10 * 60_000);
 
   // =========================================================================
-  // 1. SUPER ADMIN BOOTSTRAP STATUS & FIRST-RUN SETUP
+  // 1. SUPER ADMIN STATUS & PROTECTED PROVISIONING (NO PUBLIC SIGNUP)
   // =========================================================================
-  router.get('/auth/super-admin-status', (_req, res) => {
-    const db = getDb();
-    const adminRow = db
-      .prepare("SELECT id, username, display_username, full_name FROM enterprise_users WHERE role = 'super_admin' AND is_archived = 0 LIMIT 1")
-      .get() as { id?: string; username?: string } | undefined;
-    res.json({
-      configured: Boolean(adminRow?.id),
-    });
+  router.get('/auth/super-admin-status', async (_req, res) => {
+    try {
+      const configured = await hasActiveSuperAdmin();
+      const mode = getPersistenceMode();
+      res.json({
+        configured,
+        bootstrapProtected: true,
+        databaseMode: mode,
+      });
+    } catch {
+      res.json({ configured: true, bootstrapProtected: true, databaseMode: getPersistenceMode() });
+    }
   });
 
-  router.post('/auth/bootstrap-super-admin', authLimiter, (req, res) => {
+  // Protected one-time provisioning (requires VCPL_SUPER_ADMIN_BOOTSTRAP_TOKEN env var when called via API)
+  router.post('/auth/bootstrap-super-admin', authLimiter, async (req, res) => {
     try {
-      const db = getDb();
-      const existingAdmin = db
-        .prepare("SELECT id FROM enterprise_users WHERE role = 'super_admin' LIMIT 1")
-        .get() as { id?: string } | undefined;
-
-      if (existingAdmin?.id) {
+      await ensureEnvSuperAdminSeeded();
+      const alreadyConfigured = await hasActiveSuperAdmin();
+      if (alreadyConfigured) {
         res.status(409).json({
-          error: 'Super Admin account is already initialized. Please sign in with your credentials.',
+          error: 'Super Admin account is already provisioned. Sign in with your User ID and password.',
+        });
+        return;
+      }
+
+      const bootstrapTokenEnv = (process.env.VCPL_SUPER_ADMIN_BOOTSTRAP_TOKEN || '').trim();
+      const suppliedToken = String(
+        (req.body as { bootstrapToken?: unknown })?.bootstrapToken ||
+          req.headers['x-vcpl-bootstrap-token'] ||
+          ''
+      ).trim();
+
+      if (!bootstrapTokenEnv || !suppliedToken || !safeEqualStrings(suppliedToken, bootstrapTokenEnv)) {
+        res.status(403).json({
+          error:
+            'Public Super Admin self-registration is disabled. Provision Super Admin via SUPER_ADMIN_USERNAME / SUPER_ADMIN_PASSWORD or VCPL_SUPER_ADMIN_BOOTSTRAP_TOKEN in server environment variables.',
         });
         return;
       }
@@ -595,147 +598,171 @@ export function createEnterpriseRouter(): Router {
         res.status(400).json({ error: norm.error });
         return;
       }
-
       const password = String(body.password ?? '');
       const pwdErr = validateStrongPassword(password);
       if (pwdErr) {
         res.status(400).json({ error: pwdErr });
         return;
       }
-
       const fullName = String(body.fullName ?? '').trim();
       if (fullName.length < 2 || fullName.length > 120) {
         res.status(400).json({ error: 'Full Name is required (2–120 characters).' });
         return;
       }
 
-      const duplicate = db
-        .prepare('SELECT id FROM enterprise_users WHERE username = ?')
-        .get(norm.canonicalUsername) as { id?: string } | undefined;
-      if (duplicate?.id) {
-        res.status(409).json({
-          error: `Username "${norm.displayUsername}" already exists.`,
-        });
+      const existing = await findUserByUsername(norm.canonicalUsername);
+      if (existing) {
+        res.status(409).json({ error: `User ID "${norm.displayUsername}" already exists.` });
         return;
       }
 
-      const now = new Date().toISOString();
-      const userId = `usr_${crypto.randomUUID()}`;
-      const internalAuthId = makeInternalAuthId(norm.canonicalUsername);
-      const passwordHash = hashPasswordScrypt(password);
-
-      db.prepare(`
-        INSERT INTO enterprise_users (
-          id, username, display_username, internal_auth_id, password_hash, full_name,
-          employee_id, department, designation, contact_number, role, status,
-          is_archived, must_change_password, token_version, last_login_at, last_active_at,
-          created_by, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        userId,
-        norm.canonicalUsername,
-        norm.displayUsername,
-        internalAuthId,
-        passwordHash,
-        fullName,
-        'ADMIN-01',
-        'Executive Administration',
-        String(body.designation ?? 'Super Administrator').trim() || 'Super Administrator',
-        String(body.contactNumber ?? '').trim().slice(0, 40),
-        'super_admin',
-        'Approved',
-        0,
-        0,
-        1,
-        now,
-        now,
-        'bootstrap',
-        now,
-        now
-      );
-
-      const created = db
-        .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-        .get(userId) as unknown as DbUserRow;
-
-      recordLoginEvent({
-        userId,
+      const passwordHash = await hashPasswordBcrypt(password);
+      const created = await createUserRecord({
         username: norm.canonicalUsername,
         displayUsername: norm.displayUsername,
-        outcome: 'success',
-        detail: 'Super Admin initialized and signed in.',
-        req,
-      });
-
-      recordActivityEvent({
-        actorUserId: userId,
-        actorUsername: norm.canonicalUsername,
-        action: 'SUPER_ADMIN_BOOTSTRAP',
-        targetType: 'user',
-        targetId: userId,
-        summary: `Initialized Super Admin account (${norm.displayUsername}).`,
-      });
-
-      const token = signEnterpriseToken({
-        uid: userId,
+        passwordHash,
+        fullName,
+        employeeId: 'ADMIN-01',
+        department: 'Administration',
+        designation: String(body.designation ?? 'Super Admin / Director').trim() || 'Super Admin / Director',
+        contactNumber: String(body.contactNumber ?? '').trim().slice(0, 40),
         role: 'super_admin',
-        tv: 1,
+        status: 'Approved',
+        mustChangePassword: false,
+        createdBy: 'protected-bootstrap',
+      });
+
+      const token = await signEnterpriseToken({
+        uid: created.id,
+        role: 'super_admin',
+        tv: created.token_version,
         pwdChangeOnly: false,
       });
 
+      await createSessionRecord({
+        userId: created.id,
+        rawToken: token,
+        tokenVersion: created.token_version,
+        ipAddress: getClientIp(req),
+        userAgent: getUserAgent(req),
+      });
+
+      await recordLoginEvent({
+        userId: created.id,
+        username: created.username,
+        displayUsername: created.display_username,
+        role: 'super_admin',
+        outcome: 'success',
+        detail: 'Protected Super Admin provisioning completed.',
+        ipAddress: getClientIp(req),
+        userAgent: getUserAgent(req),
+      });
+
+      setSessionCookie(req, res, token);
       res.status(201).json({
         token,
         requiresPasswordChange: false,
-        user: sanitizeUserForClient(created, { includeAdminFields: true }),
+        user: sanitizeUserForClient(created, buildFullAdminPermissionMatrix(), { includeAdminFields: true }),
       });
     } catch (err) {
-      console.error('Super Admin bootstrap error:', err);
-      res.status(500).json({ error: 'Unable to initialize Super Admin account.' });
+      console.error('Protected bootstrap error:', err);
+      res.status(500).json({ error: 'Unable to provision Super Admin account.' });
     }
   });
 
   // =========================================================================
-  // 2. USERNAME + PASSWORD AUTHENTICATION (ZERO-EMAIL EMPLOYEE LOGIN)
+  // 2. SINGLE TALLY-STYLE WORKSPACE AUTHENTICATION (COOKIES + SESSIONS)
   // =========================================================================
-  router.post('/auth/login', authLimiter, (req, res) => {
+  router.post('/auth/login', authLimiter, async (req, res) => {
     try {
+      await ensureEnvSuperAdminSeeded();
       const body = (req.body || {}) as { username?: unknown; password?: unknown };
       const norm = normalizeEnterpriseUsername(body.username);
       const password = String(body.password ?? '');
 
       if (!norm.valid || !password) {
-        res.status(400).json({ error: 'Username and password are both required.' });
+        res.status(400).json({ error: 'User ID and password are both required.' });
         return;
       }
 
-      const db = getDb();
-      const user = db
-        .prepare('SELECT * FROM enterprise_users WHERE username = ?')
-        .get(norm.canonicalUsername) as DbUserRow | undefined;
+      const ipAddress = getClientIp(req);
+      const userAgent = getUserAgent(req);
+      const user = await findUserByUsername(norm.canonicalUsername);
 
-      if (!user || !verifyPasswordScrypt(password, user.password_hash)) {
-        if (user) {
-          recordLoginEvent({
-            userId: user.id,
-            username: user.username,
-            displayUsername: norm.displayUsername,
-            outcome: 'failed_password',
-            detail: 'Invalid password attempt.',
-            req,
-          });
-        }
-        res.status(401).json({ error: 'Invalid username or password.' });
+      if (!user) {
+        await recordLoginEvent({
+          userId: '',
+          username: norm.canonicalUsername,
+          displayUsername: norm.displayUsername,
+          outcome: 'failed_unknown_user',
+          detail: 'Unknown User ID attempt.',
+          ipAddress,
+          userAgent,
+        });
+        res.status(401).json({ error: 'Invalid User ID or password.' });
         return;
       }
 
-      if (user.is_archived === 1) {
-        recordLoginEvent({
+      if (user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
+        await recordLoginEvent({
           userId: user.id,
           username: user.username,
           displayUsername: user.display_username,
+          role: user.role,
+          outcome: 'denied_locked',
+          detail: 'Account temporarily locked due to repeated failed attempts.',
+          ipAddress,
+          userAgent,
+        });
+        res.status(423).json({
+          code: 'ACCOUNT_LOCKED',
+          error: 'Too many failed login attempts. Account temporarily locked; wait 15 minutes or ask your Super Admin to reset access.',
+        });
+        return;
+      }
+
+      const pwdCheck = await verifyPasswordWithMigration(password, user.password_hash);
+      if (!pwdCheck.valid) {
+        const nextAttempts = (user.failed_login_attempts || 0) + 1;
+        const lockedUntil =
+          nextAttempts >= MAX_FAILED_LOGIN_ATTEMPTS
+            ? new Date(Date.now() + LOCKOUT_DURATION_MS).toISOString()
+            : null;
+        await updateUserFields(user.id, {
+          failed_login_attempts: nextAttempts,
+          locked_until: lockedUntil,
+        });
+
+        await recordLoginEvent({
+          userId: user.id,
+          username: user.username,
+          displayUsername: user.display_username,
+          role: user.role,
+          outcome: 'failed_password',
+          detail: `Invalid password attempt (${nextAttempts}/${MAX_FAILED_LOGIN_ATTEMPTS}).`,
+          ipAddress,
+          userAgent,
+        });
+        res.status(401).json({ error: 'Invalid User ID or password.' });
+        return;
+      }
+
+      // Migrate legacy scrypt hash transparently to bcryptjs cost 12
+      if (pwdCheck.needsRehash) {
+        const nextHash = await hashPasswordBcrypt(password);
+        await updateUserFields(user.id, { password_hash: nextHash });
+      }
+
+      if (user.is_archived) {
+        await recordLoginEvent({
+          userId: user.id,
+          username: user.username,
+          displayUsername: user.display_username,
+          role: user.role,
           outcome: 'denied_archived',
           detail: 'Login blocked because account is archived.',
-          req,
+          ipAddress,
+          userAgent,
         });
         res.status(403).json({
           code: 'ACCOUNT_ARCHIVED',
@@ -744,8 +771,8 @@ export function createEnterpriseRouter(): Router {
         return;
       }
 
-      if (user.status !== 'Approved') {
-        const msgMap: Record<EnterpriseAccountStatus, { outcome: string; code: string; error: string }> = {
+      if (!isUserStatusActive(user.status)) {
+        const statusMessages: Record<string, { outcome: string; code: string; error: string }> = {
           'Pending Approval': {
             outcome: 'denied_pending',
             code: 'PENDING_APPROVAL',
@@ -754,80 +781,95 @@ export function createEnterpriseRouter(): Router {
           Rejected: {
             outcome: 'denied_rejected',
             code: 'ACCOUNT_REJECTED',
-            error: 'Your account has been rejected by the Super Admin. Please contact your administrator.',
+            error: 'Your account request has been rejected. Please contact your Super Admin.',
           },
           Suspended: {
             outcome: 'denied_suspended',
             code: 'ACCOUNT_SUSPENDED',
-            error: 'Your account has been suspended by the Super Admin. Please contact your administrator.',
+            error: 'Your account has been suspended by the Super Admin.',
           },
           Inactive: {
             outcome: 'denied_inactive',
             code: 'ACCOUNT_INACTIVE',
-            error: 'Your account is currently inactive. Please contact your Super Admin to reactivate it.',
+            error: 'Your account is currently inactive. Please contact your Super Admin.',
           },
-          Approved: {
-            outcome: 'success',
-            code: 'OK',
-            error: '',
+          'Password Reset Required': {
+            outcome: 'denied_reset_required',
+            code: 'PASSWORD_RESET_REQUIRED',
+            error: 'Password reset pending with Super Admin. Contact your administrator for your temporary password.',
           },
         };
-        const statusInfo = msgMap[user.status] || msgMap.Inactive;
-        recordLoginEvent({
+        const statusInfo = statusMessages[user.status] || statusMessages.Inactive;
+        await recordLoginEvent({
           userId: user.id,
           username: user.username,
           displayUsername: user.display_username,
+          role: user.role,
           outcome: statusInfo.outcome,
           detail: `Login denied (${user.status}).`,
-          req,
+          ipAddress,
+          userAgent,
         });
         res.status(403).json({ code: statusInfo.code, error: statusInfo.error });
         return;
       }
 
       const now = new Date().toISOString();
-      db.prepare('UPDATE enterprise_users SET last_login_at = ?, last_active_at = ? WHERE id = ?').run(
-        now,
-        now,
-        user.id
-      );
+      await updateUserFields(user.id, {
+        failed_login_attempts: 0,
+        locked_until: null,
+        last_login_at: now,
+        last_active_at: now,
+      });
       user.last_login_at = now;
       user.last_active_at = now;
 
-      const mustChange = user.must_change_password === 1;
-      recordLoginEvent({
-        userId: user.id,
-        username: user.username,
-        displayUsername: user.display_username,
-        outcome: 'success',
-        detail: mustChange
-          ? 'Authenticated with temporary password (mandatory password change required).'
-          : 'Authenticated successfully.',
-        req,
-      });
-
-      recordActivityEvent({
-        actorUserId: user.id,
-        actorUsername: user.username,
-        action: 'USER_LOGIN',
-        targetType: 'session',
-        targetId: user.id,
-        summary: mustChange
-          ? `${user.display_username} signed in with temporary password.`
-          : `${user.display_username} signed in to VCPL Pro.`,
-      });
-
-      const token = signEnterpriseToken({
+      const mustChange = Boolean(user.must_change_password);
+      const token = await signEnterpriseToken({
         uid: user.id,
         role: user.role,
         tv: user.token_version,
         pwdChangeOnly: mustChange,
       });
 
+      await createSessionRecord({
+        userId: user.id,
+        rawToken: token,
+        tokenVersion: user.token_version,
+        ipAddress,
+        userAgent,
+      });
+
+      await recordLoginEvent({
+        userId: user.id,
+        username: user.username,
+        displayUsername: user.display_username,
+        role: user.role,
+        outcome: 'success',
+        detail: mustChange
+          ? 'Authenticated with temporary password (password change required).'
+          : 'Authenticated successfully.',
+        ipAddress,
+        userAgent,
+      });
+
+      await recordActivityEvent({
+        actorUserId: user.id,
+        actorUsername: user.username,
+        action: 'USER_LOGIN',
+        targetType: 'session',
+        targetId: user.id,
+        summary: mustChange
+          ? `${user.full_name} signed in with temporary password.`
+          : `${user.full_name} signed in to VCPL Workspace.`,
+      });
+
+      setSessionCookie(req, res, token);
+      const perms = mustChange ? {} : await getUserPermissionsMap(user.id, user.role);
       res.json({
         token,
         requiresPasswordChange: mustChange,
-        user: sanitizeUserForClient(user, {
+        user: sanitizeUserForClient(user, perms, {
           includeAdminFields: user.role === 'super_admin',
         }),
       });
@@ -837,22 +879,25 @@ export function createEnterpriseRouter(): Router {
     }
   });
 
-  router.get('/auth/me', authenticateEnterprise({ allowPwdChangeOnly: true }), (req: AuthedRequest, res) => {
-    const user = req.enterpriseUser!;
-    const mustChange = user.must_change_password === 1 || Boolean(req.enterpriseToken?.pwdChangeOnly);
-    res.json({
-      requiresPasswordChange: mustChange,
-      user: sanitizeUserForClient(user, {
-        includeAdminFields: user.role === 'super_admin',
-        permissions: mustChange ? {} : req.enterprisePermissions,
-      }),
-    });
-  });
+  router.get(
+    '/auth/me',
+    authenticateEnterprise({ allowPwdChangeOnly: true }),
+    async (req: AuthedRequest, res) => {
+      const user = req.enterpriseUser!;
+      const mustChange = Boolean(user.must_change_password) || Boolean(req.enterpriseToken?.pwdChangeOnly);
+      res.json({
+        requiresPasswordChange: mustChange,
+        user: sanitizeUserForClient(user, mustChange ? {} : req.enterprisePermissions || {}, {
+          includeAdminFields: user.role === 'super_admin',
+        }),
+      });
+    }
+  );
 
   router.post(
     '/auth/change-password',
     authenticateEnterprise({ allowPwdChangeOnly: true }),
-    (req: AuthedRequest, res) => {
+    async (req: AuthedRequest, res) => {
       try {
         const user = req.enterpriseUser!;
         const body = (req.body || {}) as {
@@ -869,8 +914,9 @@ export function createEnterpriseRouter(): Router {
           res.status(400).json({ error: 'Current password, new password, and confirmation are all required.' });
           return;
         }
-        if (!verifyPasswordScrypt(currentPassword, user.password_hash)) {
-          res.status(401).json({ error: 'Current/temporary password is incorrect.' });
+        const pwdCheck = await verifyPasswordWithMigration(currentPassword, user.password_hash);
+        if (!pwdCheck.valid) {
+          res.status(401).json({ error: 'Current or temporary password is incorrect.' });
           return;
         }
         if (newPassword !== confirmPassword) {
@@ -889,50 +935,66 @@ export function createEnterpriseRouter(): Router {
           return;
         }
 
-        const db = getDb();
-        const now = new Date().toISOString();
-        const nextHash = hashPasswordScrypt(newPassword);
+        const nextHash = await hashPasswordBcrypt(newPassword);
         const nextVersion = user.token_version + 1;
+        const now = new Date().toISOString();
 
-        db.prepare(`
-          UPDATE enterprise_users
-          SET password_hash = ?, must_change_password = 0, token_version = ?, updated_at = ?, last_active_at = ?
-          WHERE id = ?
-        `).run(nextHash, nextVersion, now, now, user.id);
-
-        const updated = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(user.id) as unknown as DbUserRow;
-
-        recordLoginEvent({
-          userId: user.id,
-          username: user.username,
-          displayUsername: user.display_username,
-          outcome: 'password_changed',
-          detail: 'User completed mandatory/voluntary password change. Temporary password invalidated.',
-          req,
+        // Invalidate all prior sessions & temp password immediately
+        await revokeAllUserSessions(user.id, 'password_changed');
+        const updated = await updateUserFields(user.id, {
+          password_hash: nextHash,
+          must_change_password: false,
+          failed_login_attempts: 0,
+          locked_until: null,
+          token_version: nextVersion,
+          last_active_at: now,
         });
+        if (!updated) {
+          res.status(404).json({ error: 'User account not found.' });
+          return;
+        }
 
-        recordActivityEvent({
-          actorUserId: user.id,
-          actorUsername: user.username,
-          action: 'PASSWORD_CHANGED',
-          targetType: 'user',
-          targetId: user.id,
-          summary: `${user.display_username} updated their personal password and unlocked full access.`,
-        });
-
-        const token = signEnterpriseToken({
+        const token = await signEnterpriseToken({
           uid: updated.id,
           role: updated.role,
           tv: updated.token_version,
           pwdChangeOnly: false,
         });
 
+        await createSessionRecord({
+          userId: updated.id,
+          rawToken: token,
+          tokenVersion: updated.token_version,
+          ipAddress: getClientIp(req),
+          userAgent: getUserAgent(req),
+        });
+
+        await recordLoginEvent({
+          userId: updated.id,
+          username: updated.username,
+          displayUsername: updated.display_username,
+          role: updated.role,
+          outcome: 'password_changed',
+          detail: 'Password updated and temporary password invalidated.',
+          ipAddress: getClientIp(req),
+          userAgent: getUserAgent(req),
+        });
+
+        await recordActivityEvent({
+          actorUserId: updated.id,
+          actorUsername: updated.username,
+          action: 'PASSWORD_CHANGED',
+          targetType: 'user',
+          targetId: updated.id,
+          summary: `${updated.full_name} updated password and unlocked workspace access.`,
+        });
+
+        setSessionCookie(req, res, token);
+        const perms = await getUserPermissionsMap(updated.id, updated.role);
         res.json({
           token,
           requiresPasswordChange: false,
-          user: sanitizeUserForClient(updated, {
+          user: sanitizeUserForClient(updated, perms, {
             includeAdminFields: updated.role === 'super_admin',
           }),
         });
@@ -943,7 +1005,7 @@ export function createEnterpriseRouter(): Router {
     }
   );
 
-  router.post('/auth/forgot-password', resetLimiter, (req, res) => {
+  router.post('/auth/forgot-password', resetLimiter, async (req, res) => {
     try {
       const body = (req.body || {}) as { username?: unknown; note?: unknown };
       const norm = normalizeEnterpriseUsername(body.username);
@@ -952,46 +1014,30 @@ export function createEnterpriseRouter(): Router {
         return;
       }
 
-      const db = getDb();
-      const user = db
-        .prepare('SELECT * FROM enterprise_users WHERE username = ? AND is_archived = 0')
-        .get(norm.canonicalUsername) as DbUserRow | undefined;
-
+      const user = await findUserByUsername(norm.canonicalUsername);
       const note = String(body.note ?? '').trim().slice(0, 400);
-      const now = new Date().toISOString();
 
-      if (user) {
-        const existingPending = db
-          .prepare("SELECT id FROM enterprise_password_reset_requests WHERE user_id = ? AND status = 'Pending' LIMIT 1")
-          .get(user.id) as { id?: string } | undefined;
-
-        if (existingPending?.id) {
-          db.prepare(
-            'UPDATE enterprise_password_reset_requests SET note = ?, updated_at = ? WHERE id = ?'
-          ).run(note || 'Employee re-submitted password reset request.', now, existingPending.id);
-        } else {
-          const reqId = `rst_${crypto.randomUUID()}`;
-          db.prepare(`
-            INSERT INTO enterprise_password_reset_requests (
-              id, user_id, username, full_name, status, note, resolved_by, resolved_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, 'Pending', ?, '', '', ?, ?)
-          `).run(reqId, user.id, user.username, user.full_name, note, now, now);
-        }
-
-        recordActivityEvent({
+      if (user && !user.is_archived) {
+        await upsertPendingResetRequest({
+          userId: user.id,
+          username: user.username,
+          fullName: user.full_name,
+          note,
+        });
+        await recordActivityEvent({
           actorUserId: user.id,
           actorUsername: user.username,
           action: 'PASSWORD_RESET_REQUESTED',
           targetType: 'reset_request',
           targetId: user.id,
-          summary: `${user.display_username} submitted a manual password reset request.`,
+          summary: `${user.full_name} submitted a manual password reset request.`,
         });
       }
 
       res.json({
         ok: true,
         message:
-          'If this username is registered, your password reset request has been sent to the Super Admin. No automatic email will be sent—please contact your Super Admin directly to obtain your new temporary password.',
+          'If this User ID is registered, your password reset request has been queued for the Super Admin. No automatic email is sent—contact your administrator directly for your temporary password.',
       });
     } catch (err) {
       console.error('Forgot password error:', err);
@@ -999,269 +1045,358 @@ export function createEnterpriseRouter(): Router {
     }
   });
 
-  router.post(
-    '/auth/logout',
-    authenticateEnterprise({ allowPwdChangeOnly: true }),
-    (req: AuthedRequest, res) => {
-      const user = req.enterpriseUser!;
-      recordActivityEvent({
-        actorUserId: user.id,
-        actorUsername: user.username,
-        action: 'USER_LOGOUT',
-        targetType: 'session',
-        targetId: user.id,
-        summary: `${user.display_username} signed out.`,
-      });
+  router.post('/auth/logout', async (req, res) => {
+    try {
+      const rawToken = extractRequestToken(req);
+      if (rawToken) {
+        const payload = await verifyEnterpriseToken(rawToken);
+        await revokeSessionByToken(rawToken, 'user_logout');
+        if (payload?.uid) {
+          const user = await findUserById(payload.uid);
+          if (user) {
+            await recordActivityEvent({
+              actorUserId: user.id,
+              actorUsername: user.username,
+              action: 'USER_LOGOUT',
+              targetType: 'session',
+              targetId: user.id,
+              summary: `${user.full_name} signed out.`,
+            });
+          }
+        }
+      }
+      clearSessionCookie(req, res);
+      res.json({ ok: true });
+    } catch {
+      clearSessionCookie(req, res);
       res.json({ ok: true });
     }
-  );
+  });
 
   // =========================================================================
-  // 3. SUPER ADMIN USER & RBAC MANAGEMENT (ALL 15 FEATURES)
+  // 3. SUPER ADMIN GOVERNANCE, DEPARTMENTS, DESIGNATIONS, USERS & RBAC
   // =========================================================================
-  router.get(
-    '/admin/users',
-    authenticateEnterprise(),
-    requireSuperAdmin,
-    (req, res) => {
-      const db = getDb();
+  router.get('/admin/departments', authenticateEnterprise(), requireSuperAdmin, async (_req, res) => {
+    try {
+      const departments = await listDepartments();
+      res.json({ departments });
+    } catch (err) {
+      console.error('List departments error:', err);
+      res.status(500).json({ error: 'Unable to load departments.' });
+    }
+  });
+
+  router.post('/admin/departments', authenticateEnterprise(), requireSuperAdmin, async (req: AuthedRequest, res) => {
+    try {
+      const actor = req.enterpriseUser!;
+      const body = (req.body || {}) as { name?: unknown; code?: unknown; description?: unknown };
+      const name = String(body.name ?? '').trim().slice(0, 100);
+      const code = String(body.code ?? '').trim().slice(0, 16);
+      if (name.length < 2 || code.length < 2) {
+        res.status(400).json({ error: 'Department name and short code (2+ characters) are required.' });
+        return;
+      }
+      const created = await createDepartment({
+        name,
+        code,
+        description: String(body.description ?? '').trim().slice(0, 240),
+      });
+      await recordAuditTrail({
+        actorUserId: actor.id,
+        actorUsername: actor.username,
+        category: 'governance',
+        eventType: 'DEPARTMENT_CREATED',
+        targetType: 'department',
+        targetId: created.id,
+        after: created,
+        ipAddress: getClientIp(req),
+        userAgent: getUserAgent(req),
+      });
+      res.status(201).json({ department: created });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Unable to create department.' });
+    }
+  });
+
+  router.get('/admin/designations', authenticateEnterprise(), requireSuperAdmin, async (_req, res) => {
+    try {
+      const designations = await listDesignations();
+      res.json({ designations });
+    } catch (err) {
+      console.error('List designations error:', err);
+      res.status(500).json({ error: 'Unable to load designations.' });
+    }
+  });
+
+  router.post('/admin/designations', authenticateEnterprise(), requireSuperAdmin, async (req: AuthedRequest, res) => {
+    try {
+      const actor = req.enterpriseUser!;
+      const body = (req.body || {}) as {
+        departmentId?: unknown;
+        name?: unknown;
+        defaultPermissions?: UserPermissionMatrix;
+      };
+      const name = String(body.name ?? '').trim().slice(0, 100);
+      if (name.length < 2) {
+        res.status(400).json({ error: 'Designation name is required.' });
+        return;
+      }
+      const created = await createDesignation({
+        departmentId: typeof body.departmentId === 'string' ? body.departmentId.trim() : undefined,
+        name,
+        defaultPermissions: body.defaultPermissions || {},
+      });
+      await recordAuditTrail({
+        actorUserId: actor.id,
+        actorUsername: actor.username,
+        category: 'governance',
+        eventType: 'DESIGNATION_CREATED',
+        targetType: 'designation',
+        targetId: created.id,
+        after: created,
+        ipAddress: getClientIp(req),
+        userAgent: getUserAgent(req),
+      });
+      res.status(201).json({ designation: created });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Unable to create designation.' });
+    }
+  });
+
+  router.get('/admin/users', authenticateEnterprise(), requireSuperAdmin, async (req, res) => {
+    try {
       const includeArchived = req.query.includeArchived === '1' || req.query.includeArchived === 'true';
-      const rows = db
-        .prepare(
-          includeArchived
-            ? 'SELECT * FROM enterprise_users ORDER BY role DESC, created_at DESC'
-            : 'SELECT * FROM enterprise_users WHERE is_archived = 0 ORDER BY role DESC, created_at DESC'
-        )
-        .all() as unknown as DbUserRow[];
-
+      const rows = await listUsers(includeArchived);
+      const permMap = await getBatchPermissionsMaps(rows);
       const users = rows.map((row) =>
-        sanitizeUserForClient(row, { includeAdminFields: true })
+        sanitizeUserForClient(row, permMap[row.id] || {}, { includeAdminFields: true })
       );
       res.json({ users });
+    } catch (err) {
+      console.error('List users error:', err);
+      res.status(500).json({ error: 'Unable to load users.' });
     }
-  );
+  });
 
-  router.post(
-    '/admin/users',
-    authenticateEnterprise(),
-    requireSuperAdmin,
-    (req: AuthedRequest, res) => {
-      try {
-        const actor = req.enterpriseUser!;
-        const body = (req.body || {}) as {
-          username?: unknown;
-          temporaryPassword?: unknown;
-          fullName?: unknown;
-          employeeId?: unknown;
-          department?: unknown;
-          designation?: unknown;
-          contactNumber?: unknown;
-          status?: unknown;
-          permissions?: UserPermissionMatrix;
-        };
+  router.post('/admin/users', authenticateEnterprise(), requireSuperAdmin, async (req: AuthedRequest, res) => {
+    try {
+      const actor = req.enterpriseUser!;
+      const body = (req.body || {}) as {
+        username?: unknown;
+        temporaryPassword?: unknown;
+        fullName?: unknown;
+        employeeId?: unknown;
+        department?: unknown;
+        designation?: unknown;
+        contactNumber?: unknown;
+        role?: unknown;
+        status?: unknown;
+        permissions?: UserPermissionMatrix;
+      };
 
-        const norm = normalizeEnterpriseUsername(body.username);
+      const norm = normalizeEnterpriseUsername(body.username);
+      if (!norm.valid) {
+        res.status(400).json({ error: norm.error });
+        return;
+      }
+
+      const fullName = String(body.fullName ?? '').trim();
+      if (fullName.length < 2 || fullName.length > 120) {
+        res.status(400).json({ error: 'Full Name is required (2–120 characters).' });
+        return;
+      }
+
+      const existing = await findUserByUsername(norm.canonicalUsername);
+      if (existing) {
+        res.status(409).json({
+          code: 'USERNAME_EXISTS',
+          error: `User ID "${norm.displayUsername}" already exists (registered as "${existing.display_username}").`,
+        });
+        return;
+      }
+
+      const rawTempPwd = String(body.temporaryPassword ?? '').trim();
+      const tempPassword = rawTempPwd || generateTempPassword(12);
+      if (tempPassword.length < 8 || tempPassword.length > 128) {
+        res.status(400).json({ error: 'Temporary password must be between 8 and 128 characters.' });
+        return;
+      }
+
+      const role: 'super_admin' | 'employee' = body.role === 'super_admin' ? 'super_admin' : 'employee';
+      const status: ExtendedAccountStatus = isValidStatus(body.status) ? body.status : 'Approved';
+      const passwordHash = await hashPasswordBcrypt(tempPassword);
+
+      const created = await createUserRecord({
+        username: norm.canonicalUsername,
+        displayUsername: norm.displayUsername,
+        passwordHash,
+        fullName,
+        employeeId: String(body.employeeId ?? '').trim().slice(0, 64),
+        department: String(body.department ?? 'Operations').trim().slice(0, 100) || 'Operations',
+        designation: String(body.designation ?? 'Staff').trim().slice(0, 100) || 'Staff',
+        contactNumber: String(body.contactNumber ?? '').trim().slice(0, 40),
+        role,
+        status,
+        mustChangePassword: true,
+        createdBy: actor.username,
+      });
+
+      if (role === 'employee' && body.permissions && typeof body.permissions === 'object') {
+        await saveUserPermissionsMap(created.id, body.permissions, actor.username);
+      }
+
+      const perms = await getUserPermissionsMap(created.id, created.role);
+
+      await recordActivityEvent({
+        actorUserId: actor.id,
+        actorUsername: actor.username,
+        action: 'USER_CREATED',
+        targetType: 'user',
+        targetId: created.id,
+        summary: `Created account ${created.display_username} (${created.full_name}) with status "${status}".`,
+      });
+      await recordAuditTrail({
+        actorUserId: actor.id,
+        actorUsername: actor.username,
+        category: 'user_management',
+        eventType: 'USER_CREATED',
+        targetType: 'user',
+        targetId: created.id,
+        after: { username: created.username, role: created.role, status: created.status },
+        ipAddress: getClientIp(req),
+        userAgent: getUserAgent(req),
+      });
+
+      res.status(201).json({
+        user: sanitizeUserForClient(created, perms, { includeAdminFields: true }),
+        temporaryPassword: tempPassword,
+      });
+    } catch (err) {
+      console.error('Create enterprise user error:', err);
+      res.status(500).json({ error: 'Unable to create user account.' });
+    }
+  });
+
+  router.patch('/admin/users/:id', authenticateEnterprise(), requireSuperAdmin, async (req: AuthedRequest, res) => {
+    try {
+      const actor = req.enterpriseUser!;
+      const targetId = String(req.params.id || '');
+      const existing = await findUserById(targetId);
+      if (!existing) {
+        res.status(404).json({ error: 'User account not found.' });
+        return;
+      }
+
+      const body = (req.body || {}) as {
+        fullName?: unknown;
+        employeeId?: unknown;
+        department?: unknown;
+        designation?: unknown;
+        contactNumber?: unknown;
+        displayUsername?: unknown;
+        role?: unknown;
+      };
+
+      const fullName =
+        body.fullName !== undefined ? String(body.fullName).trim() : existing.full_name;
+      if (fullName.length < 2 || fullName.length > 120) {
+        res.status(400).json({ error: 'Full Name must be between 2 and 120 characters.' });
+        return;
+      }
+
+      let nextDisplayUsername = existing.display_username;
+      let nextCanonicalUsername = existing.username;
+      if (body.displayUsername !== undefined) {
+        const norm = normalizeEnterpriseUsername(body.displayUsername);
         if (!norm.valid) {
           res.status(400).json({ error: norm.error });
           return;
         }
-
-        const fullName = String(body.fullName ?? '').trim();
-        if (fullName.length < 2 || fullName.length > 120) {
-          res.status(400).json({ error: 'Full Name is required (2–120 characters).' });
-          return;
-        }
-
-        const db = getDb();
-        const existing = db
-          .prepare('SELECT id, display_username FROM enterprise_users WHERE username = ?')
-          .get(norm.canonicalUsername) as { id?: string; display_username?: string } | undefined;
-
-        if (existing?.id) {
-          res.status(409).json({
-            code: 'USERNAME_EXISTS',
-            error: `Username "${norm.displayUsername}" already exists (registered as "${existing.display_username || norm.canonicalUsername}"). Duplicate accounts differing only in capitalization are not permitted.`,
-          });
-          return;
-        }
-
-        const rawTempPwd = String(body.temporaryPassword ?? '').trim();
-        const tempPassword = rawTempPwd || generateTempPassword(12);
-        if (tempPassword.length < 6 || tempPassword.length > 128) {
-          res.status(400).json({ error: 'Temporary password must be between 6 and 128 characters.' });
-          return;
-        }
-
-        const status: EnterpriseAccountStatus = isValidStatus(body.status)
-          ? body.status
-          : 'Approved';
-
-        const now = new Date().toISOString();
-        const userId = `usr_${crypto.randomUUID()}`;
-        const internalAuthId = makeInternalAuthId(norm.canonicalUsername);
-        const passwordHash = hashPasswordScrypt(tempPassword);
-
-        db.prepare(`
-          INSERT INTO enterprise_users (
-            id, username, display_username, internal_auth_id, password_hash, full_name,
-            employee_id, department, designation, contact_number, role, status,
-            is_archived, must_change_password, token_version, last_login_at, last_active_at,
-            created_by, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'employee', ?, 0, 1, 1, '', '', ?, ?, ?)
-        `).run(
-          userId,
-          norm.canonicalUsername,
-          norm.displayUsername,
-          internalAuthId,
-          passwordHash,
-          fullName,
-          String(body.employeeId ?? '').trim().slice(0, 64),
-          String(body.department ?? 'Operations').trim().slice(0, 100) || 'Operations',
-          String(body.designation ?? 'Staff').trim().slice(0, 100) || 'Staff',
-          String(body.contactNumber ?? '').trim().slice(0, 40),
-          status,
-          actor.username,
-          now,
-          now
-        );
-
-        if (body.permissions && typeof body.permissions === 'object') {
-          saveUserPermissionsMap(userId, body.permissions);
-        }
-
-        const created = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(userId) as unknown as DbUserRow;
-
-        recordActivityEvent({
-          actorUserId: actor.id,
-          actorUsername: actor.username,
-          action: 'USER_CREATED',
-          targetType: 'user',
-          targetId: userId,
-          summary: `Created user ${norm.displayUsername} (${fullName}) with status "${status}".`,
-        });
-
-        res.status(201).json({
-          user: sanitizeUserForClient(created, { includeAdminFields: true }),
-          temporaryPassword: tempPassword,
-        });
-      } catch (err) {
-        console.error('Create enterprise user error:', err);
-        res.status(500).json({ error: 'Unable to create user account.' });
-      }
-    }
-  );
-
-  router.patch(
-    '/admin/users/:id',
-    authenticateEnterprise(),
-    requireSuperAdmin,
-    (req: AuthedRequest, res) => {
-      try {
-        const actor = req.enterpriseUser!;
-        const targetId = String(req.params.id || '');
-        const db = getDb();
-        const existing = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(targetId) as DbUserRow | undefined;
-
-        if (!existing) {
-          res.status(404).json({ error: 'User account not found.' });
-          return;
-        }
-
-        const body = (req.body || {}) as {
-          fullName?: unknown;
-          employeeId?: unknown;
-          department?: unknown;
-          designation?: unknown;
-          contactNumber?: unknown;
-          displayUsername?: unknown;
-        };
-
-        const fullName =
-          body.fullName !== undefined ? String(body.fullName).trim() : existing.full_name;
-        if (fullName.length < 2 || fullName.length > 120) {
-          res.status(400).json({ error: 'Full Name must be between 2 and 120 characters.' });
-          return;
-        }
-
-        let nextDisplayUsername = existing.display_username;
-        let nextCanonicalUsername = existing.username;
-        if (body.displayUsername !== undefined) {
-          const norm = normalizeEnterpriseUsername(body.displayUsername);
-          if (!norm.valid) {
-            res.status(400).json({ error: norm.error });
+        if (norm.canonicalUsername !== existing.username) {
+          const clash = await findUserByUsername(norm.canonicalUsername);
+          if (clash && clash.id !== targetId) {
+            res.status(409).json({ error: `User ID "${norm.displayUsername}" already exists.` });
             return;
           }
-          if (norm.canonicalUsername !== existing.username) {
-            const clash = db
-              .prepare('SELECT id FROM enterprise_users WHERE username = ? AND id != ?')
-              .get(norm.canonicalUsername, targetId) as { id?: string } | undefined;
-            if (clash?.id) {
-              res.status(409).json({
-                error: `Username "${norm.displayUsername}" already exists.`,
-              });
-              return;
-            }
-          }
-          nextDisplayUsername = norm.displayUsername;
-          nextCanonicalUsername = norm.canonicalUsername;
         }
+        nextDisplayUsername = norm.displayUsername;
+        nextCanonicalUsername = norm.canonicalUsername;
+      }
 
-        const now = new Date().toISOString();
-        db.prepare(`
-          UPDATE enterprise_users
-          SET username = ?, display_username = ?, full_name = ?, employee_id = ?,
-              department = ?, designation = ?, contact_number = ?, updated_at = ?
-          WHERE id = ?
-        `).run(
-          nextCanonicalUsername,
-          nextDisplayUsername,
-          fullName,
+      let nextRole: 'super_admin' | 'employee' = existing.role;
+      if (body.role === 'super_admin' || body.role === 'employee') {
+        if (existing.role === 'super_admin' && body.role === 'employee') {
+          const adminCount = await countActiveSuperAdmins();
+          if (adminCount <= 1) {
+            res.status(400).json({ error: 'Cannot demote the last active Super Admin account.' });
+            return;
+          }
+        }
+        nextRole = body.role;
+      }
+
+      const updated = await updateUserFields(targetId, {
+        username: nextCanonicalUsername,
+        display_username: nextDisplayUsername,
+        full_name: fullName,
+        employee_id:
           body.employeeId !== undefined
             ? String(body.employeeId).trim().slice(0, 64)
             : existing.employee_id,
+        department:
           body.department !== undefined
             ? String(body.department).trim().slice(0, 100) || 'Operations'
             : existing.department,
+        designation:
           body.designation !== undefined
             ? String(body.designation).trim().slice(0, 100) || 'Staff'
             : existing.designation,
+        contact_number:
           body.contactNumber !== undefined
             ? String(body.contactNumber).trim().slice(0, 40)
             : existing.contact_number,
-          now,
-          targetId
-        );
+        role: nextRole,
+      });
 
-        const updated = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(targetId) as unknown as DbUserRow;
-
-        recordActivityEvent({
-          actorUserId: actor.id,
-          actorUsername: actor.username,
-          action: 'USER_UPDATED',
-          targetType: 'user',
-          targetId: targetId,
-          summary: `Updated details & designation for ${updated.display_username} (${updated.designation}).`,
-        });
-
-        res.json({ user: sanitizeUserForClient(updated, { includeAdminFields: true }) });
-      } catch (err) {
-        console.error('Update enterprise user error:', err);
-        res.status(500).json({ error: 'Unable to update user details.' });
+      if (!updated) {
+        res.status(404).json({ error: 'User account not found.' });
+        return;
       }
+
+      const perms = await getUserPermissionsMap(updated.id, updated.role);
+      await recordActivityEvent({
+        actorUserId: actor.id,
+        actorUsername: actor.username,
+        action: 'USER_UPDATED',
+        targetType: 'user',
+        targetId,
+        summary: `Updated details & designation for ${updated.display_username} (${updated.designation}).`,
+      });
+      await recordAuditTrail({
+        actorUserId: actor.id,
+        actorUsername: actor.username,
+        category: 'user_management',
+        eventType: 'USER_UPDATED',
+        targetType: 'user',
+        targetId,
+        before: { department: existing.department, designation: existing.designation, role: existing.role },
+        after: { department: updated.department, designation: updated.designation, role: updated.role },
+        ipAddress: getClientIp(req),
+        userAgent: getUserAgent(req),
+      });
+
+      res.json({ user: sanitizeUserForClient(updated, perms, { includeAdminFields: true }) });
+    } catch (err) {
+      console.error('Update enterprise user error:', err);
+      res.status(500).json({ error: 'Unable to update user details.' });
     }
-  );
+  });
 
   router.patch(
     '/admin/users/:id/status',
     authenticateEnterprise(),
     requireSuperAdmin,
-    (req: AuthedRequest, res) => {
+    async (req: AuthedRequest, res) => {
       try {
         const actor = req.enterpriseUser!;
         const targetId = String(req.params.id || '');
@@ -1274,31 +1409,43 @@ export function createEnterpriseRouter(): Router {
           return;
         }
 
-        const db = getDb();
-        const existing = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(targetId) as DbUserRow | undefined;
-
+        const existing = await findUserById(targetId);
         if (!existing) {
           res.status(404).json({ error: 'User account not found.' });
           return;
         }
-        if (existing.id === actor.id && nextStatus !== 'Approved') {
-          res.status(400).json({ error: 'Super Admin cannot suspend or deactivate their own active session account.' });
+
+        const becomingInactive = !isUserStatusActive(nextStatus);
+        if (existing.id === actor.id && becomingInactive) {
+          res.status(400).json({ error: 'Super Admin cannot suspend or deactivate their own active session.' });
+          return;
+        }
+        if (existing.role === 'super_admin' && isUserStatusActive(existing.status) && becomingInactive) {
+          const activeAdmins = await countActiveSuperAdmins();
+          if (activeAdmins <= 1) {
+            res.status(400).json({ error: 'Cannot disable the last active Super Admin account.' });
+            return;
+          }
+        }
+
+        const nextTv = becomingInactive ? existing.token_version + 1 : existing.token_version;
+        if (becomingInactive) {
+          await revokeAllUserSessions(targetId, `status_${nextStatus}`);
+        }
+
+        const updated = await updateUserFields(targetId, {
+          status: nextStatus,
+          token_version: nextTv,
+          ...(isUserStatusActive(nextStatus) ? { failed_login_attempts: 0, locked_until: null } : {}),
+        });
+
+        if (!updated) {
+          res.status(404).json({ error: 'User account not found.' });
           return;
         }
 
-        const now = new Date().toISOString();
-        const nextTv = nextStatus === 'Approved' ? existing.token_version : existing.token_version + 1;
-        db.prepare(
-          'UPDATE enterprise_users SET status = ?, token_version = ?, updated_at = ? WHERE id = ?'
-        ).run(nextStatus, nextTv, now, targetId);
-
-        const updated = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(targetId) as unknown as DbUserRow;
-
-        recordActivityEvent({
+        const perms = await getUserPermissionsMap(updated.id, updated.role);
+        await recordActivityEvent({
           actorUserId: actor.id,
           actorUsername: actor.username,
           action: 'USER_STATUS_CHANGED',
@@ -1307,7 +1454,7 @@ export function createEnterpriseRouter(): Router {
           summary: `Changed status for ${updated.display_username} from "${existing.status}" to "${nextStatus}".`,
         });
 
-        res.json({ user: sanitizeUserForClient(updated, { includeAdminFields: true }) });
+        res.json({ user: sanitizeUserForClient(updated, perms, { includeAdminFields: true }) });
       } catch (err) {
         console.error('Update status error:', err);
         res.status(500).json({ error: 'Unable to update user status.' });
@@ -1319,15 +1466,11 @@ export function createEnterpriseRouter(): Router {
     '/admin/users/:id/permissions',
     authenticateEnterprise(),
     requireSuperAdmin,
-    (req: AuthedRequest, res) => {
+    async (req: AuthedRequest, res) => {
       try {
         const actor = req.enterpriseUser!;
         const targetId = String(req.params.id || '');
-        const db = getDb();
-        const existing = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(targetId) as DbUserRow | undefined;
-
+        const existing = await findUserById(targetId);
         if (!existing) {
           res.status(404).json({ error: 'User account not found.' });
           return;
@@ -1339,30 +1482,39 @@ export function createEnterpriseRouter(): Router {
           return;
         }
 
-        saveUserPermissionsMap(targetId, matrix);
-        db.prepare('UPDATE enterprise_users SET updated_at = ? WHERE id = ?').run(
-          new Date().toISOString(),
-          targetId
-        );
-
-        const updated = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(targetId) as unknown as DbUserRow;
+        const beforePerms = await getUserPermissionsMap(targetId, existing.role);
+        await saveUserPermissionsMap(targetId, matrix, actor.username);
+        const updated = await updateUserFields(targetId, {});
+        const afterPerms = await getUserPermissionsMap(targetId, existing.role);
 
         const enabledModuleCount = Object.values(matrix).filter((m) =>
           Boolean(m && Object.values(m).some(Boolean))
         ).length;
 
-        recordActivityEvent({
+        await recordActivityEvent({
           actorUserId: actor.id,
           actorUsername: actor.username,
           action: 'PERMISSIONS_UPDATED',
           targetType: 'user',
           targetId,
-          summary: `Updated tool & permission matrix for ${updated.display_username} (${enabledModuleCount} modules configured).`,
+          summary: `Updated tool permissions for ${existing.display_username} (${enabledModuleCount} modules enabled).`,
+        });
+        await recordAuditTrail({
+          actorUserId: actor.id,
+          actorUsername: actor.username,
+          category: 'permissions',
+          eventType: 'PERMISSIONS_UPDATED',
+          targetType: 'user',
+          targetId,
+          before: { moduleCount: Object.keys(beforePerms).length },
+          after: { moduleCount: enabledModuleCount },
+          ipAddress: getClientIp(req),
+          userAgent: getUserAgent(req),
         });
 
-        res.json({ user: sanitizeUserForClient(updated, { includeAdminFields: true }) });
+        res.json({
+          user: sanitizeUserForClient(updated || existing, afterPerms, { includeAdminFields: true }),
+        });
       } catch (err) {
         console.error('Update permissions error:', err);
         res.status(500).json({ error: 'Unable to update user permissions.' });
@@ -1374,17 +1526,13 @@ export function createEnterpriseRouter(): Router {
     '/admin/users/:id/reset-password',
     authenticateEnterprise(),
     requireSuperAdmin,
-    (req: AuthedRequest, res) => {
+    async (req: AuthedRequest, res) => {
       try {
         const actor = req.enterpriseUser!;
         const targetId = String(req.params.id || '');
         const body = (req.body || {}) as { temporaryPassword?: unknown; requestId?: unknown };
 
-        const db = getDb();
-        const existing = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(targetId) as DbUserRow | undefined;
-
+        const existing = await findUserById(targetId);
         if (!existing) {
           res.status(404).json({ error: 'User account not found.' });
           return;
@@ -1392,51 +1540,43 @@ export function createEnterpriseRouter(): Router {
 
         const rawTemp = String(body.temporaryPassword ?? '').trim();
         const temporaryPassword = rawTemp || generateTempPassword(12);
-        if (temporaryPassword.length < 6 || temporaryPassword.length > 128) {
-          res.status(400).json({ error: 'Temporary password must be between 6 and 128 characters.' });
+        if (temporaryPassword.length < 8 || temporaryPassword.length > 128) {
+          res.status(400).json({ error: 'Temporary password must be between 8 and 128 characters.' });
           return;
         }
 
-        const now = new Date().toISOString();
-        const nextHash = hashPasswordScrypt(temporaryPassword);
+        const nextHash = await hashPasswordBcrypt(temporaryPassword);
         const nextTv = existing.token_version + 1;
 
-        db.prepare(`
-          UPDATE enterprise_users
-          SET password_hash = ?, must_change_password = 1, token_version = ?, updated_at = ?
-          WHERE id = ?
-        `).run(nextHash, nextTv, now, targetId);
+        await revokeAllUserSessions(targetId, 'admin_password_reset');
+        const updated = await updateUserFields(targetId, {
+          password_hash: nextHash,
+          must_change_password: true,
+          failed_login_attempts: 0,
+          locked_until: null,
+          token_version: nextTv,
+        });
 
-        if (typeof body.requestId === 'string' && body.requestId.trim()) {
-          db.prepare(`
-            UPDATE enterprise_password_reset_requests
-            SET status = 'Approved', resolved_by = ?, resolved_at = ?, updated_at = ?
-            WHERE id = ?
-          `).run(actor.display_username, now, now, body.requestId.trim());
-        } else {
-          db.prepare(`
-            UPDATE enterprise_password_reset_requests
-            SET status = 'Approved', resolved_by = ?, resolved_at = ?, updated_at = ?
-            WHERE user_id = ? AND status = 'Pending'
-          `).run(actor.display_username, now, now, targetId);
-        }
+        await resolveResetRequestsForUser({
+          requestId: typeof body.requestId === 'string' ? body.requestId.trim() : undefined,
+          userId: targetId,
+          status: 'Approved',
+          resolvedBy: actor.display_username,
+        });
 
-        const updated = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(targetId) as unknown as DbUserRow;
-
-        recordActivityEvent({
+        const perms = await getUserPermissionsMap(targetId, existing.role);
+        await recordActivityEvent({
           actorUserId: actor.id,
           actorUsername: actor.username,
           action: 'ADMIN_PASSWORD_RESET',
           targetType: 'user',
           targetId,
-          summary: `Generated temporary password for ${updated.display_username} (mandatory change enforced on next login).`,
+          summary: `Issued temporary password for ${existing.display_username} (mandatory change enforced on next login).`,
         });
 
         res.json({
           temporaryPassword,
-          user: sanitizeUserForClient(updated, { includeAdminFields: true }),
+          user: sanitizeUserForClient(updated || existing, perms, { includeAdminFields: true }),
         });
       } catch (err) {
         console.error('Admin password reset error:', err);
@@ -1449,16 +1589,12 @@ export function createEnterpriseRouter(): Router {
     '/admin/users/:id/archive',
     authenticateEnterprise(),
     requireSuperAdmin,
-    (req: AuthedRequest, res) => {
+    async (req: AuthedRequest, res) => {
       try {
         const actor = req.enterpriseUser!;
         const targetId = String(req.params.id || '');
         const archived = Boolean((req.body as { archived?: unknown })?.archived ?? true);
-
-        const db = getDb();
-        const existing = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(targetId) as DbUserRow | undefined;
+        const existing = await findUserById(targetId);
 
         if (!existing) {
           res.status(404).json({ error: 'User account not found.' });
@@ -1468,27 +1604,37 @@ export function createEnterpriseRouter(): Router {
           res.status(400).json({ error: 'Super Admin cannot archive their own account.' });
           return;
         }
+        if (existing.role === 'super_admin' && archived && !existing.is_archived) {
+          const activeAdmins = await countActiveSuperAdmins();
+          if (activeAdmins <= 1) {
+            res.status(400).json({ error: 'Cannot archive the last active Super Admin account.' });
+            return;
+          }
+        }
 
-        const now = new Date().toISOString();
         const nextTv = archived ? existing.token_version + 1 : existing.token_version;
-        db.prepare(
-          'UPDATE enterprise_users SET is_archived = ?, token_version = ?, updated_at = ? WHERE id = ?'
-        ).run(archived ? 1 : 0, nextTv, now, targetId);
+        if (archived) {
+          await revokeAllUserSessions(targetId, 'user_archived');
+        }
 
-        const updated = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(targetId) as unknown as DbUserRow;
+        const updated = await updateUserFields(targetId, {
+          is_archived: archived,
+          token_version: nextTv,
+        });
 
-        recordActivityEvent({
+        const perms = await getUserPermissionsMap(targetId, existing.role);
+        await recordActivityEvent({
           actorUserId: actor.id,
           actorUsername: actor.username,
           action: archived ? 'USER_ARCHIVED' : 'USER_RESTORED',
           targetType: 'user',
           targetId,
-          summary: `${archived ? 'Archived' : 'Restored'} user account ${updated.display_username}.`,
+          summary: `${archived ? 'Archived' : 'Restored'} user account ${existing.display_username}.`,
         });
 
-        res.json({ user: sanitizeUserForClient(updated, { includeAdminFields: true }) });
+        res.json({
+          user: sanitizeUserForClient(updated || existing, perms, { includeAdminFields: true }),
+        });
       } catch (err) {
         console.error('Archive user error:', err);
         res.status(500).json({ error: 'Unable to update archive status.' });
@@ -1500,43 +1646,39 @@ export function createEnterpriseRouter(): Router {
     '/admin/users/:id',
     authenticateEnterprise(),
     requireSuperAdmin,
-    (req: AuthedRequest, res) => {
+    async (req: AuthedRequest, res) => {
       try {
         const actor = req.enterpriseUser!;
         const targetId = String(req.params.id || '');
         if (targetId === actor.id) {
-          res.status(400).json({ error: 'Super Admin cannot permanently delete their own account.' });
+          res.status(400).json({ error: 'Super Admin cannot delete their own active account.' });
           return;
         }
 
-        const db = getDb();
-        const existing = db
-          .prepare('SELECT * FROM enterprise_users WHERE id = ?')
-          .get(targetId) as DbUserRow | undefined;
-
+        const existing = await findUserById(targetId);
         if (!existing) {
           res.status(404).json({ error: 'User account not found.' });
           return;
         }
 
-        db.exec('BEGIN TRANSACTION;');
-        try {
-          db.prepare('DELETE FROM enterprise_permissions WHERE user_id = ?').run(targetId);
-          db.prepare('DELETE FROM enterprise_password_reset_requests WHERE user_id = ?').run(targetId);
-          db.prepare('DELETE FROM enterprise_users WHERE id = ?').run(targetId);
-          db.exec('COMMIT;');
-        } catch (err) {
-          db.exec('ROLLBACK;');
-          throw err;
+        if (existing.role === 'super_admin' && !existing.is_archived && isUserStatusActive(existing.status)) {
+          const activeAdmins = await countActiveSuperAdmins();
+          if (activeAdmins <= 1) {
+            res.status(400).json({ error: 'Cannot delete the last active Super Admin account.' });
+            return;
+          }
         }
 
-        recordActivityEvent({
+        await revokeAllUserSessions(targetId, 'user_deleted');
+        await hardDeleteUser(targetId);
+
+        await recordActivityEvent({
           actorUserId: actor.id,
           actorUsername: actor.username,
           action: 'USER_DELETED',
           targetType: 'user',
           targetId,
-          summary: `Permanently deleted user account ${existing.display_username} (${existing.full_name}).`,
+          summary: `Deleted user account ${existing.display_username} (${existing.full_name}).`,
         });
 
         res.json({ ok: true });
@@ -1548,145 +1690,255 @@ export function createEnterpriseRouter(): Router {
   );
 
   // =========================================================================
-  // 4. PASSWORD RESET REQUESTS QUEUE, LOGIN HISTORY & ACTIVITY LOGS
+  // 4. PASSWORD RESET REQUESTS, LOGIN HISTORY, ACTIVITY & AUDIT LOGS
   // =========================================================================
-  router.get(
-    '/admin/reset-requests',
-    authenticateEnterprise(),
-    requireSuperAdmin,
-    (_req, res) => {
-      const db = getDb();
-      const rows = db
-        .prepare('SELECT * FROM enterprise_password_reset_requests ORDER BY created_at DESC LIMIT 200')
-        .all();
-      res.json({ requests: rows });
+  router.get('/admin/reset-requests', authenticateEnterprise(), requireSuperAdmin, async (_req, res) => {
+    try {
+      const requests = await listResetRequests();
+      res.json({ requests });
+    } catch {
+      res.status(500).json({ error: 'Unable to load password reset requests.' });
     }
-  );
+  });
 
   router.post(
     '/admin/reset-requests/:id/reject',
     authenticateEnterprise(),
     requireSuperAdmin,
-    (req: AuthedRequest, res) => {
-      const actor = req.enterpriseUser!;
-      const reqId = String(req.params.id || '');
-      const note = String((req.body as { note?: unknown })?.note ?? '').trim().slice(0, 400);
-      const db = getDb();
-      const existing = db
-        .prepare('SELECT * FROM enterprise_password_reset_requests WHERE id = ?')
-        .get(reqId) as { id?: string; username?: string } | undefined;
+    async (req: AuthedRequest, res) => {
+      try {
+        const actor = req.enterpriseUser!;
+        const reqId = String(req.params.id || '');
+        const note = String((req.body as { note?: unknown })?.note ?? '').trim().slice(0, 400);
 
-      if (!existing?.id) {
-        res.status(404).json({ error: 'Password reset request not found.' });
+        const resolved = await resolveResetRequestsForUser({
+          requestId: reqId,
+          userId: '',
+          status: 'Rejected',
+          resolvedBy: actor.display_username,
+          note,
+        });
+        if (!resolved) {
+          res.status(404).json({ error: 'Password reset request not found.' });
+          return;
+        }
+
+        await recordActivityEvent({
+          actorUserId: actor.id,
+          actorUsername: actor.username,
+          action: 'RESET_REQUEST_REJECTED',
+          targetType: 'reset_request',
+          targetId: reqId,
+          summary: `Rejected password reset request (${reqId}).`,
+        });
+        res.json({ ok: true });
+      } catch {
+        res.status(500).json({ error: 'Unable to reject reset request.' });
+      }
+    }
+  );
+
+  router.get('/admin/login-history', authenticateEnterprise(), requireSuperAdmin, async (req, res) => {
+    try {
+      const userId = String(req.query.userId ?? '').trim();
+      const history = await listLoginHistory(userId);
+      res.json({ history });
+    } catch {
+      res.status(500).json({ error: 'Unable to load login history.' });
+    }
+  });
+
+  router.get('/admin/activity-logs', authenticateEnterprise(), requireSuperAdmin, async (req, res) => {
+    try {
+      const userId = String(req.query.userId ?? '').trim();
+      const logs = await listActivityLogs(userId);
+      res.json({ logs });
+    } catch {
+      res.status(500).json({ error: 'Unable to load activity logs.' });
+    }
+  });
+
+  router.get('/admin/audit-logs', authenticateEnterprise(), requireSuperAdmin, async (_req, res) => {
+    try {
+      const logs = await listAuditLogs(200);
+      res.json({ auditLogs: logs });
+    } catch {
+      res.status(500).json({ error: 'Unable to load audit logs.' });
+    }
+  });
+
+  // =========================================================================
+  // 5. CENTRAL COMPANY GOOGLE DRIVE STATUS, FOLDERS & DOCUMENT STORAGE
+  // =========================================================================
+  router.get('/admin/drive/status', authenticateEnterprise(), requireSuperAdmin, async (_req, res) => {
+    try {
+      const configStatus = getCompanyDriveConfigStatus();
+      const folders = await getDriveFoldersMap();
+      const liveTest = await testCompanyDriveConnection();
+      res.json({
+        configStatus,
+        liveConnection: liveTest,
+        folders: Object.values(folders),
+      });
+    } catch (err) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Unable to check Company Google Drive status.',
+      });
+    }
+  });
+
+  router.post(
+    '/admin/drive/initialize',
+    authenticateEnterprise(),
+    requireSuperAdmin,
+    async (req: AuthedRequest, res) => {
+      try {
+        const actor = req.enterpriseUser!;
+        const configStatus = getCompanyDriveConfigStatus();
+        if (!configStatus.configured) {
+          res.status(503).json({
+            error: `Company Google Drive credentials are missing: ${configStatus.missingVars.join(', ')}`,
+          });
+          return;
+        }
+
+        const existingMap = await getDriveFoldersMap();
+        const existingLookup: Record<string, string> = {};
+        for (const [k, v] of Object.entries(existingMap)) {
+          if (v.drive_folder_id) existingLookup[k] = v.drive_folder_id;
+        }
+
+        const provisioned = await ensureCompanyDriveFolderHierarchy(existingLookup);
+        const live = await testCompanyDriveConnection();
+
+        await saveDriveConfigurationAndFolders({
+          config: {
+            auth_mode: configStatus.authMode,
+            root_folder_id: configStatus.rootFolderId,
+            root_folder_name: live.rootFolderName || 'VCPL TOOLS - COMPANY DRIVE',
+            shared_drive_id: configStatus.sharedDriveId,
+            service_account_email: configStatus.serviceAccountEmail,
+            status: live.ok ? 'Connected' : 'Error',
+            last_verified_at: new Date().toISOString(),
+            last_error: live.error || '',
+            updated_by: actor.username,
+          },
+          folders: provisioned,
+        });
+
+        await recordActivityEvent({
+          actorUserId: actor.id,
+          actorUsername: actor.username,
+          action: 'COMPANY_DRIVE_INITIALIZED',
+          targetType: 'google_drive',
+          targetId: configStatus.rootFolderId,
+          summary: `Verified & initialized ${provisioned.length} Company Google Drive workspace folders.`,
+        });
+
+        res.json({
+          ok: true,
+          liveConnection: live,
+          folders: provisioned,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Company Google Drive folder initialization failed.';
+        res.status(502).json({ error: msg });
+      }
+    }
+  );
+
+  router.get('/documents', authenticateEnterprise(), async (req: AuthedRequest, res) => {
+    try {
+      const user = req.enterpriseUser!;
+      const perms = req.enterprisePermissions!;
+      const moduleFilter = String(req.query.moduleId ?? '').trim();
+      const statusFilter = String(req.query.status ?? '').trim();
+      const folderFilter = String(req.query.folderKey ?? '').trim();
+      const includeArchived = req.query.includeArchived === '1' || req.query.includeArchived === 'true';
+      const search = String(req.query.search ?? '').trim();
+
+      if (moduleFilter && !hasModulePermission(user, perms, moduleFilter, 'view')) {
+        res.status(403).json({ error: `View permission required for ${moduleFilter}.` });
+        return;
+      }
+      if (
+        !moduleFilter &&
+        !hasModulePermission(user, perms, 'document-vault', 'view') &&
+        !hasModulePermission(user, perms, 'document-studio', 'view')
+      ) {
+        res.status(403).json({ error: 'View permission required for Document Vault or Document Studio.' });
         return;
       }
 
-      const now = new Date().toISOString();
-      db.prepare(`
-        UPDATE enterprise_password_reset_requests
-        SET status = 'Rejected', note = CASE WHEN ? != '' THEN ? ELSE note END,
-            resolved_by = ?, resolved_at = ?, updated_at = ?
-        WHERE id = ?
-      `).run(note, note, actor.display_username, now, now, reqId);
-
-      recordActivityEvent({
-        actorUserId: actor.id,
-        actorUsername: actor.username,
-        action: 'RESET_REQUEST_REJECTED',
-        targetType: 'reset_request',
-        targetId: reqId,
-        summary: `Rejected password reset request for ${existing.username || 'user'}.`,
+      const docs = await listDocuments({
+        moduleId: moduleFilter || undefined,
+        status: statusFilter || undefined,
+        folderKey: folderFilter || undefined,
+        includeArchived,
+        search: search || undefined,
+        limit: 300,
       });
 
-      res.json({ ok: true });
+      const visibleDocs = moduleFilter
+        ? docs
+        : docs.filter(
+            (d) =>
+              hasModulePermission(user, perms, d.module_id, 'view') ||
+              hasModulePermission(user, perms, 'document-vault', 'view')
+          );
+
+      res.json({ documents: visibleDocs });
+    } catch (err) {
+      console.error('List documents error:', err);
+      res.status(500).json({ error: 'Unable to load documents.' });
     }
-  );
-
-  router.get(
-    '/admin/login-history',
-    authenticateEnterprise(),
-    requireSuperAdmin,
-    (req, res) => {
-      const db = getDb();
-      const userId = String(req.query.userId ?? '').trim();
-      const rows = userId
-        ? db
-            .prepare(
-              'SELECT * FROM enterprise_login_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 250'
-            )
-            .all(userId)
-        : db
-            .prepare('SELECT * FROM enterprise_login_history ORDER BY created_at DESC LIMIT 250')
-            .all();
-      res.json({ history: rows });
-    }
-  );
-
-  router.get(
-    '/admin/activity-logs',
-    authenticateEnterprise(),
-    requireSuperAdmin,
-    (req, res) => {
-      const db = getDb();
-      const actorId = String(req.query.userId ?? '').trim();
-      const rows = actorId
-        ? db
-            .prepare(
-              'SELECT * FROM enterprise_activity_logs WHERE actor_user_id = ? OR target_id = ? ORDER BY created_at DESC LIMIT 300'
-            )
-            .all(actorId, actorId)
-        : db
-            .prepare('SELECT * FROM enterprise_activity_logs ORDER BY created_at DESC LIMIT 300')
-            .all();
-      res.json({ logs: rows });
-    }
-  );
-
-  // =========================================================================
-  // 5. CENTRALIZED DOCUMENT VAULT (UPLOAD / DOWNLOAD / APPROVE / DRIVE LINK)
-  // =========================================================================
-  router.get('/documents', authenticateEnterprise(), (req: AuthedRequest, res) => {
-    const user = req.enterpriseUser!;
-    const perms = req.enterprisePermissions!;
-    const moduleFilter = String(req.query.moduleId ?? '').trim();
-
-    if (moduleFilter && !hasModulePermission(user, perms, moduleFilter, 'view')) {
-      res.status(403).json({ error: `View permission required for ${moduleFilter}.` });
-      return;
-    }
-    if (!moduleFilter && !hasModulePermission(user, perms, 'document-vault', 'view') && !hasModulePermission(user, perms, 'document-studio', 'view')) {
-      res.status(403).json({ error: 'View permission required for Document Vault or Document Studio.' });
-      return;
-    }
-
-    const db = getDb();
-    const rows = moduleFilter
-      ? db
-          .prepare('SELECT * FROM enterprise_documents WHERE module_id = ? ORDER BY updated_at DESC LIMIT 250')
-          .all(moduleFilter)
-      : db
-          .prepare('SELECT * FROM enterprise_documents ORDER BY updated_at DESC LIMIT 250')
-          .all();
-
-    res.json({ documents: rows });
   });
 
-  router.post('/documents/upload', authenticateEnterprise(), (req: AuthedRequest, res) => {
+  router.get('/documents/:id/versions', authenticateEnterprise(), async (req: AuthedRequest, res) => {
+    try {
+      const user = req.enterpriseUser!;
+      const perms = req.enterprisePermissions!;
+      const docId = String(req.params.id || '');
+      const docRow = await getDocumentById(docId);
+      if (!docRow) {
+        res.status(404).json({ error: 'Document not found.' });
+        return;
+      }
+      if (
+        !hasModulePermission(user, perms, docRow.module_id, 'view') &&
+        !hasModulePermission(user, perms, 'document-vault', 'view')
+      ) {
+        res.status(403).json({ error: 'View permission required.' });
+        return;
+      }
+      const versions = await listDocumentVersions(docId);
+      res.json({ versions });
+    } catch {
+      res.status(500).json({ error: 'Unable to load document versions.' });
+    }
+  });
+
+  router.post('/documents/upload', authenticateEnterprise(), async (req: AuthedRequest, res) => {
     try {
       const user = req.enterpriseUser!;
       const perms = req.enterprisePermissions!;
       const body = (req.body || {}) as {
         moduleId?: unknown;
+        folderKey?: unknown;
         title?: unknown;
         fileName?: unknown;
         mimeType?: unknown;
         base64Data?: unknown;
-        driveFileId?: unknown;
-        driveWebViewLink?: unknown;
+        tags?: unknown;
+        notes?: unknown;
+        replaceDocumentId?: unknown;
       };
 
       const moduleId = String(body.moduleId ?? 'document-vault').trim() || 'document-vault';
-      if (!hasModulePermission(user, perms, moduleId, 'upload') && !hasModulePermission(user, perms, 'document-vault', 'upload')) {
+      if (
+        !hasModulePermission(user, perms, moduleId, 'upload') &&
+        !hasModulePermission(user, perms, 'document-vault', 'upload')
+      ) {
         res.status(403).json({ error: 'Upload access is not permitted for your account.' });
         return;
       }
@@ -1707,565 +1959,1027 @@ export function createEnterpriseRouter(): Router {
         return;
       }
 
-      const ext = path.extname(fileName).replace(/[^a-zA-Z0-9.]/g, '').slice(0, 12);
-      const storedFileName = `${crypto.randomUUID()}${ext}`;
-      const targetPath = resolveVaultFileSafe(storedFileName);
-      if (!targetPath) {
-        res.status(400).json({ error: 'Invalid target storage filename.' });
+      const requestedFolderKey = String(body.folderKey ?? '').trim();
+      const targetFolderKey =
+        requestedFolderKey || resolveDriveFolderKeyForModule(moduleId, mimeType);
+
+      // Strictly upload to Central Company Google Drive (NO local disk / Supabase Storage)
+      let driveTarget: { folderKey: string; driveFolderId: string };
+      let uploadRes: {
+        driveFileId: string;
+        driveFolderId: string;
+        driveWebViewLink: string;
+        sizeBytes: number;
+        sha256: string;
+      };
+      try {
+        driveTarget = await resolveTargetDriveFolder(targetFolderKey);
+        uploadRes = await uploadFileToCompanyDrive({
+          buffer: fileBuffer,
+          fileName,
+          mimeType,
+          targetFolderId: driveTarget.driveFolderId,
+          description: `VCPL Module: ${moduleId} | Uploaded by: ${user.display_username}`,
+        });
+      } catch (driveErr) {
+        const msg =
+          driveErr instanceof Error
+            ? driveErr.message
+            : 'Central Company Google Drive upload failed.';
+        await recordAuditTrail({
+          actorUserId: user.id,
+          actorUsername: user.username,
+          category: 'document_drive',
+          eventType: 'DRIVE_UPLOAD_FAILED',
+          targetType: 'document',
+          targetId: fileName,
+          after: { moduleId, error: msg },
+          ipAddress: getClientIp(req),
+          userAgent: getUserAgent(req),
+        });
+        res.status(503).json({
+          code: 'COMPANY_DRIVE_UPLOAD_FAILED',
+          error: `Upload stopped because Central Company Google Drive failed: ${msg}`,
+        });
         return;
       }
-      fs.writeFileSync(targetPath, fileBuffer);
+
+      const replaceDocId = String(body.replaceDocumentId ?? '').trim();
+      if (replaceDocId) {
+        const existingDoc = await getDocumentById(replaceDocId);
+        if (!existingDoc) {
+          res.status(404).json({ error: 'Target document for replacement not found.' });
+          return;
+        }
+        const nextVersion = (existingDoc.version_number || 1) + 1;
+        await addDocumentVersionRecord({
+          documentId: existingDoc.id,
+          versionNumber: nextVersion,
+          fileName,
+          mimeType,
+          sizeBytes: uploadRes.sizeBytes,
+          driveFileId: uploadRes.driveFileId,
+          driveWebViewLink: uploadRes.driveWebViewLink,
+          checksumSha256: uploadRes.sha256,
+          notes: String(body.notes ?? `Replaced with version v${nextVersion}`).trim().slice(0, 400),
+          uploadedBy: user.id,
+          uploadedByUsername: user.username,
+        });
+        const updatedDoc = await updateDocumentMetadata(existingDoc.id, {
+          title,
+          file_name: fileName,
+          mime_type: mimeType,
+          size_bytes: uploadRes.sizeBytes,
+          drive_file_id: uploadRes.driveFileId,
+          drive_folder_id: uploadRes.driveFolderId,
+          drive_web_view_link: uploadRes.driveWebViewLink,
+          checksum_sha256: uploadRes.sha256,
+          version_number: nextVersion,
+          approval_status: 'Pending Review',
+        });
+
+        await recordActivityEvent({
+          actorUserId: user.id,
+          actorUsername: user.username,
+          action: 'DOCUMENT_VERSION_UPLOADED',
+          targetType: 'document',
+          targetId: existingDoc.id,
+          summary: `Uploaded v${nextVersion} of "${title}" (${fileName}) to Company Google Drive.`,
+        });
+        res.status(201).json({ document: updatedDoc });
+        return;
+      }
 
       const docId = `doc_${crypto.randomUUID()}`;
-      const now = new Date().toISOString();
-      const db = getDb();
-
-      db.prepare(`
-        INSERT INTO enterprise_documents (
-          id, module_id, title, file_name, stored_file_name, mime_type, size_bytes,
-          approval_status, drive_file_id, drive_web_view_link, uploaded_by, uploaded_by_username,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending Review', ?, ?, ?, ?, ?, ?)
-      `).run(
-        docId,
+      const created = await createDocumentWithVersion({
+        id: docId,
         moduleId,
+        folderKey: driveTarget.folderKey,
         title,
         fileName,
-        storedFileName,
         mimeType,
-        fileBuffer.length,
-        String(body.driveFileId ?? '').trim().slice(0, 256),
-        String(body.driveWebViewLink ?? '').trim().slice(0, 512),
-        user.id,
-        user.username,
-        now,
-        now
-      );
+        sizeBytes: uploadRes.sizeBytes,
+        approvalStatus: 'Pending Review',
+        driveFileId: uploadRes.driveFileId,
+        driveFolderId: uploadRes.driveFolderId,
+        driveWebViewLink: uploadRes.driveWebViewLink,
+        checksumSha256: uploadRes.sha256,
+        tags: String(body.tags ?? '').trim().slice(0, 240),
+        notes: String(body.notes ?? '').trim().slice(0, 400),
+        uploadedBy: user.id,
+        uploadedByUsername: user.username,
+      });
 
-      const created = db
-        .prepare('SELECT * FROM enterprise_documents WHERE id = ?')
-        .get(docId);
-
-      recordActivityEvent({
+      await recordActivityEvent({
         actorUserId: user.id,
         actorUsername: user.username,
         action: 'DOCUMENT_UPLOADED',
         targetType: 'document',
         targetId: docId,
-        summary: `Uploaded "${title}" (${fileName}, ${Math.ceil(fileBuffer.length / 1024)} KB) to ${moduleId}.`,
+        summary: `Uploaded "${title}" (${fileName}, ${Math.ceil(uploadRes.sizeBytes / 1024)} KB) to Company Google Drive (${driveTarget.folderKey}).`,
       });
 
       res.status(201).json({ document: created });
     } catch (err) {
       console.error('Document upload error:', err);
-      res.status(500).json({ error: 'Unable to upload document to central vault.' });
+      res.status(500).json({ error: 'Unable to upload document to Company Google Drive.' });
     }
   });
 
-  router.get('/documents/:id/download', authenticateEnterprise(), (req: AuthedRequest, res) => {
-    const user = req.enterpriseUser!;
-    const perms = req.enterprisePermissions!;
-    const docId = String(req.params.id || '');
-    const db = getDb();
-    const row = db
-      .prepare('SELECT * FROM enterprise_documents WHERE id = ?')
-      .get(docId) as
-      | {
-          id: string;
-          module_id: string;
-          file_name: string;
-          stored_file_name: string;
-          mime_type: string;
+  router.get('/documents/:id/download', authenticateEnterprise(), async (req: AuthedRequest, res) => {
+    try {
+      const user = req.enterpriseUser!;
+      const perms = req.enterprisePermissions!;
+      const docId = String(req.params.id || '');
+      const row = await getDocumentById(docId);
+
+      if (!row) {
+        res.status(404).json({ error: 'Document not found.' });
+        return;
+      }
+
+      if (
+        !hasModulePermission(user, perms, row.module_id, 'download') &&
+        !hasModulePermission(user, perms, 'document-vault', 'download')
+      ) {
+        res.status(403).json({ error: 'Download permission is required.' });
+        return;
+      }
+
+      if (!row.drive_file_id) {
+        res.status(404).json({
+          error: 'No Central Company Google Drive file ID is linked to this document.',
+        });
+        return;
+      }
+
+      const fileData = await downloadFileFromCompanyDrive(row.drive_file_id);
+
+      await recordActivityEvent({
+        actorUserId: user.id,
+        actorUsername: user.username,
+        action: 'DOCUMENT_DOWNLOADED',
+        targetType: 'document',
+        targetId: docId,
+        summary: `Downloaded "${row.file_name}" from Company Google Drive.`,
+      });
+
+      const safeFilename = row.file_name.replace(/["\r\n]/g, '');
+      res.setHeader('Content-Type', row.mime_type || fileData.contentType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+      res.send(fileData.buffer);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unable to download file from Company Google Drive.';
+      res.status(502).json({ error: msg });
+    }
+  });
+
+  router.patch('/documents/:id', authenticateEnterprise(), async (req: AuthedRequest, res) => {
+    try {
+      const user = req.enterpriseUser!;
+      const perms = req.enterprisePermissions!;
+      const docId = String(req.params.id || '');
+      const body = (req.body || {}) as {
+        title?: unknown;
+        approvalStatus?: unknown;
+        tags?: unknown;
+        notes?: unknown;
+        isArchived?: unknown;
+      };
+
+      const row = await getDocumentById(docId);
+      if (!row) {
+        res.status(404).json({ error: 'Document not found.' });
+        return;
+      }
+
+      if (body.approvalStatus !== undefined && body.approvalStatus !== row.approval_status) {
+        if (
+          !hasModulePermission(user, perms, row.module_id, 'approve') &&
+          !hasModulePermission(user, perms, 'document-vault', 'approve')
+        ) {
+          res.status(403).json({ error: 'Approve permission is required to approve or reject documents.' });
+          return;
         }
-      | undefined;
+      }
 
-    if (!row) {
-      res.status(404).json({ error: 'Document not found.' });
-      return;
+      if (
+        body.title !== undefined ||
+        body.tags !== undefined ||
+        body.notes !== undefined ||
+        body.isArchived !== undefined
+      ) {
+        if (
+          !hasModulePermission(user, perms, row.module_id, 'edit') &&
+          !hasModulePermission(user, perms, 'document-vault', 'edit') &&
+          !hasModulePermission(user, perms, 'document-vault', 'upload')
+        ) {
+          res.status(403).json({ error: 'Edit permission is required to modify document metadata.' });
+          return;
+        }
+      }
+
+      const allowedApprovals = new Set<EnterpriseDocumentRow['approval_status']>([
+        'Draft',
+        'Pending Review',
+        'Approved',
+        'Rejected',
+      ]);
+      const nextApproval: EnterpriseDocumentRow['approval_status'] =
+        typeof body.approvalStatus === 'string' &&
+        allowedApprovals.has(body.approvalStatus as EnterpriseDocumentRow['approval_status'])
+          ? (body.approvalStatus as EnterpriseDocumentRow['approval_status'])
+          : row.approval_status;
+
+      const patch: Parameters<typeof updateDocumentMetadata>[1] = {
+        title: body.title !== undefined ? String(body.title).trim().slice(0, 180) || row.title : row.title,
+        approval_status: nextApproval,
+        tags: body.tags !== undefined ? String(body.tags).trim().slice(0, 240) : row.tags,
+        notes: body.notes !== undefined ? String(body.notes).trim().slice(0, 400) : row.notes,
+        approved_by:
+          nextApproval === 'Approved' || nextApproval === 'Rejected'
+            ? user.display_username
+            : row.approved_by,
+      };
+
+      if (typeof body.isArchived === 'boolean' && body.isArchived !== row.is_archived) {
+        patch.is_archived = body.isArchived;
+        patch.archived_at = body.isArchived ? new Date().toISOString() : null;
+        if (body.isArchived && row.drive_file_id && getCompanyDriveConfigStatus().configured) {
+          try {
+            const archiveTarget = await resolveTargetDriveFolder('08_ARCHIVED_DOCUMENTS');
+            await moveFileInCompanyDrive(row.drive_file_id, archiveTarget.driveFolderId);
+            patch.folder_key = archiveTarget.folderKey;
+            patch.drive_folder_id = archiveTarget.driveFolderId;
+          } catch (moveErr) {
+            console.warn('Company Drive move-to-archive warning:', moveErr);
+          }
+        }
+      }
+
+      const updated = await updateDocumentMetadata(docId, patch);
+      await recordActivityEvent({
+        actorUserId: user.id,
+        actorUsername: user.username,
+        action: 'DOCUMENT_UPDATED',
+        targetType: 'document',
+        targetId: docId,
+        summary: `Updated "${row.title}" (status: ${nextApproval}${patch.is_archived ? ', archived' : ''}).`,
+      });
+
+      res.json({ document: updated });
+    } catch (err) {
+      console.error('Update document error:', err);
+      res.status(500).json({ error: 'Unable to update document.' });
     }
-
-    if (
-      !hasModulePermission(user, perms, row.module_id, 'download') &&
-      !hasModulePermission(user, perms, 'document-vault', 'download')
-    ) {
-      res.status(403).json({ error: 'Download permission is required.' });
-      return;
-    }
-
-    const filePath = resolveVaultFileSafe(row.stored_file_name);
-    if (!filePath || !fs.existsSync(filePath)) {
-      res.status(404).json({ error: 'Document binary is missing on storage disk.' });
-      return;
-    }
-
-    recordActivityEvent({
-      actorUserId: user.id,
-      actorUsername: user.username,
-      action: 'DOCUMENT_DOWNLOADED',
-      targetType: 'document',
-      targetId: docId,
-      summary: `Downloaded "${row.file_name}".`,
-    });
-
-    res.setHeader('Content-Type', row.mime_type || 'application/octet-stream');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${row.file_name.replace(/"/g, '')}"`
-    );
-    res.sendFile(filePath);
   });
 
-  router.patch('/documents/:id', authenticateEnterprise(), (req: AuthedRequest, res) => {
-    const user = req.enterpriseUser!;
-    const perms = req.enterprisePermissions!;
-    const docId = String(req.params.id || '');
-    const body = (req.body || {}) as {
-      title?: unknown;
-      approvalStatus?: unknown;
-      driveFileId?: unknown;
-      driveWebViewLink?: unknown;
-    };
+  router.delete('/documents/:id', authenticateEnterprise(), async (req: AuthedRequest, res) => {
+    try {
+      const user = req.enterpriseUser!;
+      const perms = req.enterprisePermissions!;
+      const docId = String(req.params.id || '');
+      const row = await getDocumentById(docId);
 
-    const db = getDb();
-    const row = db
-      .prepare('SELECT * FROM enterprise_documents WHERE id = ?')
-      .get(docId) as { id: string; module_id: string; title: string; approval_status: string; drive_file_id: string; drive_web_view_link: string } | undefined;
-
-    if (!row) {
-      res.status(404).json({ error: 'Document not found.' });
-      return;
-    }
-
-    if (body.approvalStatus !== undefined && body.approvalStatus !== row.approval_status) {
-      if (
-        !hasModulePermission(user, perms, row.module_id, 'approve') &&
-        !hasModulePermission(user, perms, 'document-vault', 'approve')
-      ) {
-        res.status(403).json({ error: 'Approve permission is required to approve or reject documents.' });
+      if (!row) {
+        res.status(404).json({ error: 'Document not found.' });
         return;
       }
-    }
 
-    if (body.title !== undefined || body.driveFileId !== undefined) {
       if (
-        !hasModulePermission(user, perms, row.module_id, 'edit') &&
-        !hasModulePermission(user, perms, 'document-vault', 'edit') &&
-        !hasModulePermission(user, perms, 'document-vault', 'upload')
+        !hasModulePermission(user, perms, row.module_id, 'delete') &&
+        !hasModulePermission(user, perms, 'document-vault', 'delete')
       ) {
-        res.status(403).json({ error: 'Edit permission is required to modify document metadata.' });
+        res.status(403).json({ error: 'Delete permission is required to remove documents.' });
         return;
       }
-    }
 
-    const allowedApprovals = new Set(['Draft', 'Pending Review', 'Approved', 'Rejected']);
-    const nextApproval =
-      typeof body.approvalStatus === 'string' && allowedApprovals.has(body.approvalStatus)
-        ? body.approvalStatus
-        : row.approval_status;
-
-    const now = new Date().toISOString();
-    db.prepare(`
-      UPDATE enterprise_documents
-      SET title = ?, approval_status = ?, drive_file_id = ?, drive_web_view_link = ?, updated_at = ?
-      WHERE id = ?
-    `).run(
-      body.title !== undefined ? String(body.title).trim().slice(0, 180) || row.title : row.title,
-      nextApproval,
-      body.driveFileId !== undefined
-        ? String(body.driveFileId).trim().slice(0, 256)
-        : row.drive_file_id,
-      body.driveWebViewLink !== undefined
-        ? String(body.driveWebViewLink).trim().slice(0, 512)
-        : row.drive_web_view_link,
-      now,
-      docId
-    );
-
-    const updated = db.prepare('SELECT * FROM enterprise_documents WHERE id = ?').get(docId);
-    recordActivityEvent({
-      actorUserId: user.id,
-      actorUsername: user.username,
-      action: 'DOCUMENT_UPDATED',
-      targetType: 'document',
-      targetId: docId,
-      summary: `Updated "${row.title}" (status: ${nextApproval}).`,
-    });
-
-    res.json({ document: updated });
-  });
-
-  router.delete('/documents/:id', authenticateEnterprise(), (req: AuthedRequest, res) => {
-    const user = req.enterpriseUser!;
-    const perms = req.enterprisePermissions!;
-    const docId = String(req.params.id || '');
-    const db = getDb();
-    const row = db
-      .prepare('SELECT * FROM enterprise_documents WHERE id = ?')
-      .get(docId) as { id: string; module_id: string; file_name: string; stored_file_name: string } | undefined;
-
-    if (!row) {
-      res.status(404).json({ error: 'Document not found.' });
-      return;
-    }
-
-    if (
-      !hasModulePermission(user, perms, row.module_id, 'delete') &&
-      !hasModulePermission(user, perms, 'document-vault', 'delete')
-    ) {
-      res.status(403).json({ error: 'Delete permission is required to remove documents.' });
-      return;
-    }
-
-    const filePath = resolveVaultFileSafe(row.stored_file_name);
-    if (filePath && fs.existsSync(filePath)) {
-      try {
-        fs.unlinkSync(filePath);
-      } catch {
-        // Continue metadata removal
+      if (row.drive_file_id && getCompanyDriveConfigStatus().configured) {
+        try {
+          await deleteFileFromCompanyDrive(row.drive_file_id);
+        } catch (driveErr) {
+          res.status(502).json({
+            error: `Company Google Drive file removal failed: ${
+              driveErr instanceof Error ? driveErr.message : 'Drive error'
+            }`,
+          });
+          return;
+        }
       }
+
+      await deleteDocumentMetadata(docId);
+      await recordActivityEvent({
+        actorUserId: user.id,
+        actorUsername: user.username,
+        action: 'DOCUMENT_DELETED',
+        targetType: 'document',
+        targetId: docId,
+        summary: `Deleted "${row.file_name}" from Company Google Drive and database.`,
+      });
+      await recordAuditTrail({
+        actorUserId: user.id,
+        actorUsername: user.username,
+        category: 'document_drive',
+        eventType: 'DOCUMENT_DELETED',
+        targetType: 'document',
+        targetId: docId,
+        before: { fileName: row.file_name, driveFileId: row.drive_file_id },
+        ipAddress: getClientIp(req),
+        userAgent: getUserAgent(req),
+      });
+
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Delete document error:', err);
+      res.status(500).json({ error: 'Unable to delete document.' });
     }
-
-    db.prepare('DELETE FROM enterprise_documents WHERE id = ?').run(docId);
-    recordActivityEvent({
-      actorUserId: user.id,
-      actorUsername: user.username,
-      action: 'DOCUMENT_DELETED',
-      targetType: 'document',
-      targetId: docId,
-      summary: `Deleted "${row.file_name}" from central vault.`,
-    });
-
-    res.json({ ok: true });
   });
 
   // =========================================================================
-  // 6. CENTRALIZED MODULE WORKSPACE RECORDS (STUDIO / LEDGER / VEHICLE / REGISTERS / REPORTS)
+  // 6. CENTRALIZED WORKSPACE RECORDS
   // =========================================================================
-  router.get('/records', authenticateEnterprise(), (req: AuthedRequest, res) => {
-    const user = req.enterpriseUser!;
-    const perms = req.enterprisePermissions!;
-    const moduleId = String(req.query.moduleId ?? '').trim();
+  router.get('/records', authenticateEnterprise(), async (req: AuthedRequest, res) => {
+    try {
+      const user = req.enterpriseUser!;
+      const perms = req.enterprisePermissions!;
+      const moduleId = String(req.query.moduleId ?? '').trim();
 
-    if (moduleId) {
-      if (!hasModulePermission(user, perms, moduleId, 'view')) {
+      if (moduleId && !hasModulePermission(user, perms, moduleId, 'view')) {
         res.status(403).json({ error: `View permission required for ${moduleId}.` });
         return;
       }
-      const rows = getDb()
-        .prepare('SELECT * FROM enterprise_workspace_records WHERE module_id = ? ORDER BY updated_at DESC LIMIT 300')
-        .all(moduleId);
-      res.json({ records: rows });
-      return;
+
+      const rows = await listWorkspaceRecords(moduleId);
+      const visible = moduleId
+        ? rows
+        : rows.filter((r) => hasModulePermission(user, perms, r.module_id, 'view'));
+      res.json({ records: visible });
+    } catch {
+      res.status(500).json({ error: 'Unable to load workspace records.' });
     }
-
-    const allRows = getDb()
-      .prepare('SELECT * FROM enterprise_workspace_records ORDER BY updated_at DESC LIMIT 300')
-      .all() as Array<{ module_id: string }>;
-
-    const visible = allRows.filter((r) => hasModulePermission(user, perms, r.module_id, 'view'));
-    res.json({ records: visible });
   });
 
-  router.post('/records', authenticateEnterprise(), (req: AuthedRequest, res) => {
-    const user = req.enterpriseUser!;
-    const perms = req.enterprisePermissions!;
-    const body = (req.body || {}) as {
-      moduleId?: unknown;
-      recordTitle?: unknown;
-      referenceCode?: unknown;
-      status?: unknown;
-      payload?: unknown;
-    };
+  router.post('/records', authenticateEnterprise(), async (req: AuthedRequest, res) => {
+    try {
+      const user = req.enterpriseUser!;
+      const perms = req.enterprisePermissions!;
+      const body = (req.body || {}) as {
+        moduleId?: unknown;
+        recordTitle?: unknown;
+        referenceCode?: unknown;
+        status?: unknown;
+        payload?: unknown;
+      };
 
-    const moduleId = String(body.moduleId ?? '').trim();
-    if (!moduleId) {
-      res.status(400).json({ error: 'moduleId is required.' });
-      return;
-    }
-    if (!hasModulePermission(user, perms, moduleId, 'create')) {
-      res.status(403).json({ error: `Create permission is required for ${moduleId}.` });
-      return;
-    }
-
-    const recordTitle = String(body.recordTitle ?? '').trim().slice(0, 200);
-    if (!recordTitle) {
-      res.status(400).json({ error: 'Record title is required.' });
-      return;
-    }
-
-    const id = `rec_${crypto.randomUUID()}`;
-    const now = new Date().toISOString();
-    const payloadJson = JSON.stringify(body.payload ?? {}).slice(0, 65000);
-    const db = getDb();
-
-    db.prepare(`
-      INSERT INTO enterprise_workspace_records (
-        id, module_id, record_title, reference_code, status, payload_json,
-        created_by, created_by_username, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id,
-      moduleId,
-      recordTitle,
-      String(body.referenceCode ?? '').trim().slice(0, 100),
-      String(body.status ?? 'Active').trim().slice(0, 64) || 'Active',
-      payloadJson,
-      user.id,
-      user.username,
-      now,
-      now
-    );
-
-    const created = db
-      .prepare('SELECT * FROM enterprise_workspace_records WHERE id = ?')
-      .get(id);
-
-    recordActivityEvent({
-      actorUserId: user.id,
-      actorUsername: user.username,
-      action: 'RECORD_CREATED',
-      targetType: 'record',
-      targetId: id,
-      summary: `Created record "${recordTitle}" in ${moduleId}.`,
-    });
-
-    res.status(201).json({ record: created });
-  });
-
-  router.patch('/records/:id', authenticateEnterprise(), (req: AuthedRequest, res) => {
-    const user = req.enterpriseUser!;
-    const perms = req.enterprisePermissions!;
-    const id = String(req.params.id || '');
-    const db = getDb();
-    const existing = db
-      .prepare('SELECT * FROM enterprise_workspace_records WHERE id = ?')
-      .get(id) as
-      | {
-          id: string;
-          module_id: string;
-          record_title: string;
-          reference_code: string;
-          status: string;
-          payload_json: string;
-        }
-      | undefined;
-
-    if (!existing) {
-      res.status(404).json({ error: 'Workspace record not found.' });
-      return;
-    }
-
-    const body = (req.body || {}) as {
-      recordTitle?: unknown;
-      referenceCode?: unknown;
-      status?: unknown;
-      payload?: unknown;
-    };
-
-    const isApprovalOnly =
-      body.status !== undefined &&
-      (body.status === 'Approved' || body.status === 'Rejected') &&
-      body.recordTitle === undefined &&
-      body.payload === undefined;
-
-    if (isApprovalOnly) {
-      if (!hasModulePermission(user, perms, existing.module_id, 'approve')) {
-        res.status(403).json({ error: `Approve permission required for ${existing.module_id}.` });
+      const moduleId = String(body.moduleId ?? '').trim();
+      if (!moduleId) {
+        res.status(400).json({ error: 'moduleId is required.' });
         return;
       }
-    } else if (!hasModulePermission(user, perms, existing.module_id, 'edit')) {
-      res.status(403).json({ error: `Edit permission required for ${existing.module_id}.` });
-      return;
+      if (!hasModulePermission(user, perms, moduleId, 'create')) {
+        res.status(403).json({ error: `Create permission is required for ${moduleId}.` });
+        return;
+      }
+
+      const recordTitle = String(body.recordTitle ?? '').trim().slice(0, 200);
+      if (!recordTitle) {
+        res.status(400).json({ error: 'Record title is required.' });
+        return;
+      }
+
+      const created = await createWorkspaceRecord({
+        moduleId,
+        recordTitle,
+        referenceCode: String(body.referenceCode ?? '').trim().slice(0, 100),
+        status: String(body.status ?? 'Active').trim().slice(0, 64) || 'Active',
+        payload: body.payload ?? {},
+        createdBy: user.id,
+        createdByUsername: user.username,
+      });
+
+      await recordActivityEvent({
+        actorUserId: user.id,
+        actorUsername: user.username,
+        action: 'RECORD_CREATED',
+        targetType: 'record',
+        targetId: created.id,
+        summary: `Created record "${recordTitle}" in ${moduleId}.`,
+      });
+
+      res.status(201).json({ record: created });
+    } catch {
+      res.status(500).json({ error: 'Unable to create workspace record.' });
     }
-
-    const now = new Date().toISOString();
-    const nextTitle =
-      body.recordTitle !== undefined
-        ? String(body.recordTitle).trim().slice(0, 200) || existing.record_title
-        : existing.record_title;
-    const nextRef =
-      body.referenceCode !== undefined
-        ? String(body.referenceCode).trim().slice(0, 100)
-        : existing.reference_code;
-    const nextStatus =
-      body.status !== undefined
-        ? String(body.status).trim().slice(0, 64) || existing.status
-        : existing.status;
-    const nextPayload =
-      body.payload !== undefined
-        ? JSON.stringify(body.payload).slice(0, 65000)
-        : existing.payload_json;
-
-    db.prepare(`
-      UPDATE enterprise_workspace_records
-      SET record_title = ?, reference_code = ?, status = ?, payload_json = ?, updated_at = ?
-      WHERE id = ?
-    `).run(nextTitle, nextRef, nextStatus, nextPayload, now, id);
-
-    const updated = db
-      .prepare('SELECT * FROM enterprise_workspace_records WHERE id = ?')
-      .get(id);
-
-    recordActivityEvent({
-      actorUserId: user.id,
-      actorUsername: user.username,
-      action: isApprovalOnly ? 'RECORD_APPROVED' : 'RECORD_UPDATED',
-      targetType: 'record',
-      targetId: id,
-      summary: `${isApprovalOnly ? 'Updated status to ' + nextStatus : 'Updated'} "${nextTitle}" in ${existing.module_id}.`,
-    });
-
-    res.json({ record: updated });
   });
 
-  router.delete('/records/:id', authenticateEnterprise(), (req: AuthedRequest, res) => {
-    const user = req.enterpriseUser!;
-    const perms = req.enterprisePermissions!;
-    const id = String(req.params.id || '');
-    const db = getDb();
-    const existing = db
-      .prepare('SELECT * FROM enterprise_workspace_records WHERE id = ?')
-      .get(id) as { id: string; module_id: string; record_title: string } | undefined;
+  router.patch('/records/:id', authenticateEnterprise(), async (req: AuthedRequest, res) => {
+    try {
+      const user = req.enterpriseUser!;
+      const perms = req.enterprisePermissions!;
+      const id = String(req.params.id || '');
+      const existing = await getWorkspaceRecordById(id);
+      if (!existing) {
+        res.status(404).json({ error: 'Workspace record not found.' });
+        return;
+      }
 
-    if (!existing) {
-      res.status(404).json({ error: 'Workspace record not found.' });
-      return;
+      const body = (req.body || {}) as {
+        recordTitle?: unknown;
+        referenceCode?: unknown;
+        status?: unknown;
+        payload?: unknown;
+      };
+
+      const isApprovalOnly =
+        body.status !== undefined &&
+        (body.status === 'Approved' || body.status === 'Rejected') &&
+        body.recordTitle === undefined &&
+        body.payload === undefined;
+
+      if (isApprovalOnly) {
+        if (!hasModulePermission(user, perms, existing.module_id, 'approve')) {
+          res.status(403).json({ error: `Approve permission required for ${existing.module_id}.` });
+          return;
+        }
+      } else if (!hasModulePermission(user, perms, existing.module_id, 'edit')) {
+        res.status(403).json({ error: `Edit permission required for ${existing.module_id}.` });
+        return;
+      }
+
+      const updated = await updateWorkspaceRecord(id, {
+        record_title:
+          body.recordTitle !== undefined
+            ? String(body.recordTitle).trim().slice(0, 200) || existing.record_title
+            : undefined,
+        reference_code:
+          body.referenceCode !== undefined
+            ? String(body.referenceCode).trim().slice(0, 100)
+            : undefined,
+        status:
+          body.status !== undefined
+            ? String(body.status).trim().slice(0, 64) || existing.status
+            : undefined,
+        payload: body.payload,
+        updated_by: user.username,
+      });
+
+      await recordActivityEvent({
+        actorUserId: user.id,
+        actorUsername: user.username,
+        action: isApprovalOnly ? 'RECORD_APPROVED' : 'RECORD_UPDATED',
+        targetType: 'record',
+        targetId: id,
+        summary: `${isApprovalOnly ? 'Status updated to ' + body.status : 'Updated'} "${existing.record_title}" in ${existing.module_id}.`,
+      });
+
+      res.json({ record: updated });
+    } catch {
+      res.status(500).json({ error: 'Unable to update workspace record.' });
     }
+  });
 
-    if (!hasModulePermission(user, perms, existing.module_id, 'delete')) {
-      res.status(403).json({ error: `Delete permission required for ${existing.module_id}.` });
-      return;
+  router.delete('/records/:id', authenticateEnterprise(), async (req: AuthedRequest, res) => {
+    try {
+      const user = req.enterpriseUser!;
+      const perms = req.enterprisePermissions!;
+      const id = String(req.params.id || '');
+      const existing = await getWorkspaceRecordById(id);
+      if (!existing) {
+        res.status(404).json({ error: 'Workspace record not found.' });
+        return;
+      }
+
+      if (!hasModulePermission(user, perms, existing.module_id, 'delete')) {
+        res.status(403).json({ error: `Delete permission required for ${existing.module_id}.` });
+        return;
+      }
+
+      await deleteWorkspaceRecord(id);
+      await recordActivityEvent({
+        actorUserId: user.id,
+        actorUsername: user.username,
+        action: 'RECORD_DELETED',
+        targetType: 'record',
+        targetId: id,
+        summary: `Deleted record "${existing.record_title}" from ${existing.module_id}.`,
+      });
+
+      res.json({ ok: true });
+    } catch {
+      res.status(500).json({ error: 'Unable to delete workspace record.' });
     }
-
-    db.prepare('DELETE FROM enterprise_workspace_records WHERE id = ?').run(id);
-
-    recordActivityEvent({
-      actorUserId: user.id,
-      actorUsername: user.username,
-      action: 'RECORD_DELETED',
-      targetType: 'record',
-      targetId: id,
-      summary: `Deleted record "${existing.record_title}" from ${existing.module_id}.`,
-    });
-
-    res.json({ ok: true });
   });
 
   // =========================================================================
-  // 7. FIRESTORE CLOUD SYNC SNAPSHOT EXPORT & HYDRATION
+  // 7. DOCUMENT REPORTS, CSV/EXCEL EXPORTS & SYSTEM BACKUP / RESTORE
   // =========================================================================
-  router.get(
-    '/admin/cloud-snapshot',
+  router.get('/admin/reports/summary', authenticateEnterprise(), requireSuperAdmin, async (_req, res) => {
+    try {
+      const docs = await listDocuments({ includeArchived: true, limit: 1000 });
+      const reports = await listReportRecords(150);
+      const audits = await listAuditLogs(200);
+      const users = await listUsers(true);
+
+      const byModule: Record<string, number> = {};
+      const byStatus: Record<string, number> = {};
+      const byFolder: Record<string, number> = {};
+      const byUploader: Record<string, { count: number; bytes: number }> = {};
+      let totalBytes = 0;
+
+      for (const d of docs) {
+        totalBytes += Number(d.size_bytes || 0);
+        byModule[d.module_id] = (byModule[d.module_id] || 0) + 1;
+        byStatus[d.approval_status] = (byStatus[d.approval_status] || 0) + 1;
+        byFolder[d.folder_key] = (byFolder[d.folder_key] || 0) + 1;
+        const emp = d.uploaded_by_username || 'system';
+        if (!byUploader[emp]) byUploader[emp] = { count: 0, bytes: 0 };
+        byUploader[emp].count += 1;
+        byUploader[emp].bytes += Number(d.size_bytes || 0);
+      }
+
+      const failedDriveEvents = audits.filter((a) => a.event_type === 'DRIVE_UPLOAD_FAILED');
+
+      res.json({
+        totals: {
+          documentsCount: docs.length,
+          archivedDocumentsCount: docs.filter((d) => d.is_archived).length,
+          totalStorageBytes: totalBytes,
+          usersCount: users.length,
+          reportsCount: reports.length,
+          failedUploadCount: failedDriveEvents.length,
+        },
+        byModule,
+        byStatus,
+        byFolder,
+        byUploader,
+        failedDriveEvents: failedDriveEvents.slice(0, 20),
+        reports,
+      });
+    } catch (err) {
+      console.error('Report summary error:', err);
+      res.status(500).json({ error: 'Unable to compile document reports summary.' });
+    }
+  });
+
+  router.post(
+    '/admin/reports/generate',
     authenticateEnterprise(),
     requireSuperAdmin,
-    (_req, res) => {
-      const db = getDb();
-      const userRows = db
-        .prepare('SELECT * FROM enterprise_users ORDER BY created_at ASC')
-        .all() as unknown as DbUserRow[];
-      const users = userRows.map((row) =>
-        sanitizeUserForClient(row, { includeAdminFields: true })
-      );
-      const resetRequests = db
-        .prepare('SELECT * FROM enterprise_password_reset_requests ORDER BY created_at DESC LIMIT 100')
-        .all();
-      const activityLogs = db
-        .prepare('SELECT * FROM enterprise_activity_logs ORDER BY created_at DESC LIMIT 100')
-        .all();
-      const documents = db
-        .prepare('SELECT * FROM enterprise_documents ORDER BY updated_at DESC LIMIT 100')
-        .all();
-      const records = db
-        .prepare('SELECT * FROM enterprise_workspace_records ORDER BY updated_at DESC LIMIT 100')
-        .all();
+    async (req: AuthedRequest, res) => {
+      try {
+        const actor = req.enterpriseUser!;
+        const body = (req.body || {}) as {
+          reportType?: unknown;
+          format?: unknown;
+          moduleFilter?: unknown;
+        };
 
-      res.json({ users, resetRequests, activityLogs, documents, records });
+        const reportType = String(body.reportType ?? 'documents_register');
+        const format: 'csv' | 'xlsx' = body.format === 'xlsx' ? 'xlsx' : 'csv';
+        const moduleFilter = String(body.moduleFilter ?? 'all').trim() || 'all';
+        const stamp = new Date().toISOString().slice(0, 10);
+
+        let reportTitle = 'VCPL Documents Register Report';
+        let headers: string[] = [];
+        let rows: Array<Array<string | number>> = [];
+
+        if (reportType === 'users_permissions') {
+          reportTitle = 'VCPL Employees & Tool Permissions Report';
+          const users = await listUsers(true);
+          const permMap = await getBatchPermissionsMaps(users);
+          headers = [
+            'User ID',
+            'Full Name',
+            'Employee ID',
+            'Department',
+            'Designation',
+            'Role',
+            'Status',
+            'Archived',
+            'Enabled Modules',
+            'Last Login',
+          ];
+          rows = users.map((u) => {
+            const p = permMap[u.id] || {};
+            const count =
+              u.role === 'super_admin'
+                ? ALL_ENTERPRISE_MODULES.length
+                : Object.values(p).filter((m) => Object.values(m).some(Boolean)).length;
+            return [
+              u.display_username,
+              u.full_name,
+              u.employee_id,
+              u.department,
+              u.designation,
+              u.role,
+              u.status,
+              u.is_archived ? 'Yes' : 'No',
+              count,
+              u.last_login_at || '-',
+            ];
+          });
+        } else if (reportType === 'audit_trail') {
+          reportTitle = 'VCPL Security & Activity Audit Report';
+          const acts = await listActivityLogs();
+          headers = ['Timestamp', 'Actor', 'Action', 'Target Type', 'Target ID', 'Summary'];
+          rows = acts.map((a) => [
+            a.created_at,
+            a.actor_username,
+            a.action,
+            a.target_type,
+            a.target_id,
+            a.summary,
+          ]);
+        } else if (reportType === 'workspace_records') {
+          reportTitle = 'VCPL Central Workspace Records Report';
+          const recs = await listWorkspaceRecords(moduleFilter === 'all' ? '' : moduleFilter);
+          headers = ['ID', 'Module', 'Title', 'Reference Code', 'Status', 'Created By', 'Updated At'];
+          rows = recs.map((r) => [
+            r.id,
+            r.module_id,
+            r.record_title,
+            r.reference_code,
+            r.status,
+            r.created_by_username,
+            r.updated_at,
+          ]);
+        } else {
+          const docs = await listDocuments({
+            moduleId: moduleFilter === 'all' ? undefined : moduleFilter,
+            includeArchived: true,
+            limit: 1000,
+          });
+          headers = [
+            'Document ID',
+            'Title',
+            'File Name',
+            'Module',
+            'Company Drive Folder',
+            'Approval Status',
+            'Size (Bytes)',
+            'Version',
+            'Uploaded By',
+            'Google Drive File ID',
+            'Updated At',
+          ];
+          rows = docs.map((d) => [
+            d.id,
+            d.title,
+            d.file_name,
+            d.module_id,
+            d.folder_key,
+            d.approval_status,
+            d.size_bytes,
+            d.version_number,
+            d.uploaded_by_username,
+            d.drive_file_id,
+            d.updated_at,
+          ]);
+        }
+
+        const safeFileBase = `vcpl_${reportType}_${stamp}`;
+        let fileBuffer: Buffer;
+        let fileName: string;
+        let mimeType: string;
+
+        if (format === 'xlsx') {
+          const wb = new ExcelJS.Workbook();
+          wb.creator = 'VCPL Tools Enterprise';
+          const ws = wb.addWorksheet('VCPL Report');
+          ws.addRow([reportTitle, `Generated: ${new Date().toISOString()}`]);
+          ws.addRow(headers);
+          for (const r of rows) ws.addRow(r);
+          ws.getRow(2).font = { bold: true };
+          const arrBuf = await wb.xlsx.writeBuffer();
+          fileBuffer = Buffer.from(arrBuf);
+          fileName = `${safeFileBase}.xlsx`;
+          mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        } else {
+          const escapeCsv = (val: string | number) => {
+            const s = String(val ?? '');
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+          };
+          const csvText = [
+            headers.map(escapeCsv).join(','),
+            ...rows.map((r) => r.map(escapeCsv).join(',')),
+          ].join('\r\n');
+          fileBuffer = Buffer.from(`\uFEFF${csvText}`, 'utf8');
+          fileName = `${safeFileBase}.csv`;
+          mimeType = 'text/csv; charset=utf-8';
+        }
+
+        let driveFileId = '';
+        let driveWebViewLink = '';
+        let statusLabel = 'Local Export Only (Company Drive Not Configured)';
+
+        if (getCompanyDriveConfigStatus().configured) {
+          try {
+            const folder = await resolveTargetDriveFolder('03_GENERATED_REPORTS');
+            const uploaded = await uploadFileToCompanyDrive({
+              buffer: fileBuffer,
+              fileName,
+              mimeType,
+              targetFolderId: folder.driveFolderId,
+              description: `Generated Report: ${reportTitle} by ${actor.display_username}`,
+            });
+            driveFileId = uploaded.driveFileId;
+            driveWebViewLink = uploaded.driveWebViewLink;
+            statusLabel = 'Stored in Company Google Drive';
+          } catch (driveErr) {
+            statusLabel = `Generated (Drive archive error: ${
+              driveErr instanceof Error ? driveErr.message : 'Drive error'
+            })`;
+          }
+        }
+
+        const record = await createReportRecord({
+          report_type: reportType,
+          report_title: reportTitle,
+          format,
+          module_filter: moduleFilter,
+          date_range_label: 'All Time',
+          row_count: rows.length,
+          drive_file_id: driveFileId,
+          drive_web_view_link: driveWebViewLink,
+          file_name: fileName,
+          size_bytes: fileBuffer.byteLength,
+          status: statusLabel,
+          generated_by: actor.id,
+          generated_by_username: actor.username,
+        });
+
+        await recordActivityEvent({
+          actorUserId: actor.id,
+          actorUsername: actor.username,
+          action: 'REPORT_GENERATED',
+          targetType: 'report',
+          targetId: record.id,
+          summary: `Generated ${format.toUpperCase()} report "${reportTitle}" (${rows.length} rows).`,
+        });
+
+        res.status(201).json({
+          report: record,
+          fileName,
+          mimeType,
+          downloadBase64: fileBuffer.toString('base64'),
+        });
+      } catch (err) {
+        console.error('Report generation error:', err);
+        res.status(500).json({ error: 'Unable to generate report.' });
+      }
+    }
+  );
+
+  // Database Backup & Confirmed Restore (Company Drive: 06_SYSTEM_BACKUPS)
+  router.get('/admin/backups', authenticateEnterprise(), requireSuperAdmin, async (_req, res) => {
+    try {
+      const all = await listReportRecords(200);
+      const backups = all.filter((r) => r.report_type === 'system_backup');
+      res.json({ backups });
+    } catch {
+      res.status(500).json({ error: 'Unable to list backup records.' });
+    }
+  });
+
+  router.post(
+    '/admin/backups/create',
+    authenticateEnterprise(),
+    requireSuperAdmin,
+    async (req: AuthedRequest, res) => {
+      try {
+        const actor = req.enterpriseUser!;
+        const users = await listUsers(true);
+        const permissionsByUser = await getBatchPermissionsMaps(users);
+        const departments = await listDepartments();
+        const designations = await listDesignations();
+        const resetRequests = await listResetRequests();
+        const documents = await listDocuments({ includeArchived: true, limit: 2000 });
+        const records = await listWorkspaceRecords();
+
+        const snapshot = {
+          schemaVersion: 'vcpl-enterprise-v2',
+          exportedAt: new Date().toISOString(),
+          exportedBy: actor.username,
+          departments,
+          designations,
+          users: users.map((u) => sanitizeUserForClient(u, permissionsByUser[u.id] || {}, { includeAdminFields: true })),
+          permissionsByUser,
+          resetRequests,
+          documents,
+          records,
+        };
+
+        const jsonBuffer = Buffer.from(JSON.stringify(snapshot, null, 2), 'utf8');
+        const fileName = `vcpl_db_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+        let driveFileId = '';
+        let driveWebViewLink = '';
+        let status = 'Downloaded Locally (Company Drive Not Configured)';
+
+        if (getCompanyDriveConfigStatus().configured) {
+          const folder = await resolveTargetDriveFolder('06_SYSTEM_BACKUPS');
+          const uploaded = await uploadFileToCompanyDrive({
+            buffer: jsonBuffer,
+            fileName,
+            mimeType: 'application/json',
+            targetFolderId: folder.driveFolderId,
+            description: `VCPL System Database Backup exported by ${actor.display_username}`,
+          });
+          driveFileId = uploaded.driveFileId;
+          driveWebViewLink = uploaded.driveWebViewLink;
+          status = 'Backed Up to Company Google Drive (06_SYSTEM_BACKUPS)';
+        }
+
+        const backupRec = await createReportRecord({
+          report_type: 'system_backup',
+          report_title: `Database Backup (${users.length} users, ${documents.length} docs, ${records.length} records)`,
+          format: 'json',
+          module_filter: 'all',
+          date_range_label: 'Full Snapshot',
+          row_count: users.length + documents.length + records.length,
+          drive_file_id: driveFileId,
+          drive_web_view_link: driveWebViewLink,
+          file_name: fileName,
+          size_bytes: jsonBuffer.byteLength,
+          status,
+          generated_by: actor.id,
+          generated_by_username: actor.username,
+        });
+
+        await recordAuditTrail({
+          actorUserId: actor.id,
+          actorUsername: actor.username,
+          category: 'backup',
+          eventType: 'SYSTEM_BACKUP_CREATED',
+          targetType: 'backup',
+          targetId: backupRec.id,
+          after: { fileName, driveFileId },
+          ipAddress: getClientIp(req),
+          userAgent: getUserAgent(req),
+        });
+
+        res.status(201).json({
+          backup: backupRec,
+          fileName,
+          snapshotBase64: jsonBuffer.toString('base64'),
+        });
+      } catch (err) {
+        console.error('Backup error:', err);
+        res.status(500).json({ error: err instanceof Error ? err.message : 'Backup creation failed.' });
+      }
     }
   );
 
   router.post(
-    '/admin/hydrate-from-cloud',
+    '/admin/backups/restore',
     authenticateEnterprise(),
     requireSuperAdmin,
-    (req: AuthedRequest, res) => {
+    async (req: AuthedRequest, res) => {
       try {
         const actor = req.enterpriseUser!;
         const body = (req.body || {}) as {
-          permissionsByUser?: Record<string, UserPermissionMatrix>;
-          records?: Array<{
-            id: string;
-            moduleId: string;
-            recordTitle: string;
-            referenceCode: string;
-            status: string;
-            payloadJson: string;
-            createdBy: string;
-            createdByUsername: string;
-          }>;
+          confirmPhrase?: unknown;
+          snapshot?: {
+            permissionsByUser?: Record<string, UserPermissionMatrix>;
+            records?: Array<{
+              id: string;
+              module_id?: string;
+              moduleId?: string;
+              record_title?: string;
+              recordTitle?: string;
+              reference_code?: string;
+              referenceCode?: string;
+              status?: string;
+              payload_json?: string;
+              payloadJson?: string;
+              created_by?: string;
+              createdBy?: string;
+              created_by_username?: string;
+              createdByUsername?: string;
+            }>;
+          };
         };
+
+        if (String(body.confirmPhrase ?? '').trim() !== 'RESTORE VCPL DATABASE') {
+          res.status(400).json({
+            error: 'Confirmation phrase mismatch. Type exact phrase: RESTORE VCPL DATABASE',
+          });
+          return;
+        }
+
+        const snap = body.snapshot;
+        if (!snap || typeof snap !== 'object') {
+          res.status(400).json({ error: 'Valid backup snapshot JSON object is required.' });
+          return;
+        }
 
         let restoredPermissions = 0;
         let restoredRecords = 0;
-        const db = getDb();
-        const now = new Date().toISOString();
 
-        if (body.permissionsByUser && typeof body.permissionsByUser === 'object') {
-          for (const [uid, matrix] of Object.entries(body.permissionsByUser)) {
-            const exists = db
-              .prepare('SELECT id FROM enterprise_users WHERE id = ?')
-              .get(uid) as { id?: string } | undefined;
-            if (exists?.id && matrix && typeof matrix === 'object') {
-              saveUserPermissionsMap(uid, matrix);
+        if (snap.permissionsByUser && typeof snap.permissionsByUser === 'object') {
+          for (const [uid, matrix] of Object.entries(snap.permissionsByUser)) {
+            const targetUser = await findUserById(uid);
+            if (targetUser && targetUser.role !== 'super_admin' && matrix && typeof matrix === 'object') {
+              await saveUserPermissionsMap(uid, matrix, actor.username);
               restoredPermissions += 1;
             }
           }
         }
 
-        if (Array.isArray(body.records)) {
-          const insertRec = db.prepare(`
-            INSERT OR IGNORE INTO enterprise_workspace_records (
-              id, module_id, record_title, reference_code, status, payload_json,
-              created_by, created_by_username, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `);
-          for (const rec of body.records) {
-            if (!rec?.id || !rec?.moduleId || !rec?.recordTitle) continue;
-            const info = insertRec.run(
-              rec.id,
-              rec.moduleId,
-              rec.recordTitle,
-              rec.referenceCode || '',
-              rec.status || 'Active',
-              rec.payloadJson || '{}',
-              rec.createdBy || actor.id,
-              rec.createdByUsername || actor.username,
-              now,
-              now
-            );
-            restoredRecords += Number(info.changes || 0);
+        if (Array.isArray(snap.records)) {
+          for (const rec of snap.records) {
+            const moduleId = rec.module_id || rec.moduleId;
+            const title = rec.record_title || rec.recordTitle;
+            if (!rec.id || !moduleId || !title) continue;
+            const exists = await getWorkspaceRecordById(rec.id);
+            if (!exists) {
+              let parsedPayload: unknown = {};
+              const rawPayload = rec.payload_json || rec.payloadJson || '{}';
+              try {
+                parsedPayload = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
+              } catch {
+                parsedPayload = {};
+              }
+              await createWorkspaceRecord({
+                moduleId,
+                recordTitle: title,
+                referenceCode: rec.reference_code || rec.referenceCode || '',
+                status: rec.status || 'Active',
+                payload: parsedPayload,
+                createdBy: rec.created_by || rec.createdBy || actor.id,
+                createdByUsername: rec.created_by_username || rec.createdByUsername || actor.username,
+              });
+              restoredRecords += 1;
+            }
           }
         }
 
-        recordActivityEvent({
+        await recordAuditTrail({
           actorUserId: actor.id,
           actorUsername: actor.username,
-          action: 'CLOUD_HYDRATE',
-          targetType: 'system',
-          targetId: 'firestore',
-          summary: `Restored ${restoredPermissions} permission profiles and ${restoredRecords} workspace records from Firebase Firestore.`,
+          category: 'backup',
+          eventType: 'SYSTEM_BACKUP_RESTORED',
+          targetType: 'backup',
+          targetId: 'snapshot',
+          after: { restoredPermissions, restoredRecords },
+          ipAddress: getClientIp(req),
+          userAgent: getUserAgent(req),
         });
 
         res.json({ ok: true, restoredPermissions, restoredRecords });
       } catch (err) {
-        console.error('Cloud hydration error:', err);
-        res.status(500).json({ error: 'Unable to hydrate data from cloud snapshot.' });
+        console.error('Backup restore error:', err);
+        res.status(500).json({ error: 'Unable to restore backup snapshot.' });
       }
     }
   );
 
   // =========================================================================
-  // 8. METADATA ENDPOINT FOR CLIENT PERMISSIONS & MODULES
+  // 8. SYSTEM DIAGNOSTICS & MODULES METADATA
   // =========================================================================
+  router.get(
+    '/admin/system-status',
+    authenticateEnterprise(),
+    requireSuperAdmin,
+    async (_req, res) => {
+      try {
+        const supabaseHealth = await checkSupabaseHealth();
+        const driveStatus = getCompanyDriveConfigStatus();
+        const driveLive = await testCompanyDriveConnection();
+        const summary = await getEnterprisePersistenceSummary();
+        const geminiConfigured = Boolean(
+          (process.env.GEMINI_API_KEY || '').trim() &&
+            process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY'
+        );
+        const cronConfigured = Boolean((process.env.CRON_SECRET || '').trim());
+        const indexNowConfigured = /^[a-zA-Z0-9-]{8,128}$/.test(
+          (process.env.INDEXNOW_KEY || '').trim()
+        );
+
+        res.json({
+          supabase: supabaseHealth,
+          googleDrive: {
+            ...driveStatus,
+            liveConnection: driveLive,
+          },
+          summary,
+          services: {
+            geminiConfigured,
+            cronConfigured,
+            indexNowConfigured,
+            superAdminEnvSeeded: Boolean(
+              (process.env.SUPER_ADMIN_USERNAME || '').trim() &&
+                (process.env.SUPER_ADMIN_PASSWORD || '').trim()
+            ),
+          },
+        });
+      } catch (err) {
+        res.status(500).json({
+          error: err instanceof Error ? err.message : 'Unable to check system diagnostics.',
+        });
+      }
+    }
+  );
+
   router.get('/modules', authenticateEnterprise(), (_req, res) => {
     res.json({
       modules: ALL_ENTERPRISE_MODULES,

@@ -4,7 +4,7 @@ import { PUBLIC_TOOLS_CATALOG, TOOL_CATEGORIES, TOOL_SECTION_HEADS } from '../da
 import type { BlogPostItem } from '../types/blog.ts';
 import { ToolCatalogItem, ToolFilterType } from '../types/tools.ts';
 
-export const DEFAULT_SITE_ORIGIN = 'https://vcpltools.vercel.app';
+export const DEFAULT_SITE_ORIGIN = 'https://vcpl-tools.vercel.app';
 
 export const CATEGORY_SLUG_BY_FILTER: Record<Exclude<ToolFilterType, 'All'>, string> = {
   Banking: 'bank-slips',

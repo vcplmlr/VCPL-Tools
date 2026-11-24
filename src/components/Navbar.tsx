@@ -13,6 +13,8 @@ import {
   Landmark,
   Linkedin,
   Lock,
+  LogIn,
+  LogOut,
   Menu,
   QrCode,
   Receipt,
@@ -167,35 +169,101 @@ export function Navbar({
   onChangeTheme,
 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, isAuthenticated, isSuperAdmin } = useEnterpriseAuth();
+  const { user, isAuthenticated, isSuperAdmin, logout } = useEnterpriseAuth();
+  const cleanUserDisplayName = (user?.fullName?.trim() || user?.displayUsername || '').replace(/^@+/, '');
 
   return (
     <>
-      {/* Top Utility Strip Above Main Menu: Left = Live IST Date/Time, Right = Social Icons */}
+      {/* Top Utility Strip Above Main Menu: Left = Live IST Date/Time, Right = Single Workspace Login + Social Icons */}
       <div
         className="w-full bg-[#2F3E4E] dark:bg-[#060A13] text-[#FFFDF5] border-b border-[#1E293B] dark:border-slate-800 no-print"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <div className="max-w-[1440px] mx-auto pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-6 min-h-[2.25rem] py-1 flex items-center justify-between gap-2 sm:gap-3">
+        <div className="max-w-[1440px] mx-auto pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-6 min-h-[2.5rem] py-1 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           <IstClock />
 
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0" aria-label="Developer Social Media Links">
-            <span className="hidden md:inline text-[11px] text-[#CBD5E1] mr-1.5 font-medium">
-              Follow Developer:
-            </span>
-            {SOCIAL_LINKS.map((social) => (
-              <a
-                key={social.name}
-                href={social.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Follow Developer on ${social.name}`}
-                title={social.name}
-                className="w-7 h-7 sm:w-6 sm:h-6 rounded-md bg-[#FFFDF5]/10 hover:bg-[#F9C80E] text-[#FFFDF5] hover:text-[#2F3E4E] border border-white/15 hover:border-[#F9C80E] flex items-center justify-center transition-colors duration-150"
-              >
-                {social.renderIcon()}
-              </a>
-            ))}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Single Unified Workspace Login / Account Controls */}
+            <div className="flex items-center gap-1.5" aria-label="Workspace Login">
+              {isAuthenticated && user ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onSelectIconMenu(isSuperAdmin ? 'super-admin' : 'portal');
+                    }}
+                    title="Open My VCPL Workspace"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#CEE5DC] text-[#0F172A] hover:bg-[#F9C80E] text-[11px] font-display font-extrabold tracking-tight transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>{cleanUserDisplayName}</span>
+                  </button>
+
+                  {isSuperAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        onSelectIconMenu('super-admin');
+                      }}
+                      title="Open Super Admin Control Panel"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#F9C80E] hover:bg-[#FDE047] text-[#0F172A] text-[11px] font-display font-extrabold tracking-tight transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>Admin Panel</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      void logout();
+                    }}
+                    title="Sign Out"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#9E2A2B] hover:bg-[#7D0B0B] text-[#FFFDF5] border border-white/15 text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <LogOut className="w-3 h-3 shrink-0" aria-hidden="true" />
+                    <span>Sign Out</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onSelectIconMenu('portal');
+                  }}
+                  title="Sign in to VCPL Tools Workspace"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#F9C80E] hover:bg-[#FDE047] text-[#0F172A] text-[11px] font-display font-extrabold tracking-tight transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <LogIn className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>Login</span>
+                </button>
+              )}
+            </div>
+
+            <span className="hidden sm:inline-block h-4 w-px bg-white/20" aria-hidden="true" />
+
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0" aria-label="Developer Social Media Links">
+              <span className="hidden lg:inline text-[11px] text-[#CBD5E1] mr-1 font-medium">
+                Follow Developer:
+              </span>
+              {SOCIAL_LINKS.map((social) => (
+                <a
+                  key={social.name}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Follow Developer on ${social.name}`}
+                  title={social.name}
+                  className="w-6 h-6 rounded-md bg-[#FFFDF5]/10 hover:bg-[#F9C80E] text-[#FFFDF5] hover:text-[#2F3E4E] border border-white/15 hover:border-[#F9C80E] flex items-center justify-center transition-colors duration-150"
+                >
+                  {social.renderIcon()}
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -266,26 +334,26 @@ export function Navbar({
             })}
           </nav>
 
-          {/* Right Controls in Main Menu Bar: Enterprise Portal + Light/Dark Switcher + Mobile Hamburger */}
+          {/* Right Controls in Main Menu Bar: Workspace Button (when signed in) + Light/Dark Switcher + Mobile Hamburger */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onSelectIconMenu('portal');
-              }}
-              title={isAuthenticated && user ? `Signed in as @${user.displayUsername}` : 'Employee & Admin Portal'}
-              className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-display font-extrabold tracking-tight border transition-colors cursor-pointer whitespace-nowrap ${
-                activeIconMenu === 'portal'
-                  ? 'bg-[#2F3E4E] text-[#F9C80E] border-[#2F3E4E] dark:bg-[#F9C80E] dark:text-[#0F172A]'
-                  : isAuthenticated
-                    ? 'bg-[#CEE5DC]/90 dark:bg-emerald-950/75 text-[#12805C] dark:text-emerald-300 border-[#12805C]/35'
-                    : 'bg-[#FFFDF5] dark:bg-slate-900 text-[#2F3E4E] dark:text-slate-100 border-[#2F3E4E]/25 dark:border-slate-700 hover:bg-[#F9C80E]/45'
-              }`}
-            >
-              <UserCheck className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>{isAuthenticated && user ? `@${user.displayUsername}` : 'PORTAL'}</span>
-            </button>
+            {isAuthenticated && user && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onSelectIconMenu('portal');
+                }}
+                title={`Signed in as ${cleanUserDisplayName}`}
+                className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-display font-extrabold tracking-tight border transition-colors cursor-pointer whitespace-nowrap ${
+                  activeIconMenu === 'portal'
+                    ? 'bg-[#2F3E4E] text-[#F9C80E] border-[#2F3E4E] dark:bg-[#F9C80E] dark:text-[#0F172A]'
+                    : 'bg-[#CEE5DC]/90 dark:bg-emerald-950/75 text-[#12805C] dark:text-emerald-300 border-[#12805C]/35'
+                }`}
+              >
+                <UserCheck className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>{cleanUserDisplayName}</span>
+              </button>
+            )}
 
             {isSuperAdmin && (
               <button
@@ -380,7 +448,9 @@ export function Navbar({
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-[#FFFDF5] dark:bg-slate-900 text-xs font-display font-extrabold text-[#2F3E4E] dark:text-slate-100 cursor-pointer"
                 >
                   <UserCheck className="w-4 h-4" />
-                  <span>{isAuthenticated && user ? `@${user.displayUsername}` : 'Enterprise Portal'}</span>
+                  <span>
+                    {isAuthenticated && user ? cleanUserDisplayName : 'Login'}
+                  </span>
                 </button>
                 {isSuperAdmin && (
                   <button
@@ -392,7 +462,7 @@ export function Navbar({
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#2F3E4E] text-[#F9C80E] text-xs font-display font-extrabold cursor-pointer"
                   >
                     <ShieldCheck className="w-4 h-4" />
-                    <span>Super Admin</span>
+                    <span>Admin Panel</span>
                   </button>
                 )}
               </div>

@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   UserCheck,
   UserCog,
-  UserPlus,
 } from 'lucide-react';
 import { useEnterpriseAuth } from '../../context/EnterpriseAuthContext.tsx';
 import {
@@ -30,46 +29,32 @@ interface EnterprisePortalViewProps {
   onBackHome: () => void;
   onOpenTool: (tool: ToolCatalogItem, fullScreen?: boolean) => void;
   onOpenSuperAdmin: () => void;
-  onOpenLockedVault?: () => void;
 }
 
 export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
   onBackHome,
   onOpenTool,
   onOpenSuperAdmin,
-  onOpenLockedVault,
 }) => {
   const {
     user,
+    sessionLoading,
     isAuthenticated,
     isSuperAdmin,
     requiresPasswordChange,
-    superAdminConfigured,
     login,
-    bootstrapSuperAdmin,
     changePassword,
     requestPasswordReset,
     logout,
     hasPermission,
   } = useEnterpriseAuth();
 
-  // Sign-In state
+  // Single Tally-style Sign-In state
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showSignInPwd, setShowSignInPwd] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [authSuccess, setAuthSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [forceLoginInsteadOfBootstrap, setForceLoginInsteadOfBootstrap] = useState(false);
-
-  // Super Admin First-Run Bootstrap state
-  const [adminUsername, setAdminUsername] = useState('');
-  const [adminFullName, setAdminFullName] = useState('');
-  const [adminDesignation, setAdminDesignation] = useState('Super Administrator');
-  const [adminContact, setAdminContact] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
-  const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
-  const [showAdminPwd, setShowAdminPwd] = useState(false);
 
   // Forgot Password (Manual Admin Queue) state
   const [forgotOpen, setForgotOpen] = useState(false);
@@ -91,9 +76,6 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
 
   // Tool search inside employee dashboard
   const [toolSearch, setToolSearch] = useState('');
-
-  const normalizedSignInPreview = useMemo(() => usernameInput.trim().toLowerCase(), [usernameInput]);
-  const normalizedAdminPreview = useMemo(() => adminUsername.trim().toLowerCase(), [adminUsername]);
 
   const passwordRules = useMemo(
     () => ({
@@ -132,11 +114,10 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
     e.preventDefault();
     if (isSubmitting) return;
     setAuthError('');
-    setAuthSuccess('');
 
     const cleanUser = usernameInput.trim();
     if (!cleanUser) {
-      setAuthError('Please enter your username.');
+      setAuthError('Please enter your User ID.');
       return;
     }
     if (!passwordInput) {
@@ -151,41 +132,13 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
       if (result.requiresPasswordChange) {
         setPwdError('');
         setPwdSuccess('');
+        return;
+      }
+      if (result.user.role === 'super_admin') {
+        onOpenSuperAdmin();
       }
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Unable to sign in.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleBootstrapSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-    setAuthError('');
-
-    if (!adminUsername.trim() || !adminFullName.trim()) {
-      setAuthError('Super Admin username and Full Name are required.');
-      return;
-    }
-    if (adminPassword !== adminConfirmPassword) {
-      setAuthError('Password and confirmation do not match.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await bootstrapSuperAdmin({
-        username: adminUsername.trim(),
-        password: adminPassword,
-        fullName: adminFullName.trim(),
-        designation: adminDesignation.trim() || 'Super Administrator',
-        contactNumber: adminContact.trim(),
-      });
-      setAdminPassword('');
-      setAdminConfirmPassword('');
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'Unable to create Super Admin account.');
     } finally {
       setIsSubmitting(false);
     }
@@ -198,7 +151,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
     setForgotMessage('');
     const clean = forgotUsername.trim();
     if (!clean) {
-      setForgotError('Please enter your assigned username.');
+      setForgotError('Please enter your User ID.');
       return;
     }
 
@@ -231,18 +184,34 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
 
     setPwdSubmitting(true);
     try {
-      await changePassword(currentPwd, newPwd, confirmNewPwd);
+      const updatedUser = await changePassword(currentPwd, newPwd, confirmNewPwd);
       setCurrentPwd('');
       setNewPwd('');
       setConfirmNewPwd('');
       setVoluntaryChangeOpen(false);
       setPwdSuccess('Password updated cleanly. Your temporary password has been invalidated.');
+      if (updatedUser.role === 'super_admin') {
+        onOpenSuperAdmin();
+      }
     } catch (err) {
       setPwdError(err instanceof Error ? err.message : 'Unable to update password.');
     } finally {
       setPwdSubmitting(false);
     }
   };
+
+  if (sessionLoading && !isAuthenticated) {
+    return (
+      <section className="w-full bg-[#FEF2C8] dark:bg-[#0B1120] py-16 min-h-[calc(100dvh-140px)] flex items-center justify-center">
+        <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl px-7 py-6 shadow-[0_4px_0_#2F3E4E] text-center space-y-2.5">
+          <div className="w-7 h-7 mx-auto rounded-full border-2 border-[#2F3E4E] dark:border-slate-600 border-t-[#F9C80E] animate-spin" />
+          <p className="font-display font-extrabold text-sm text-[#2F3E4E] dark:text-slate-100">
+            Checking VCPL Workspace Session...
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   // =========================================================================
   // STATE 1: MANDATORY PASSWORD CHANGE SCREEN (FIRST LOGIN OR ADMIN RESET)
@@ -265,7 +234,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                     Set Your Personal Password
                   </h1>
                   <p className="text-xs text-[#64748B] dark:text-slate-400 font-mono mt-0.5">
-                    Account: @{user.username} ({user.fullName})
+                    Account: {user.fullName} ({user.displayUsername.replace(/^@+/, '')})
                   </p>
                 </div>
               </div>
@@ -280,9 +249,9 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
             </div>
 
             <div className="rounded-xl border border-[#2F3E4E]/20 dark:border-amber-500/35 bg-[#FEF2C8]/75 dark:bg-amber-950/35 px-4 py-3 text-xs text-[#2F3E4E] dark:text-amber-100 leading-relaxed">
-              Your temporary password was issued by the Super Admin. Replace it with a strong
-              personal password before accessing VCPL Pro tools, files, or records. Your
-              temporary password will be invalidated immediately upon update.
+              Your temporary password was issued by your administrator. Replace it with a strong
+              personal password before accessing VCPL Tools files or modules. Your temporary
+              password will be invalidated immediately upon saving.
             </div>
 
             <form onSubmit={(e) => void handlePasswordChangeSubmit(e)} className="space-y-4">
@@ -309,7 +278,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                   autoComplete="current-password"
                   value={currentPwd}
                   onChange={(e) => setCurrentPwd(e.target.value)}
-                  placeholder="Enter the temporary password..."
+                  placeholder="Enter your temporary password..."
                   className="w-full min-h-[44px] px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-sm font-mono text-[#2F3E4E] dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#F9C80E]"
                 />
               </div>
@@ -390,7 +359,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                 className="w-full min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#12805C] hover:bg-[#0E6A4B] disabled:opacity-60 text-[#FFFDF5] shadow-[0_3px_0_#0A4F38] font-display font-extrabold text-sm cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4" />
-                <span>{pwdSubmitting ? 'Updating Password...' : 'Save Password & Unlock VCPL Pro'}</span>
+                <span>{pwdSubmitting ? 'Updating Password...' : 'Save Password & Enter Workspace'}</span>
               </button>
             </form>
           </div>
@@ -400,211 +369,36 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
   }
 
   // =========================================================================
-  // STATE 2: FIRST-RUN SUPER ADMIN SETUP (IF NO SUPER ADMIN EXISTS YET)
-  // =========================================================================
-  if (!isAuthenticated && superAdminConfigured === false && !forceLoginInsteadOfBootstrap) {
-    return (
-      <section className="w-full bg-[#FEF2C8] dark:bg-[#0B1120] py-10 sm:py-14 min-h-[calc(100dvh-140px)] flex items-center">
-        <div className="w-full max-w-xl mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6">
-          <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-6 sm:p-8 shadow-[0_6px_0_#2F3E4E] dark:shadow-[0_6px_0_#020617] space-y-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3.5">
-                <div className="w-12 h-12 rounded-xl bg-[#2F3E4E] text-[#F9C80E] flex items-center justify-center shrink-0">
-                  <UserPlus className="w-6 h-6" aria-hidden="true" />
-                </div>
-                <div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#CEE5DC] dark:bg-emerald-950/70 border border-[#12805C]/30 text-[10px] font-display font-extrabold uppercase tracking-wider text-[#12805C] dark:text-emerald-300">
-                    Initial Enterprise Setup
-                  </span>
-                  <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] dark:text-slate-50 mt-1">
-                    Initialize VCPL Pro Super Admin
-                  </h1>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-xs sm:text-sm text-[#475569] dark:text-slate-300 leading-relaxed">
-              Configure the primary Super Admin account using a username and strong password. Once
-              initialized, you can create employee accounts (no email required), approve users,
-              assign granular tool permissions, and sync snapshots with Firebase Firestore.
-            </p>
-
-            <form onSubmit={(e) => void handleBootstrapSubmit(e)} className="space-y-3.5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
-                    Super Admin Username *
-                  </label>
-                  <input
-                    type="text"
-                    value={adminUsername}
-                    onChange={(e) => setAdminUsername(e.target.value)}
-                    placeholder="e.g. Kaushik"
-                    className="w-full min-h-[42px] px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-sm text-[#2F3E4E] dark:text-slate-100"
-                  />
-                  {normalizedAdminPreview && (
-                    <p className="text-[11px] font-mono text-[#64748B] dark:text-slate-400">
-                      Login username: @{normalizedAdminPreview}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={adminFullName}
-                    onChange={(e) => setAdminFullName(e.target.value)}
-                    placeholder="e.g. Kaushik Bangera"
-                    className="w-full min-h-[42px] px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-sm text-[#2F3E4E] dark:text-slate-100"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
-                    Designation
-                  </label>
-                  <input
-                    type="text"
-                    value={adminDesignation}
-                    onChange={(e) => setAdminDesignation(e.target.value)}
-                    placeholder="Super Administrator"
-                    className="w-full min-h-[42px] px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-sm text-[#2F3E4E] dark:text-slate-100"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
-                    Contact Number (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={adminContact}
-                    onChange={(e) => setAdminContact(e.target.value)}
-                    placeholder="+91..."
-                    className="w-full min-h-[42px] px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-sm text-[#2F3E4E] dark:text-slate-100"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
-                      Password *
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowAdminPwd((p) => !p)}
-                      className="text-[11px] font-bold text-[#475569] dark:text-slate-300 cursor-pointer"
-                    >
-                      {showAdminPwd ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                  <input
-                    type={showAdminPwd ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    placeholder="Min 8 chars, upper, lower, symbol/num"
-                    className="w-full min-h-[42px] px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-sm font-mono text-[#2F3E4E] dark:text-slate-100"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
-                    Confirm Password *
-                  </label>
-                  <input
-                    type={showAdminPwd ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    value={adminConfirmPassword}
-                    onChange={(e) => setAdminConfirmPassword(e.target.value)}
-                    placeholder="Confirm password"
-                    className="w-full min-h-[42px] px-3 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-sm font-mono text-[#2F3E4E] dark:text-slate-100"
-                  />
-                </div>
-              </div>
-
-              {authError && (
-                <div
-                  role="alert"
-                  className="rounded-xl border border-[#9E2A2B]/40 bg-[#FEE2E2]/80 dark:bg-rose-950/60 px-3.5 py-2.5 flex items-center gap-2 text-xs font-semibold text-[#7D0B0B] dark:text-rose-200"
-                >
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>{authError}</span>
-                </div>
-              )}
-
-              <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#2F3E4E] hover:bg-[#1E293B] text-[#F9C80E] shadow-[0_3px_0_#1E293B] font-display font-extrabold text-sm cursor-pointer disabled:opacity-60"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>{isSubmitting ? 'Initializing...' : 'Create Super Admin & Enter'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForceLoginInsteadOfBootstrap(true)}
-                  className="min-h-[46px] px-4 py-2.5 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-bold text-[#2F3E4E] dark:text-slate-100 cursor-pointer"
-                >
-                  Sign In Instead
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  // =========================================================================
-  // STATE 3: USERNAME + PASSWORD SIGN-IN (NO EMAIL REQUIRED)
+  // STATE 2: SINGLE TALLY-STYLE ENTERPRISE SIGN-IN SCREEN
   // =========================================================================
   if (!isAuthenticated || !user) {
     return (
       <section className="w-full bg-[#FEF2C8] dark:bg-[#0B1120] py-10 sm:py-16 min-h-[calc(100dvh-140px)] flex items-center">
-        <div className="w-full max-w-lg mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6 space-y-4">
+        <div className="w-full max-w-md mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6 space-y-4">
           <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-6 sm:p-8 shadow-[0_6px_0_#2F3E4E] dark:shadow-[0_6px_0_#020617] space-y-5">
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3.5">
               <div className="w-12 h-12 rounded-xl bg-[#2F3E4E] border-[1.5px] border-[#1E293B] text-[#F9C80E] flex items-center justify-center shrink-0">
                 <Building2 className="w-6 h-6" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#F9C80E]/35 dark:bg-amber-950/60 border border-[#2F3E4E]/25 dark:border-amber-500/40 text-[10px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-[#F9C80E]">
-                  VCPL Pro Enterprise Portal
-                </span>
-                <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] dark:text-slate-50 tracking-tight mt-1">
-                  Employee &amp; Admin Sign In
+                <p className="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#12805C] dark:text-[#F9C80E]">
+                  VCPL TOOLS
+                </p>
+                <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] dark:text-slate-50 tracking-tight mt-0.5">
+                  Secure Company Workspace
                 </h1>
               </div>
             </div>
 
-            <p className="text-xs sm:text-sm text-[#475569] dark:text-slate-300 leading-relaxed">
-              Sign in using your assigned <strong>Username</strong> and <strong>Password</strong>.
-              Usernames are case-insensitive and automatically normalized.
-            </p>
-
             {!forgotOpen ? (
               <form onSubmit={(e) => void handleSignInSubmit(e)} noValidate className="space-y-4">
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <label
-                      htmlFor="vcpl-portal-username"
-                      className="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200"
-                    >
-                      Username
-                    </label>
-                    {normalizedSignInPreview && (
-                      <span className="text-[11px] font-mono text-[#64748B] dark:text-slate-400">
-                        Normalized: @{normalizedSignInPreview}
-                      </span>
-                    )}
-                  </div>
+                  <label
+                    htmlFor="vcpl-portal-username"
+                    className="block text-[11px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200"
+                  >
+                    User ID
+                  </label>
                   <input
                     id="vcpl-portal-username"
                     name="username"
@@ -617,7 +411,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                       setUsernameInput(e.target.value);
                       if (authError) setAuthError('');
                     }}
-                    placeholder="e.g. Kaushik or kaushik123"
+                    placeholder="Enter your User ID"
                     className="w-full min-h-[46px] px-4 py-2.5 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-sm font-medium text-[#2F3E4E] dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#F9C80E]"
                   />
                 </div>
@@ -650,7 +444,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                       setPasswordInput(e.target.value);
                       if (authError) setAuthError('');
                     }}
-                    placeholder="Enter password or temporary password..."
+                    placeholder="Enter password"
                     className="w-full min-h-[46px] px-4 py-2.5 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-sm font-mono text-[#2F3E4E] dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#F9C80E]"
                   />
                 </div>
@@ -665,12 +459,6 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                   </div>
                 )}
 
-                {authSuccess && (
-                  <div className="rounded-xl border border-[#12805C]/40 bg-[#CEE5DC]/70 px-3.5 py-2.5 text-xs font-semibold text-[#12805C]">
-                    {authSuccess}
-                  </div>
-                )}
-
                 <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
                   <button
                     type="submit"
@@ -678,7 +466,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                     className="flex-1 min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border-[1.5px] border-[#2F3E4E] bg-[#2F3E4E] hover:bg-[#1E293B] text-[#F9C80E] shadow-[0_3px_0_#1E293B] font-display font-extrabold text-sm cursor-pointer disabled:opacity-60"
                   >
                     <Lock className="w-4 h-4" />
-                    <span>{isSubmitting ? 'Signing In...' : 'Sign In to VCPL Pro'}</span>
+                    <span>{isSubmitting ? 'Signing In...' : 'Login'}</span>
                   </button>
                   <button
                     type="button"
@@ -690,7 +478,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                   </button>
                 </div>
 
-                <div className="pt-3 border-t border-[#2F3E4E]/15 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="pt-3 border-t border-[#2F3E4E]/15 dark:border-slate-700 flex items-center justify-between text-xs">
                   <button
                     type="button"
                     onClick={() => {
@@ -702,51 +490,41 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                     className="inline-flex items-center gap-1.5 font-bold text-[#9E2A2B] dark:text-rose-300 hover:underline cursor-pointer"
                   >
                     <HelpCircle className="w-3.5 h-3.5" />
-                    <span>Forgot Password? Request Super Admin Reset</span>
+                    <span>Forgot Password?</span>
                   </button>
-
-                  {onOpenLockedVault && (
-                    <button
-                      type="button"
-                      onClick={onOpenLockedVault}
-                      className="font-semibold text-[#475569] dark:text-slate-400 hover:underline cursor-pointer"
-                    >
-                      Legacy Vault Login
-                    </button>
-                  )}
                 </div>
               </form>
             ) : (
               /* Forgot Password Manual Admin Queue */
               <form onSubmit={(e) => void handleForgotSubmit(e)} className="space-y-4">
                 <div className="rounded-xl border border-[#2F3E4E]/20 dark:border-slate-700 bg-[#FEF2C8]/75 dark:bg-slate-800/70 px-3.5 py-3 text-xs text-[#2F3E4E] dark:text-slate-200 leading-relaxed">
-                  <strong>Manual Password Reset Request:</strong> Submit your username below. No
-                  automatic emails are sent—your request goes directly to the Super Admin control
-                  panel, who will generate and share a one-time temporary password with you.
+                  <strong>Password Reset Request:</strong> Submit your User ID below. Your request
+                  goes straight to the Super Admin control queue, who will issue a one-time temporary
+                  password directly.
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
-                    Your Username *
+                    User ID *
                   </label>
                   <input
                     type="text"
                     value={forgotUsername}
                     onChange={(e) => setForgotUsername(e.target.value)}
-                    placeholder="Enter your username..."
+                    placeholder="Enter your User ID..."
                     className="w-full min-h-[44px] px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-sm text-[#2F3E4E] dark:text-slate-100"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
-                    Department / Note for Super Admin (Optional)
+                    Reason / Department Note (Optional)
                   </label>
                   <input
                     type="text"
                     value={forgotNote}
                     onChange={(e) => setForgotNote(e.target.value)}
-                    placeholder="e.g. Accounts Desk — locked out after browser change"
+                    placeholder="e.g. Accounts Desk — need temporary password"
                     className="w-full min-h-[44px] px-3.5 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-sm text-[#2F3E4E] dark:text-slate-100"
                   />
                 </div>
@@ -779,7 +557,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                     onClick={() => setForgotOpen(false)}
                     className="min-h-[44px] px-4 py-2 rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-bold text-[#2F3E4E] dark:text-slate-100 cursor-pointer"
                   >
-                    Back to Sign In
+                    Back to Login
                   </button>
                 </div>
               </form>
@@ -791,8 +569,10 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
   }
 
   // =========================================================================
-  // STATE 4: AUTHORIZED EMPLOYEE & ADMIN PORTAL WORKSPACE
+  // STATE 3: AUTHORIZED COMPANY WORKSPACE
   // =========================================================================
+  const cleanDisplayName = (user.fullName?.trim() || user.displayUsername || '').replace(/^@+/, '');
+
   return (
     <section className="w-full bg-[#FEF2C8] dark:bg-[#0B1120] py-6 sm:py-8 min-h-[calc(100dvh-140px)]">
       <div className="max-w-[1440px] mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:px-6 space-y-6">
@@ -858,13 +638,15 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                   <span className="px-2 py-0.5 rounded-md bg-[#2F3E4E] text-[#F9C80E]">
                     {user.role === 'super_admin' ? 'SUPER ADMIN' : 'EMPLOYEE'}
                   </span>
-                  <span className="text-[#475569] dark:text-slate-300">@{user.displayUsername}</span>
+                  <span className="text-[#475569] dark:text-slate-300">
+                    {user.displayUsername.replace(/^@+/, '')}
+                  </span>
                   {user.employeeId && (
                     <span className="text-[#64748B] dark:text-slate-400">· ID {user.employeeId}</span>
                   )}
                 </div>
                 <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] dark:text-slate-50">
-                  {user.fullName}
+                  {cleanDisplayName}
                 </h1>
                 <p className="text-xs text-[#475569] dark:text-slate-300">
                   <strong>{user.designation}</strong> · {user.department}
@@ -883,7 +665,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
                   {visibleCoreModulesCount}
                 </p>
                 <p className="text-[10px] font-display font-bold uppercase text-[#64748B] dark:text-slate-400">
-                  Core Workspaces
+                  Core Modules
                 </p>
               </div>
               <div className="px-3 py-2 rounded-xl bg-[#FEF2C8]/75 dark:bg-slate-900 border border-[#2F3E4E]/15 dark:border-slate-700">
@@ -896,10 +678,10 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
               </div>
               <div className="px-3 py-2 rounded-xl bg-[#CEE5DC]/65 dark:bg-emerald-950/40 border border-[#12805C]/25">
                 <p className="text-lg font-mono font-extrabold tabular-nums text-[#12805C] dark:text-emerald-300">
-                  Cloud
+                  Drive
                 </p>
                 <p className="text-[10px] font-display font-bold uppercase text-[#12805C] dark:text-emerald-300">
-                  Multi-Device Sync
+                  Central Vault
                 </p>
               </div>
             </div>
@@ -973,7 +755,7 @@ export const EnterprisePortalView: React.FC<EnterprisePortalViewProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="font-display font-extrabold text-lg text-[#2F3E4E] dark:text-slate-50">
-                Your Assigned VCPL Pro Tools ({assignedTools.length})
+                Your Assigned VCPL Tools ({assignedTools.length})
               </h2>
               <p className="text-xs text-[#64748B] dark:text-slate-400">
                 Available across any computer or browser according to permissions assigned by Super Admin.

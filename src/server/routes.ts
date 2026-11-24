@@ -3,8 +3,8 @@ import type { NextFunction, Request, Response, Router } from 'express';
 import express from 'express';
 import { RBI_AMALGAMATED_BANKS } from './bankMetadata.ts';
 import {
-  getAutoPublishedBlogPosts,
-  getBlogSchedulerStatus,
+  getAutoPublishedBlogPostsAsync,
+  getBlogSchedulerStatusAsync,
   runScheduledBlogCatchUp,
 } from './blogScheduler.ts';
 import { buildFtsQuery, getDb } from './db.ts';
@@ -1009,10 +1009,10 @@ export function createApiRouter(): Router {
   });
 
   // Backend auto-published daily blog articles endpoint (internal scheduler feed)
-  router.get('/blog/posts', (_req, res) => {
+  router.get('/blog/posts', async (_req, res) => {
     void runScheduledBlogCatchUp();
     try {
-      const posts = getAutoPublishedBlogPosts();
+      const posts = await getAutoPublishedBlogPostsAsync();
       res.setHeader('Cache-Control', 'public, max-age=120');
       res.json({ posts });
     } catch (err) {
@@ -1021,8 +1021,13 @@ export function createApiRouter(): Router {
     }
   });
 
-  router.get('/blog/status', (_req, res) => {
-    res.json(getBlogSchedulerStatus());
+  router.get('/blog/status', async (_req, res) => {
+    try {
+      res.json(await getBlogSchedulerStatusAsync());
+    } catch (err) {
+      console.error('Failed loading blog scheduler status:', err);
+      res.status(500).json({ error: 'Unable to read blog scheduler status.' });
+    }
   });
 
   router.post('/blog/publish-now', requireAdmin, async (_req, res) => {
@@ -1030,25 +1035,30 @@ export function createApiRouter(): Router {
     res.json({
       ok: true,
       publishedCount,
-      status: getBlogSchedulerStatus(),
+      status: await getBlogSchedulerStatusAsync(),
     });
   });
 
   router.get('/cron/daily-blog', async (req, res) => {
     const cronSecret = (process.env.CRON_SECRET || '').trim();
-    if (cronSecret) {
-      const authHeader = (req.headers.authorization || '').trim();
-      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-      if (!token || !safeEqualStrings(token, cronSecret)) {
-        res.status(401).json({ ok: false, error: 'Unauthorized cron trigger.' });
-        return;
-      }
+    if (!cronSecret) {
+      res.status(503).json({
+        ok: false,
+        error: 'CRON_SECRET is not configured on the server; cron trigger is disabled.',
+      });
+      return;
+    }
+    const authHeader = (req.headers.authorization || '').trim();
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    if (!token || !safeEqualStrings(token, cronSecret)) {
+      res.status(401).json({ ok: false, error: 'Unauthorized cron trigger.' });
+      return;
     }
     const publishedCount = await runScheduledBlogCatchUp({ forceTodayIfBeforeNine: true });
     res.json({
       ok: true,
       publishedCount,
-      status: getBlogSchedulerStatus(),
+      status: await getBlogSchedulerStatusAsync(),
     });
   });
 
@@ -2085,7 +2095,7 @@ export function createApiRouter(): Router {
   });
 
   // Official Launch Ribbon-Cutting 6-Digit Code Verification
-  const launchVerifyLimiter = createRateLimiter(60_000, 30);
+  const launchVerifyLimiter = createRateLimiter(30, 60_000);
   router.post('/launch/verify', launchVerifyLimiter, (req, res) => {
     const body = req.body as { code?: string };
     const submitted = typeof body?.code === 'string' ? body.code.trim() : '';

@@ -147,7 +147,7 @@ function AppShell() {
   const [blogFeedLoaded, setBlogFeedLoaded] = useState(false);
   const [navTriggerKey, setNavTriggerKey] = useState(0);
   const [vaultSession, setVaultSession] = useState<{ token: string; email: string } | null>(null);
-  const { isAuthenticated, requiresPasswordChange } = useEnterpriseAuth();
+  const { isAuthenticated, isSuperAdmin, sessionLoading, requiresPasswordChange } = useEnterpriseAuth();
   const isVaultUnlocked = Boolean(vaultSession?.token) || (isAuthenticated && !requiresPasswordChange);
   const [selectedBankForSlip, setSelectedBankForSlip] = useState<BankId | undefined>(undefined);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -510,16 +510,29 @@ function AppShell() {
               onBackHome={handleGoHome}
               onOpenTool={(tool, fullScreen) => handleOpenTool(tool, fullScreen)}
               onOpenSuperAdmin={handleOpenSuperAdmin}
-              onOpenLockedVault={handleOpenLockedVault}
             />
           )}
 
-          {route.view === 'super-admin' && (
-            <SuperAdminDashboard
-              onBackPortal={handleOpenPortal}
-              onBackHome={handleGoHome}
-            />
-          )}
+          {route.view === 'super-admin' &&
+            (sessionLoading ? (
+              <RouteLoadingFallback />
+            ) : isSuperAdmin ? (
+              <SuperAdminDashboard
+                onBackPortal={handleOpenPortal}
+                onBackHome={handleGoHome}
+              />
+            ) : !isAuthenticated ? (
+              <EnterprisePortalView
+                onBackHome={handleGoHome}
+                onOpenTool={(tool, fullScreen) => handleOpenTool(tool, fullScreen)}
+                onOpenSuperAdmin={handleOpenSuperAdmin}
+              />
+            ) : (
+              <SuperAdminDashboard
+                onBackPortal={handleOpenPortal}
+                onBackHome={handleGoHome}
+              />
+            ))}
 
           {route.view === 'tool' && activeTool && !isBlockedVaultTool && (
             <ToolWorkspace

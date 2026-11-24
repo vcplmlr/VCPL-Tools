@@ -13,6 +13,8 @@ import { BlogArticleSection, BlogCategory, BlogCoverTheme, BlogPostItem } from '
 import { buildBlogCoverSvg } from '../utils/blogCoverSvg.ts';
 import { DEFAULT_SITE_ORIGIN, getBlogPath } from '../utils/seoConfig.ts';
 import { getDb } from './db.ts';
+import { getSharedSetting, setSharedSetting } from './enterpriseStore.ts';
+import { getSupabaseAdminClient } from './supabaseClient.ts';
 
 const LAUNCH_IST_DATE = '2026-11-23';
 export const PUBLISH_HOUR_IST = 9;
@@ -72,17 +74,20 @@ let schedulerStarted = false;
 let missingKeyWarned = false;
 let exactMorningTimer: ReturnType<typeof setTimeout> | null = null;
 
+let cachedAutoPosts: BlogPostItem[] = [];
+const cachedCoverSvgs = new Map<string, string>();
+
+export function isIndexNowKeyConfigured(): boolean {
+  const configured = (process.env.INDEXNOW_KEY || '').trim();
+  return /^[a-zA-Z0-9-]{8,128}$/.test(configured);
+}
+
 export function getIndexNowKey(): string {
   const configured = (process.env.INDEXNOW_KEY || '').trim();
   if (/^[a-zA-Z0-9-]{8,128}$/.test(configured)) {
     return configured;
   }
-  const seed =
-    process.env.VCPL_ADMIN_SECRET?.trim() ||
-    process.env.PUBLIC_SITE_URL?.trim() ||
-    process.env.APP_URL?.trim() ||
-    DEFAULT_SITE_ORIGIN;
-  return crypto.createHash('sha256').update(`vcpl-indexnow:${seed}`).digest('hex').slice(0, 32);
+  return '';
 }
 
 export function resolvePublicSiteOrigin(): string {
@@ -200,37 +205,90 @@ function formatSeoDescription(
   return `${clampOnWordBoundary(base, 157)}.`;
 }
 
-function saveSchedulerState(patch: Partial<Record<string, unknown>>): void {
+async function saveSchedulerState(patch: Partial<Record<string, unknown>>): Promise<void> {
   try {
-    const db = getDb();
-    const existingRow = db
-      .prepare(`SELECT value FROM app_settings WHERE key = 'blog_scheduler_status'`)
-      .get() as { value?: string } | undefined;
-    const prev = existingRow?.value ? (JSON.parse(existingRow.value) as Record<string, unknown>) : {};
+    const raw = await getSharedSetting('blog_scheduler_status');
+    const prev = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
     const next = { ...prev, ...patch };
-    db.prepare(
-      `INSERT INTO app_settings (key, value, updated_at)
-       VALUES ('blog_scheduler_status', ?, ?)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-    ).run(JSON.stringify(next), new Date().toISOString());
+    await setSharedSetting('blog_scheduler_status', JSON.stringify(next));
   } catch {
     // Non-fatal state telemetry persistence
   }
 }
 
-function readSchedulerState(): Record<string, unknown> {
+async function readSchedulerState(): Promise<Record<string, unknown>> {
   try {
-    const db = getDb();
-    const row = db
-      .prepare(`SELECT value FROM app_settings WHERE key = 'blog_scheduler_status'`)
-      .get() as { value?: string } | undefined;
-    return row?.value ? (JSON.parse(row.value) as Record<string, unknown>) : {};
+    const raw = await getSharedSetting('blog_scheduler_status');
+    return raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
   } catch {
     return {};
   }
 }
 
+function hydrateAuthorProfile(post: BlogPostItem): BlogPostItem {
+  const resolvedAuthorId = AUTHOR_BY_CATEGORY[post.category] ?? 'kaushik-bangera';
+  const resolvedProfile = BLOG_AUTHORS[resolvedAuthorId];
+  return {
+    ...post,
+    authorId: resolvedAuthorId,
+    author: resolvedProfile.name,
+    authorRole: resolvedProfile.role,
+  };
+}
+
+export async function getAutoPublishedBlogPostsAsync(): Promise<BlogPostItem[]> {
+  try {
+    const sb = getSupabaseAdminClient();
+    if (sb) {
+      const { data, error } = await sb
+        .from('auto_blog_posts')
+        .select('slug, post_json, cover_svg')
+        .order('published_date_ist', { ascending: false })
+        .order('queue_no', { ascending: false });
+      if (!error && Array.isArray(data)) {
+        const parsed: BlogPostItem[] = [];
+        for (const row of data) {
+          if (row.cover_svg && row.slug) {
+            cachedCoverSvgs.set(String(row.slug), String(row.cover_svg));
+          }
+          if (!row.post_json || typeof row.post_json !== 'object') continue;
+          const post = row.post_json as BlogPostItem;
+          if (post.slug) parsed.push(hydrateAuthorProfile(post));
+        }
+        cachedAutoPosts = parsed;
+        return parsed;
+      }
+    }
+
+    const db = getDb();
+    const rows = db
+      .prepare(
+        `SELECT slug, post_json, cover_svg FROM auto_blog_posts ORDER BY published_ist_date DESC, queue_no DESC`
+      )
+      .all() as Array<{ slug?: string; post_json?: string; cover_svg?: string }>;
+
+    const parsed: BlogPostItem[] = [];
+    for (const row of rows) {
+      if (row.cover_svg && row.slug) {
+        cachedCoverSvgs.set(row.slug, row.cover_svg);
+      }
+      if (!row.post_json) continue;
+      try {
+        const post = JSON.parse(row.post_json) as BlogPostItem;
+        parsed.push(hydrateAuthorProfile(post));
+      } catch {
+        // Ignore malformed row
+      }
+    }
+    cachedAutoPosts = parsed;
+    return parsed;
+  } catch {
+    return cachedAutoPosts;
+  }
+}
+
 export function getAutoPublishedBlogPosts(): BlogPostItem[] {
+  if (cachedAutoPosts.length > 0) return cachedAutoPosts;
   try {
     const db = getDb();
     const rows = db
@@ -244,46 +302,74 @@ export function getAutoPublishedBlogPosts(): BlogPostItem[] {
       if (!row.post_json) continue;
       try {
         const post = JSON.parse(row.post_json) as BlogPostItem;
-        const resolvedAuthorId = AUTHOR_BY_CATEGORY[post.category] ?? 'kaushik-bangera';
-        const resolvedProfile = BLOG_AUTHORS[resolvedAuthorId];
-        parsed.push({
-          ...post,
-          authorId: resolvedAuthorId,
-          author: resolvedProfile.name,
-          authorRole: resolvedProfile.role,
-        });
+        parsed.push(hydrateAuthorProfile(post));
       } catch {
         // Ignore malformed row
       }
     }
+    cachedAutoPosts = parsed;
     return parsed;
   } catch {
     return [];
   }
 }
 
+export async function getAutoPublishedBlogPostBySlugAsync(
+  slug: string
+): Promise<BlogPostItem | undefined> {
+  const cached = cachedAutoPosts.find((p) => p.slug === slug);
+  if (cached) return cached;
+  const sb = getSupabaseAdminClient();
+  if (sb) {
+    const { data, error } = await sb
+      .from('auto_blog_posts')
+      .select('post_json')
+      .eq('slug', slug)
+      .maybeSingle();
+    if (!error && data?.post_json && typeof data.post_json === 'object') {
+      return hydrateAuthorProfile(data.post_json as BlogPostItem);
+    }
+  }
+  return getAutoPublishedBlogPostBySlug(slug);
+}
+
 export function getAutoPublishedBlogPostBySlug(slug: string): BlogPostItem | undefined {
+  const cached = cachedAutoPosts.find((p) => p.slug === slug);
+  if (cached) return cached;
   try {
     const db = getDb();
     const row = db
       .prepare(`SELECT post_json FROM auto_blog_posts WHERE slug = ? LIMIT 1`)
       .get(slug) as { post_json?: string } | undefined;
     if (!row?.post_json) return undefined;
-    const post = JSON.parse(row.post_json) as BlogPostItem;
-    const resolvedAuthorId = AUTHOR_BY_CATEGORY[post.category] ?? 'kaushik-bangera';
-    const resolvedProfile = BLOG_AUTHORS[resolvedAuthorId];
-    return {
-      ...post,
-      authorId: resolvedAuthorId,
-      author: resolvedProfile.name,
-      authorRole: resolvedProfile.role,
-    };
+    return hydrateAuthorProfile(JSON.parse(row.post_json) as BlogPostItem);
   } catch {
     return undefined;
   }
 }
 
+export async function getAutoPublishedCoverSvgAsync(slug: string): Promise<string | null> {
+  const mem = cachedCoverSvgs.get(slug);
+  if (mem) return mem;
+  const sb = getSupabaseAdminClient();
+  if (sb) {
+    const { data, error } = await sb
+      .from('auto_blog_posts')
+      .select('cover_svg')
+      .eq('slug', slug)
+      .maybeSingle();
+    if (!error && data?.cover_svg) {
+      const svg = String(data.cover_svg);
+      cachedCoverSvgs.set(slug, svg);
+      return svg;
+    }
+  }
+  return getAutoPublishedCoverSvg(slug);
+}
+
 export function getAutoPublishedCoverSvg(slug: string): string | null {
+  const mem = cachedCoverSvgs.get(slug);
+  if (mem) return mem;
   try {
     const db = getDb();
     const row = db
@@ -327,6 +413,12 @@ async function notifySearchEnginesOfNewPost(post: BlogPostItem): Promise<string>
   const origin = resolvePublicSiteOrigin();
   const host = new URL(origin).host;
   const key = getIndexNowKey();
+  if (!key) {
+    const status = 'Skipped IndexNow: INDEXNOW_KEY environment variable is not configured.';
+    await saveSchedulerState({ lastIndexNowStatus: status });
+    return status;
+  }
+
   const keyLocation = `${origin}/${key}.txt`;
   const urlList = [
     `${origin}${getBlogPath(post.slug)}`,
@@ -338,7 +430,7 @@ async function notifySearchEnginesOfNewPost(post: BlogPostItem): Promise<string>
   // Skip notifying live public search engines when running exclusively on localhost
   if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(host)) {
     const status = `Skipped IndexNow for local host (${host})`;
-    saveSchedulerState({ lastIndexNowStatus: status });
+    await saveSchedulerState({ lastIndexNowStatus: status });
     return status;
   }
 
@@ -350,11 +442,11 @@ async function notifySearchEnginesOfNewPost(post: BlogPostItem): Promise<string>
       signal: AbortSignal.timeout(6000),
     });
     const status = `IndexNow HTTP ${response.status} at ${new Date().toISOString()}`;
-    saveSchedulerState({ lastIndexNowStatus: status });
+    await saveSchedulerState({ lastIndexNowStatus: status });
     return status;
   } catch (err) {
     const status = `IndexNow notify error: ${err instanceof Error ? err.message : String(err)}`;
-    saveSchedulerState({ lastIndexNowStatus: status });
+    await saveSchedulerState({ lastIndexNowStatus: status });
     return status;
   }
 }
@@ -424,7 +516,7 @@ async function generateArticleWithGemini(
         '[VCPL Blog Scheduler] GEMINI_API_KEY is not configured in Settings > Secrets; pending daily articles await key configuration.'
       );
     }
-    saveSchedulerState({
+    await saveSchedulerState({
       apiKeyConfigured: false,
       lastAttemptAt: new Date().toISOString(),
       lastError: 'GEMINI_API_KEY is not configured in server secrets.',
@@ -727,17 +819,56 @@ async function generateArticleWithGemini(
   return post;
 }
 
-function savePublishedPost(post: BlogPostItem, queueNo: number): void {
-  const db = getDb();
+async function savePublishedPost(post: BlogPostItem, queueNo: number): Promise<void> {
   const coverSvg = buildBlogCoverSvg(post);
   const nowIso = new Date().toISOString();
+  cachedCoverSvgs.set(post.slug, coverSvg);
+  cachedAutoPosts = [post, ...cachedAutoPosts.filter((p) => p.slug !== post.slug)];
 
-  db.prepare(
-    `INSERT OR IGNORE INTO auto_blog_posts (slug, queue_no, published_ist_date, post_json, cover_svg, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(post.slug, queueNo, post.publishedIso, JSON.stringify(post), coverSvg, nowIso);
+  const sb = getSupabaseAdminClient();
+  if (sb) {
+    const markdownPreview = post.sections
+      .map((s) => `## ${s.heading}\n\n${s.paragraphs.join('\n\n')}`)
+      .join('\n\n');
+    const wordCount = markdownPreview.split(/\s+/).filter(Boolean).length || 900;
+    const { error } = await sb.from('auto_blog_posts').upsert(
+      {
+        slug: post.slug,
+        queue_no: queueNo,
+        title: post.title,
+        excerpt: post.excerpt,
+        content_markdown: markdownPreview,
+        category: post.category,
+        keywords_json: post.keywords,
+        tool_id: post.relatedToolIds[0] || '',
+        tool_slug: post.relatedToolIds[0] || '',
+        hero_svg_url: post.coverImage,
+        seo_title: post.seoTitle,
+        seo_description: post.seoDescription,
+        word_count: wordCount,
+        reading_minutes: Math.max(3, Math.ceil(wordCount / 200)),
+        published_date_ist: post.publishedIso,
+        published_at_iso: `${post.publishedIso}T09:00:00+05:30`,
+        source: 'gemini',
+        indexnow_status: isIndexNowKeyConfigured() ? 'submitted' : 'skipped',
+        post_json: post,
+        cover_svg: coverSvg,
+        created_at: nowIso,
+      },
+      { onConflict: 'slug' }
+    );
+    if (error) {
+      console.warn('[VCPL Blog Scheduler] Supabase upsert warning:', error.message);
+    }
+  } else {
+    const db = getDb();
+    db.prepare(
+      `INSERT OR IGNORE INTO auto_blog_posts (slug, queue_no, published_ist_date, post_json, cover_svg, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(post.slug, queueNo, post.publishedIso, JSON.stringify(post), coverSvg, nowIso);
+  }
 
-  // Best-effort disk copy inside public/blog for static serving
+  // Best-effort disk copy inside public/blog for static serving in dev
   try {
     const blogPublicDir = path.resolve(process.cwd(), 'public', 'blog');
     if (!fs.existsSync(blogPublicDir)) {
@@ -745,18 +876,18 @@ function savePublishedPost(post: BlogPostItem, queueNo: number): void {
     }
     fs.writeFileSync(path.join(blogPublicDir, `${post.slug}.svg`), coverSvg, 'utf8');
   } catch {
-    // Non-fatal on read-only serverless filesystems; seoRoutes serves directly from SQLite fallback
+    // Non-fatal on read-only serverless filesystems; seoRoutes serves directly from DB
   }
 
-  saveSchedulerState({
+  await saveSchedulerState({
     apiKeyConfigured: true,
     lastSuccessAt: nowIso,
     lastPublishedSlug: post.slug,
     lastError: null,
   });
 
-  // Notify Microsoft Bing IndexNow & partner search engines cleanly in background
-  void notifySearchEnginesOfNewPost(post);
+  // Notify Microsoft Bing IndexNow & partner search engines cleanly when INDEXNOW_KEY is set
+  await notifySearchEnginesOfNewPost(post);
 }
 
 export async function runScheduledBlogCatchUp(options?: {
@@ -796,16 +927,14 @@ export async function runScheduledBlogCatchUp(options?: {
         return 0;
       }
 
-      const existingRows = db
-        .prepare(`SELECT slug, published_ist_date FROM auto_blog_posts`)
-        .all() as Array<{ slug: string; published_ist_date: string }>;
+      const existingAuto = await getAutoPublishedBlogPostsAsync();
 
       const publishedSlugs = new Set<string>([
         ...BLOG_POSTS.map((p) => p.slug),
-        ...existingRows.map((r) => r.slug),
+        ...existingAuto.map((r) => r.slug),
       ]);
       const filledSlotDates = new Set<string>([
-        ...existingRows.map((r) => r.published_ist_date),
+        ...existingAuto.map((r) => r.publishedIso),
         ...BLOG_POSTS.filter((p) => p.publishedIso > LAUNCH_IST_DATE).map((p) => p.publishedIso),
       ]);
 
@@ -819,7 +948,7 @@ export async function runScheduledBlogCatchUp(options?: {
         return 0;
       }
 
-      saveSchedulerState({ lastAttemptAt: new Date().toISOString() });
+      await saveSchedulerState({ lastAttemptAt: new Date().toISOString() });
 
       const pairsCount = Math.min(missingSlotDates.length, pendingTopics.length);
       for (let idx = 0; idx < pairsCount; idx += 1) {
@@ -829,10 +958,9 @@ export async function runScheduledBlogCatchUp(options?: {
         try {
           const generatedPost = await generateArticleWithGemini(topic, slotDate);
           if (!generatedPost) {
-            // API key absent; wait until GEMINI_API_KEY is configured in Settings > Secrets
             break;
           }
-          savePublishedPost(generatedPost, topic.no);
+          await savePublishedPost(generatedPost, topic.no);
           publishedSlugs.add(topic.slug);
           filledSlotDates.add(slotDate);
           newlyPublished += 1;
@@ -841,7 +969,7 @@ export async function runScheduledBlogCatchUp(options?: {
           );
         } catch (err) {
           const errMessage = err instanceof Error ? err.message : String(err);
-          saveSchedulerState({
+          await saveSchedulerState({
             lastAttemptAt: new Date().toISOString(),
             lastError: errMessage,
           });
@@ -863,11 +991,11 @@ export async function runScheduledBlogCatchUp(options?: {
   return catchUpInFlight;
 }
 
-export function getBlogSchedulerStatus(): BlogSchedulerStatus {
+export async function getBlogSchedulerStatusAsync(): Promise<BlogSchedulerStatus> {
   const { istDate, hour, minute, second } = getCurrentIstClock();
   const apiKey = (process.env.GEMINI_API_KEY || '').trim();
   const apiKeyConfigured = Boolean(apiKey && apiKey !== 'MY_GEMINI_API_KEY');
-  const autoPosts = getAutoPublishedBlogPosts();
+  const autoPosts = await getAutoPublishedBlogPostsAsync();
   const publishedSlugs = new Set<string>([
     ...BLOG_POSTS.map((p) => p.slug),
     ...autoPosts.map((p) => p.slug),
@@ -878,7 +1006,7 @@ export function getBlogSchedulerStatus(): BlogSchedulerStatus {
   ]);
   const pendingTopics = EDITORIAL_TOPICS_QUEUE.filter((t) => !publishedSlugs.has(t.slug));
   const next = pendingTopics[0] ?? null;
-  const saved = readSchedulerState();
+  const saved = await readSchedulerState();
 
   return {
     istDate,
@@ -896,6 +1024,40 @@ export function getBlogSchedulerStatus(): BlogSchedulerStatus {
     lastError: typeof saved.lastError === 'string' ? saved.lastError : null,
     lastIndexNowStatus:
       typeof saved.lastIndexNowStatus === 'string' ? saved.lastIndexNowStatus : null,
+  };
+}
+
+export function getBlogSchedulerStatus(): BlogSchedulerStatus {
+  const { istDate, hour, minute, second } = getCurrentIstClock();
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+  const apiKeyConfigured = Boolean(apiKey && apiKey !== 'MY_GEMINI_API_KEY');
+  const autoPosts = getAutoPublishedBlogPosts();
+  const publishedSlugs = new Set<string>([
+    ...BLOG_POSTS.map((p) => p.slug),
+    ...autoPosts.map((p) => p.slug),
+  ]);
+  const publishedDates = new Set<string>([
+    ...BLOG_POSTS.map((p) => p.publishedIso),
+    ...autoPosts.map((p) => p.publishedIso),
+  ]);
+  const pendingTopics = EDITORIAL_TOPICS_QUEUE.filter((t) => !publishedSlugs.has(t.slug));
+  const next = pendingTopics[0] ?? null;
+
+  return {
+    istDate,
+    istTimeLabel: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')} IST`,
+    scheduleTimeIst: '09:00 AM IST',
+    apiKeyConfigured,
+    publishedToday: publishedDates.has(istDate),
+    totalAutoPosts: autoPosts.length,
+    totalAllPosts: publishedSlugs.size,
+    pendingTopicsCount: pendingTopics.length,
+    nextTopic: next ? { no: next.no, slug: next.slug, title: next.title } : null,
+    lastAttemptAt: null,
+    lastSuccessAt: null,
+    lastPublishedSlug: null,
+    lastError: null,
+    lastIndexNowStatus: null,
   };
 }
 

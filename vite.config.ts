@@ -296,7 +296,16 @@ export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss(), vcplBuildMetadataPlugin(), vcplSeoSyncPlugin(), spa404FallbackPlugin()],
     resolve: {
-      dedupe: ['react', 'react-dom'],
+      dedupe: [
+        'react',
+        'react-dom',
+        'firebase',
+        '@firebase/app',
+        '@firebase/auth',
+        '@firebase/firestore',
+        '@firebase/component',
+        '@firebase/util',
+      ],
       alias: {
         '@': path.resolve(import.meta.dirname, '.'),
       },
@@ -309,6 +318,9 @@ export default defineConfig(() => {
         'react-dom/client',
         'react/jsx-runtime',
         'react/jsx-dev-runtime',
+        'firebase/app',
+        'firebase/auth',
+        'firebase/firestore',
         'lucide-react',
         'motion/react',
         'exceljs',

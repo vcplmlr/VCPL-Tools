@@ -497,21 +497,7 @@ export function Footer({
                       }}
                       className="text-[#475569] dark:text-slate-300 hover:text-[#2F3E4E] dark:hover:text-[#F9C80E] hover:underline underline-offset-4 transition-colors inline-flex items-center py-0.5 min-h-[36px] sm:min-h-0 leading-snug"
                     >
-                      Employee Portal
-                    </a>
-                  </li>
-                )}
-                {onOpenSuperAdmin && (
-                  <li className="min-w-0">
-                    <a
-                      href="/super-admin"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onOpenSuperAdmin();
-                      }}
-                      className="text-[#475569] dark:text-slate-300 hover:text-[#2F3E4E] dark:hover:text-[#F9C80E] hover:underline underline-offset-4 transition-colors inline-flex items-center py-0.5 min-h-[36px] sm:min-h-0 leading-snug"
-                    >
-                      Super Admin Console
+                      Company Workspace Login
                     </a>
                   </li>
                 )}

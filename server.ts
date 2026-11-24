@@ -21,6 +21,7 @@ async function startServer() {
   seedRtoIfEmpty();
 
   const app = express();
+  app.set('trust proxy', 1);
   const port = Number(process.env.PORT) || 3000;
 
   // Support chunked CSV/XLSX/JSON bulk import payloads up to 25 MB

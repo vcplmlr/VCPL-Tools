@@ -1,24 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  Archive,
   Car,
   CheckCircle2,
-  CloudUpload,
+  Cloud,
   Download,
   ExternalLink,
   FileSpreadsheet,
   FileText,
   FolderArchive,
+  History,
   Loader2,
   Plus,
   RefreshCw,
+  RotateCcw,
+  Search,
   Trash2,
   Upload,
   XCircle,
 } from 'lucide-react';
 import { useEnterpriseAuth } from '../../context/EnterpriseAuthContext.tsx';
-import { uploadFileToDrive } from '../../services/googleWorkspaceApis.ts';
-import { getAccessToken, googleSignIn } from '../../services/googleWorkspaceAuth.ts';
 
 export type CentralModuleId =
   | 'document-vault'
@@ -31,17 +33,38 @@ export type CentralModuleId =
 export interface EnterpriseDocumentRow {
   id: string;
   module_id: string;
+  folder_key: string;
   title: string;
   file_name: string;
   mime_type: string;
   size_bytes: number;
   approval_status: 'Draft' | 'Pending Review' | 'Approved' | 'Rejected';
   drive_file_id: string;
+  drive_folder_id: string;
   drive_web_view_link: string;
+  version_number: number;
+  is_archived: boolean;
   uploaded_by: string;
   uploaded_by_username: string;
+  approved_by?: string;
+  notes?: string;
+  tags?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface DocumentVersionRow {
+  id: string;
+  document_id: string;
+  version_number: number;
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  drive_file_id: string;
+  drive_web_view_link: string;
+  notes: string;
+  uploaded_by_username: string;
+  created_at: string;
 }
 
 export interface WorkspaceRecordRow {
@@ -57,6 +80,21 @@ export interface WorkspaceRecordRow {
   updated_at: string;
 }
 
+const COMPANY_DRIVE_FOLDER_OPTIONS = [
+  { key: '', label: 'Auto-Route by Module' },
+  { key: '04_DOCUMENT_VAULT', label: '04_DOCUMENT_VAULT' },
+  { key: '01_EMPLOYEE_DOCUMENTS', label: '01_EMPLOYEE_DOCUMENTS' },
+  { key: '02_ACCOUNTS_DOCUMENTS', label: '02_ACCOUNTS_DOCUMENTS' },
+  { key: '02_ACCOUNTS_PURCHASE_INVOICES', label: '02_ACCOUNTS/PURCHASE_INVOICES' },
+  { key: '02_ACCOUNTS_SALES_INVOICES', label: '02_ACCOUNTS/SALES_INVOICES' },
+  { key: '02_ACCOUNTS_BANK_DOCUMENTS', label: '02_ACCOUNTS/BANK_DOCUMENTS' },
+  { key: '02_ACCOUNTS_RECONCILIATION', label: '02_ACCOUNTS/RECONCILIATION' },
+  { key: '02_ACCOUNTS_RETENTION', label: '02_ACCOUNTS/RETENTION' },
+  { key: '03_GENERATED_REPORTS', label: '03_GENERATED_REPORTS' },
+  { key: '05_EXCEL_AND_CSV_FILES', label: '05_EXCEL_AND_CSV_FILES' },
+  { key: '07_ADMIN_RECORDS', label: '07_ADMIN_RECORDS' },
+];
+
 const MODULE_META: Record<
   CentralModuleId,
   {
@@ -69,8 +107,9 @@ const MODULE_META: Record<
   }
 > = {
   'document-vault': {
-    title: 'Central Document Vault & Drive Backup',
-    subtitle: 'Centralized team documents, approvals, downloads & optional Google Drive backup.',
+    title: 'Central Company Drive Vault & Approvals',
+    subtitle:
+      'All documents save directly to VCPL Central Company Google Drive; metadata, approvals, and versions sync in PostgreSQL.',
     refPlaceholder: 'DOC-2026-001',
     titlePlaceholder: 'e.g. Monthly GST Audit Pack',
     detailLabel: 'Category / Remarks',
@@ -78,7 +117,8 @@ const MODULE_META: Record<
   },
   'document-studio': {
     title: 'Document Studio',
-    subtitle: 'Centralized business letters, rent memos, authorization drafts & customer communications.',
+    subtitle:
+      'Centralized business letters, rent memos, authorization drafts & customer communications.',
     refPlaceholder: 'LTR-2026-014',
     titlePlaceholder: 'e.g. Showroom Lease Renewal Covering Letter',
     detailLabel: 'Recipient / Summary',
@@ -131,7 +171,7 @@ export const CentralWorkspaceModules: React.FC<{
   activeModule?: CentralModuleId;
   onChangeModule?: (mod: CentralModuleId) => void;
 }> = ({ activeModule: controlledModule, onChangeModule }) => {
-  const { apiFetch, hasPermission, token } = useEnterpriseAuth();
+  const { apiFetch, hasPermission } = useEnterpriseAuth();
   const availableTabs = useMemo(
     () =>
       (Object.keys(MODULE_META) as CentralModuleId[]).filter((id) =>
@@ -162,11 +202,21 @@ export const CentralWorkspaceModules: React.FC<{
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  // Upload Document form
+  // Document Vault filters & version history state
+  const [docSearch, setDocSearch] = useState('');
+  const [includeArchivedDocs, setIncludeArchivedDocs] = useState(false);
+  const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
+  const [versionsByDoc, setVersionsByDoc] = useState<Record<string, DocumentVersionRow[]>>({});
+  const [loadingVersionsId, setLoadingVersionsId] = useState<string | null>(null);
+
+  // Upload / Replace Document form — strictly routed to Central Company Google Drive via backend
   const [docTitle, setDocTitle] = useState('');
+  const [docFolderKey, setDocFolderKey] = useState('');
+  const [docNotes, setDocNotes] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [backupToDrive, setBackupToDrive] = useState(false);
+  const [replaceTargetDoc, setReplaceTargetDoc] = useState<EnterpriseDocumentRow | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
 
   // Create Record form
   const [recTitle, setRecTitle] = useState('');
@@ -179,8 +229,10 @@ export const CentralWorkspaceModules: React.FC<{
   const canView = hasPermission(activeModule, 'view');
   const canCreate = hasPermission(activeModule, 'create');
   const canEdit = hasPermission(activeModule, 'edit');
-  const canUpload = hasPermission(activeModule, 'upload') || hasPermission('document-vault', 'upload');
-  const canDownload = hasPermission(activeModule, 'download') || hasPermission('document-vault', 'download');
+  const canUpload =
+    hasPermission(activeModule, 'upload') || hasPermission('document-vault', 'upload');
+  const canDownload =
+    hasPermission(activeModule, 'download') || hasPermission('document-vault', 'download');
   const canApprove = hasPermission(activeModule, 'approve');
   const canDelete = hasPermission(activeModule, 'delete');
   const canExport = hasPermission(activeModule, 'export');
@@ -191,7 +243,11 @@ export const CentralWorkspaceModules: React.FC<{
     setError('');
     try {
       if (activeModule === 'document-vault') {
-        const res = await apiFetch('/api/enterprise/documents');
+        const params = new URLSearchParams();
+        if (includeArchivedDocs) params.set('includeArchived', '1');
+        if (docSearch.trim()) params.set('search', docSearch.trim());
+        const qs = params.toString();
+        const res = await apiFetch(`/api/enterprise/documents${qs ? `?${qs}` : ''}`);
         const data = (await res.json().catch(() => null)) as {
           documents?: EnterpriseDocumentRow[];
           error?: string;
@@ -214,7 +270,7 @@ export const CentralWorkspaceModules: React.FC<{
     } finally {
       setLoading(false);
     }
-  }, [activeModule, apiFetch, canView]);
+  }, [activeModule, apiFetch, canView, docSearch, includeArchivedDocs]);
 
   useEffect(() => {
     void loadData();
@@ -227,43 +283,40 @@ export const CentralWorkspaceModules: React.FC<{
     setError('');
     setNotice('');
     try {
-      let driveFileId = '';
-      let driveWebViewLink = '';
-      if (backupToDrive) {
-        let accessToken = await getAccessToken();
-        if (!accessToken) {
-          const authRes = await googleSignIn();
-          accessToken = authRes.accessToken;
-        }
-        const uploadedDrive = await uploadFileToDrive(accessToken, selectedFile);
-        driveFileId = uploadedDrive.id || '';
-        driveWebViewLink = uploadedDrive.webViewLink || '';
-      }
-
       const base64Data = await readFileAsBase64(selectedFile);
       const res = await apiFetch('/api/enterprise/documents/upload', {
         method: 'POST',
         body: JSON.stringify({
           moduleId: 'document-vault',
-          title: docTitle.trim() || selectedFile.name,
+          folderKey: docFolderKey || undefined,
+          title: docTitle.trim() || replaceTargetDoc?.title || selectedFile.name,
           fileName: selectedFile.name,
           mimeType: selectedFile.type || 'application/octet-stream',
           base64Data,
-          driveFileId,
-          driveWebViewLink,
+          notes: docNotes.trim(),
+          replaceDocumentId: replaceTargetDoc?.id || undefined,
         }),
       });
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      const data = (await res.json().catch(() => null)) as {
+        document?: EnterpriseDocumentRow;
+        error?: string;
+      } | null;
       if (!res.ok) throw new Error(data?.error || 'Document upload failed.');
 
+      const targetDocId = replaceTargetDoc?.id;
       setDocTitle('');
+      setDocNotes('');
       setSelectedFile(null);
+      setReplaceTargetDoc(null);
       setNotice(
-        driveFileId
-          ? 'Uploaded to Central Vault and backed up to Google Drive.'
-          : 'Uploaded securely to Central Document Vault.'
+        targetDocId
+          ? `Uploaded new version (v${data?.document?.version_number || 2}) directly to Central Company Google Drive.`
+          : `Saved "${data?.document?.file_name || selectedFile.name}" to Central Company Google Drive (${data?.document?.folder_key || '04_DOCUMENT_VAULT'}).`
       );
       await loadData();
+      if (targetDocId && expandedDocId === targetDocId) {
+        void handleToggleVersions(targetDocId, true);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed.');
     } finally {
@@ -271,14 +324,42 @@ export const CentralWorkspaceModules: React.FC<{
     }
   };
 
-  const handleDownloadDocument = async (docRow: EnterpriseDocumentRow) => {
-    if (!canDownload || !token) return;
-    setError('');
+  const handleToggleVersions = async (docId: string, forceRefresh = false) => {
+    if (!forceRefresh && expandedDocId === docId) {
+      setExpandedDocId(null);
+      return;
+    }
+    setExpandedDocId(docId);
+    setLoadingVersionsId(docId);
     try {
-      const res = await apiFetch(`/api/enterprise/documents/${encodeURIComponent(docRow.id)}/download`);
+      const res = await apiFetch(`/api/enterprise/documents/${encodeURIComponent(docId)}/versions`);
+      const data = (await res.json().catch(() => null)) as {
+        versions?: DocumentVersionRow[];
+        error?: string;
+      } | null;
+      if (!res.ok) throw new Error(data?.error || 'Unable to load document version history.');
+      setVersionsByDoc((prev) => ({
+        ...prev,
+        [docId]: Array.isArray(data?.versions) ? data.versions : [],
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed loading version history.');
+    } finally {
+      setLoadingVersionsId(null);
+    }
+  };
+
+  const handleDownloadDocument = async (docRow: EnterpriseDocumentRow) => {
+    if (!canDownload) return;
+    setError('');
+    setDownloadingDocId(docRow.id);
+    try {
+      const res = await apiFetch(
+        `/api/enterprise/documents/${encodeURIComponent(docRow.id)}/download`
+      );
       if (!res.ok) {
         const errData = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(errData?.error || 'Unable to download document.');
+        throw new Error(errData?.error || 'Unable to download document from Company Drive.');
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -291,6 +372,8 @@ export const CentralWorkspaceModules: React.FC<{
       URL.revokeObjectURL(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Download failed.');
+    } finally {
+      setDownloadingDocId(null);
     }
   };
 
@@ -299,6 +382,7 @@ export const CentralWorkspaceModules: React.FC<{
     approvalStatus: 'Approved' | 'Rejected'
   ) => {
     setError('');
+    setNotice('');
     try {
       const res = await apiFetch(`/api/enterprise/documents/${encodeURIComponent(docId)}`, {
         method: 'PATCH',
@@ -306,20 +390,45 @@ export const CentralWorkspaceModules: React.FC<{
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error || 'Failed to update approval status.');
+      setNotice(`Document marked as ${approvalStatus}.`);
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Approval update failed.');
     }
   };
 
+  const handleDocumentArchiveToggle = async (docRow: EnterpriseDocumentRow) => {
+    setError('');
+    setNotice('');
+    const nextArchived = !docRow.is_archived;
+    try {
+      const res = await apiFetch(`/api/enterprise/documents/${encodeURIComponent(docRow.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isArchived: nextArchived }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error || 'Archive update failed.');
+      setNotice(
+        nextArchived
+          ? `Archived "${docRow.title}" (moved to 08_ARCHIVED_DOCUMENTS in Company Drive).`
+          : `Restored "${docRow.title}" from archive.`
+      );
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Archive operation failed.');
+    }
+  };
+
   const handleDeleteDocument = async (docId: string) => {
     setError('');
+    setNotice('');
     try {
       const res = await apiFetch(`/api/enterprise/documents/${encodeURIComponent(docId)}`, {
         method: 'DELETE',
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error || 'Delete failed.');
+      setNotice('Document removed from Central Company Google Drive and database.');
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed.');
@@ -394,13 +503,37 @@ export const CentralWorkspaceModules: React.FC<{
     if (!canExport) return;
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     if (activeModule === 'document-vault') {
-      const header = ['Title', 'File Name', 'Size Bytes', 'Approval Status', 'Uploaded By', 'Drive Link', 'Updated At'].join(',');
+      const header = [
+        'Title',
+        'File Name',
+        'Drive Folder',
+        'Version',
+        'Size Bytes',
+        'Approval Status',
+        'Uploaded By',
+        'Drive File ID',
+        'Drive Link',
+        'Updated At',
+      ].join(',');
       const lines = documents.map((d) =>
-        [d.title, d.file_name, d.size_bytes, d.approval_status, d.uploaded_by_username, d.drive_web_view_link, d.updated_at]
+        [
+          d.title,
+          d.file_name,
+          d.folder_key,
+          d.version_number || 1,
+          d.size_bytes,
+          d.approval_status,
+          d.uploaded_by_username,
+          d.drive_file_id,
+          d.drive_web_view_link,
+          d.updated_at,
+        ]
           .map(esc)
           .join(',')
       );
-      const blob = new Blob([`${header}\n${lines.join('\n')}`], { type: 'text/csv;charset=utf-8' });
+      const blob = new Blob([`${header}\n${lines.join('\n')}`], {
+        type: 'text/csv;charset=utf-8',
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -409,7 +542,15 @@ export const CentralWorkspaceModules: React.FC<{
       URL.revokeObjectURL(url);
       return;
     }
-    const header = ['Reference', 'Title', 'Status', 'Detail', 'Metric', 'Created By', 'Updated At'].join(',');
+    const header = [
+      'Reference',
+      'Title',
+      'Status',
+      'Detail',
+      'Metric',
+      'Created By',
+      'Updated At',
+    ].join(',');
     const lines = records.map((r) => {
       let parsed: { detail?: string; metric?: string } = {};
       try {
@@ -429,7 +570,9 @@ export const CentralWorkspaceModules: React.FC<{
         .map(esc)
         .join(',');
     });
-    const blob = new Blob([`${header}\n${lines.join('\n')}`], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([`${header}\n${lines.join('\n')}`], {
+      type: 'text/csv;charset=utf-8',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -441,7 +584,8 @@ export const CentralWorkspaceModules: React.FC<{
   if (availableTabs.length === 0) {
     return (
       <div className="rounded-xl border border-[#2F3E4E]/20 dark:border-slate-700 bg-[#FFFDF5] dark:bg-[#131C2E] p-6 text-center text-sm text-[#475569] dark:text-slate-300">
-        No central operational modules are currently assigned to your account. Contact your Super Admin for module permissions.
+        No central operational modules are currently assigned to your account. Contact your Super
+        Admin for module permissions.
       </div>
     );
   }
@@ -547,57 +691,141 @@ export const CentralWorkspaceModules: React.FC<{
 
           {activeModule === 'document-vault' ? (
             <div className="space-y-4">
+              {/* Central Company Google Drive Architecture Strip */}
+              <div className="rounded-xl border border-[#12805C]/30 bg-[#CEE5DC]/45 dark:bg-emerald-950/35 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2 text-xs font-display font-extrabold text-[#12805C] dark:text-emerald-300">
+                    <Cloud className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span>Central Company Google Drive Storage (VCPL TOOLS - COMPANY DRIVE)</span>
+                  </div>
+                  <p className="text-[11px] text-[#475569] dark:text-slate-300">
+                    No personal employee Google login required. Backend streams all files directly
+                    to the company Drive hierarchy; PostgreSQL stores metadata &amp; approval audit logs.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search
+                      className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#64748B]"
+                      aria-hidden="true"
+                    />
+                    <input
+                      type="text"
+                      value={docSearch}
+                      onChange={(e) => setDocSearch(e.target.value)}
+                      placeholder="Search files..."
+                      className="h-8 pl-8 pr-2.5 rounded-lg border border-[#2F3E4E]/25 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs text-[#2F3E4E] dark:text-slate-100"
+                    />
+                  </div>
+                  <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2F3E4E] dark:text-slate-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeArchivedDocs}
+                      onChange={(e) => setIncludeArchivedDocs(e.target.checked)}
+                      className="accent-[#12805C]"
+                    />
+                    <span>Show Archived</span>
+                  </label>
+                </div>
+              </div>
+
               {canUpload && (
                 <form
                   onSubmit={(e) => void handleUploadDocument(e)}
-                  className="rounded-xl border border-[#2F3E4E]/20 dark:border-slate-700 bg-white dark:bg-[#0B1120] p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end"
+                  className="rounded-xl border border-[#2F3E4E]/20 dark:border-slate-700 bg-white dark:bg-[#0B1120] p-4 space-y-3"
                 >
-                  <div className="md:col-span-4 space-y-1">
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#475569] dark:text-slate-300">
-                      Document Title
-                    </label>
-                    <input
-                      type="text"
-                      value={docTitle}
-                      onChange={(e) => setDocTitle(e.target.value)}
-                      placeholder={meta.titlePlaceholder}
-                      className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-[#FFFDF5] dark:bg-[#131C2E] text-sm text-[#2F3E4E] dark:text-slate-100"
-                    />
-                  </div>
-                  <div className="md:col-span-4 space-y-1">
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#475569] dark:text-slate-300">
-                      Select File (Max 15 MB)
-                    </label>
-                    <input
-                      type="file"
-                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                      className="w-full h-10 px-2 py-1.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-[#FFFDF5] dark:bg-[#131C2E] text-xs text-[#2F3E4E] dark:text-slate-200"
-                    />
-                  </div>
-                  <div className="md:col-span-2 flex items-center h-10">
-                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-[#2F3E4E] dark:text-slate-200 cursor-pointer">
+                  {replaceTargetDoc && (
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 flex items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200">
+                      <span>
+                        Uploading replacement version for{' '}
+                        <strong>{replaceTargetDoc.title}</strong> (currently v
+                        {replaceTargetDoc.version_number || 1})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setReplaceTargetDoc(null)}
+                        className="font-bold underline cursor-pointer"
+                      >
+                        Cancel Version Replace
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div className="md:col-span-3 space-y-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#475569] dark:text-slate-300">
+                        Document Title
+                      </label>
                       <input
-                        type="checkbox"
-                        checked={backupToDrive}
-                        onChange={(e) => setBackupToDrive(e.target.checked)}
-                        className="w-4 h-4 accent-[#12805C]"
+                        type="text"
+                        value={docTitle}
+                        onChange={(e) => setDocTitle(e.target.value)}
+                        placeholder={
+                          replaceTargetDoc ? replaceTargetDoc.title : meta.titlePlaceholder
+                        }
+                        className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-[#FFFDF5] dark:bg-[#131C2E] text-sm text-[#2F3E4E] dark:text-slate-100"
                       />
-                      <span>Backup to Drive</span>
-                    </label>
-                  </div>
-                  <div className="md:col-span-2">
-                    <button
-                      type="submit"
-                      disabled={!selectedFile || uploading}
-                      className="w-full h-10 inline-flex items-center justify-center gap-1.5 px-3 rounded-lg bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A] text-xs font-bold disabled:opacity-50 cursor-pointer"
-                    >
-                      {uploading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                      ) : (
-                        <Upload className="w-4 h-4" aria-hidden="true" />
-                      )}
-                      <span>{uploading ? 'Uploading...' : 'Upload'}</span>
-                    </button>
+                    </div>
+                    <div className="md:col-span-3 space-y-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#475569] dark:text-slate-300">
+                        Company Drive Folder
+                      </label>
+                      <select
+                        value={docFolderKey}
+                        onChange={(e) => setDocFolderKey(e.target.value)}
+                        disabled={Boolean(replaceTargetDoc)}
+                        className="w-full h-10 px-2.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-[#FFFDF5] dark:bg-[#131C2E] text-xs font-mono text-[#2F3E4E] dark:text-slate-100 disabled:opacity-60"
+                      >
+                        {COMPANY_DRIVE_FOLDER_OPTIONS.map((opt) => (
+                          <option key={opt.key || 'auto'} value={opt.key}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#475569] dark:text-slate-300">
+                        Version Notes
+                      </label>
+                      <input
+                        type="text"
+                        value={docNotes}
+                        onChange={(e) => setDocNotes(e.target.value)}
+                        placeholder="Optional remark"
+                        className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-[#FFFDF5] dark:bg-[#131C2E] text-xs text-[#2F3E4E] dark:text-slate-100"
+                      />
+                    </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#475569] dark:text-slate-300">
+                        Select File (Max 15 MB)
+                      </label>
+                      <input
+                        type="file"
+                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                        className="w-full h-10 px-2 py-1.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-[#FFFDF5] dark:bg-[#131C2E] text-xs text-[#2F3E4E] dark:text-slate-200"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <button
+                        type="submit"
+                        disabled={!selectedFile || uploading}
+                        className="w-full h-10 inline-flex items-center justify-center gap-1.5 px-3 rounded-lg bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A] text-xs font-bold disabled:opacity-50 cursor-pointer"
+                      >
+                        {uploading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Upload className="w-4 h-4" aria-hidden="true" />
+                        )}
+                        <span>
+                          {uploading
+                            ? 'Uploading...'
+                            : replaceTargetDoc
+                              ? 'Upload New Version'
+                              : 'Upload to Drive'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </form>
               )}
@@ -607,109 +835,210 @@ export const CentralWorkspaceModules: React.FC<{
                   <thead>
                     <tr className="border-b border-[#2F3E4E]/15 dark:border-slate-700 bg-[#FEF2C8]/55 dark:bg-slate-900 text-[#2F3E4E] dark:text-slate-200 uppercase text-[10px] font-bold tracking-wider">
                       <th className="py-2.5 px-3.5">Document</th>
-                      <th className="py-2.5 px-3">Size</th>
+                      <th className="py-2.5 px-3">Drive Folder</th>
+                      <th className="py-2.5 px-3">Size / Ver</th>
                       <th className="py-2.5 px-3">Uploaded By</th>
                       <th className="py-2.5 px-3">Approval</th>
-                      <th className="py-2.5 px-3">Drive Backup</th>
+                      <th className="py-2.5 px-3">Company Drive</th>
                       <th className="py-2.5 px-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#2F3E4E]/10 dark:divide-slate-800">
                     {documents.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-[#64748B] dark:text-slate-400">
-                          {loading ? 'Loading central documents...' : 'No documents uploaded yet.'}
+                        <td
+                          colSpan={7}
+                          className="py-8 text-center text-[#64748B] dark:text-slate-400"
+                        >
+                          {loading
+                            ? 'Loading central documents...'
+                            : 'No documents uploaded to Central Company Google Drive yet.'}
                         </td>
                       </tr>
                     ) : (
                       documents.map((docRow) => (
-                        <tr key={docRow.id} className="hover:bg-[#FEF2C8]/25 dark:hover:bg-slate-900/60">
-                          <td className="py-2.5 px-3.5">
-                            <div className="font-semibold text-[#2F3E4E] dark:text-slate-100">
-                              {docRow.title}
-                            </div>
-                            <div className="text-[11px] font-mono text-[#64748B] dark:text-slate-400">
-                              {docRow.file_name}
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 font-mono tabular-nums text-[#475569] dark:text-slate-300">
-                            {(docRow.size_bytes / 1024).toFixed(1)} KB
-                          </td>
-                          <td className="py-2.5 px-3 text-[#475569] dark:text-slate-300">
-                            {docRow.uploaded_by_username}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span
-                              className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                docRow.approval_status === 'Approved'
-                                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-                                  : docRow.approval_status === 'Rejected'
-                                    ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-500/30'
-                                    : 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-500/30'
-                              }`}
-                            >
-                              {docRow.approval_status}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3">
-                            {docRow.drive_web_view_link ? (
-                              <a
-                                href={docRow.drive_web_view_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[#12805C] dark:text-emerald-400 font-semibold hover:underline"
+                        <React.Fragment key={docRow.id}>
+                          <tr className="hover:bg-[#FEF2C8]/25 dark:hover:bg-slate-900/60">
+                            <td className="py-2.5 px-3.5">
+                              <div className="font-semibold text-[#2F3E4E] dark:text-slate-100 flex items-center gap-1.5">
+                                <span>{docRow.title}</span>
+                                {docRow.is_archived && (
+                                  <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-[9px] font-mono font-bold">
+                                    ARCHIVED
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] font-mono text-[#64748B] dark:text-slate-400">
+                                {docRow.file_name}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-[#475569] dark:text-slate-300">
+                              {docRow.folder_key || '01_UPLOADED_DOCUMENTS'}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono tabular-nums text-[#475569] dark:text-slate-300">
+                              <div>{(docRow.size_bytes / 1024).toFixed(1)} KB</div>
+                              <div className="text-[10px] text-[#64748B]">
+                                v{docRow.version_number || 1}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-[#475569] dark:text-slate-300">
+                              {docRow.uploaded_by_username}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                  docRow.approval_status === 'Approved'
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                                    : docRow.approval_status === 'Rejected'
+                                      ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-500/30'
+                                      : 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-500/30'
+                                }`}
                               >
-                                <CloudUpload className="w-3.5 h-3.5" aria-hidden="true" />
-                                <span>Open in Drive</span>
-                                <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                              </a>
-                            ) : (
-                              <span className="text-[#94A3B8]">Central Server</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3.5 text-right space-x-1.5 whitespace-nowrap">
-                            {canDownload && (
+                                {docRow.approval_status}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {docRow.drive_web_view_link ? (
+                                <a
+                                  href={docRow.drive_web_view_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[#12805C] dark:text-emerald-400 font-semibold hover:underline"
+                                >
+                                  <Cloud className="w-3.5 h-3.5" aria-hidden="true" />
+                                  <span>Company Drive</span>
+                                  <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                                </a>
+                              ) : (
+                                <span className="font-mono text-[10px] text-[#64748B]">
+                                  {docRow.drive_file_id || 'Pending Link'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3.5 text-right space-x-1 whitespace-nowrap">
+                              {canDownload && (
+                                <button
+                                  type="button"
+                                  disabled={downloadingDocId === docRow.id}
+                                  onClick={() => void handleDownloadDocument(docRow)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#2F3E4E]/25 dark:border-slate-600 hover:bg-[#FEF2C8] dark:hover:bg-slate-800 text-[#2F3E4E] dark:text-slate-200 font-semibold cursor-pointer disabled:opacity-50"
+                                >
+                                  {downloadingDocId === docRow.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                                  ) : (
+                                    <Download className="w-3 h-3" aria-hidden="true" />
+                                  )}
+                                  <span>Download</span>
+                                </button>
+                              )}
                               <button
                                 type="button"
-                                onClick={() => void handleDownloadDocument(docRow)}
+                                onClick={() => void handleToggleVersions(docRow.id)}
+                                title="View version history"
                                 className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#2F3E4E]/25 dark:border-slate-600 hover:bg-[#FEF2C8] dark:hover:bg-slate-800 text-[#2F3E4E] dark:text-slate-200 font-semibold cursor-pointer"
                               >
-                                <Download className="w-3 h-3" aria-hidden="true" />
-                                <span>Download</span>
+                                <History className="w-3 h-3" aria-hidden="true" />
+                                <span>v{docRow.version_number || 1}</span>
                               </button>
-                            )}
-                            {canApprove && docRow.approval_status !== 'Approved' && (
-                              <button
-                                type="button"
-                                onClick={() => void handleDocumentApproval(docRow.id, 'Approved')}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-emerald-600/40 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold cursor-pointer"
-                              >
-                                <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
-                                <span>Approve</span>
-                              </button>
-                            )}
-                            {canApprove && docRow.approval_status !== 'Rejected' && (
-                              <button
-                                type="button"
-                                onClick={() => void handleDocumentApproval(docRow.id, 'Rejected')}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-rose-500/40 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-semibold cursor-pointer"
-                              >
-                                <XCircle className="w-3 h-3" aria-hidden="true" />
-                                <span>Reject</span>
-                              </button>
-                            )}
-                            {canDelete && (
-                              <button
-                                type="button"
-                                onClick={() => void handleDeleteDocument(docRow.id)}
-                                aria-label={`Delete ${docRow.title}`}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-rose-500/40 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/60 font-semibold cursor-pointer"
-                              >
-                                <Trash2 className="w-3 h-3" aria-hidden="true" />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
+                              {canUpload && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReplaceTargetDoc(docRow);
+                                    setDocTitle(docRow.title);
+                                  }}
+                                  title="Upload new replacement version"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#2F3E4E]/25 dark:border-slate-600 hover:bg-[#FEF2C8] dark:hover:bg-slate-800 text-[#2F3E4E] dark:text-slate-200 font-semibold cursor-pointer"
+                                >
+                                  <Upload className="w-3 h-3" aria-hidden="true" />
+                                  <span>Replace</span>
+                                </button>
+                              )}
+                              {canApprove && docRow.approval_status !== 'Approved' && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDocumentApproval(docRow.id, 'Approved')}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded border border-emerald-600/40 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold cursor-pointer"
+                                >
+                                  <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+                                  <span>Approve</span>
+                                </button>
+                              )}
+                              {canApprove && docRow.approval_status !== 'Rejected' && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDocumentApproval(docRow.id, 'Rejected')}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded border border-rose-500/40 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-semibold cursor-pointer"
+                                >
+                                  <XCircle className="w-3 h-3" aria-hidden="true" />
+                                  <span>Reject</span>
+                                </button>
+                              )}
+                              {(canEdit || canUpload) && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDocumentArchiveToggle(docRow)}
+                                  title={
+                                    docRow.is_archived
+                                      ? 'Restore from archive'
+                                      : 'Move to 08_ARCHIVED_DOCUMENTS'
+                                  }
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#2F3E4E]/25 dark:border-slate-600 text-[#2F3E4E] dark:text-slate-200 font-semibold cursor-pointer"
+                                >
+                                  {docRow.is_archived ? (
+                                    <RotateCcw className="w-3 h-3" aria-hidden="true" />
+                                  ) : (
+                                    <Archive className="w-3 h-3" aria-hidden="true" />
+                                  )}
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteDocument(docRow.id)}
+                                  aria-label={`Delete ${docRow.title}`}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded border border-rose-500/40 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/60 font-semibold cursor-pointer"
+                                >
+                                  <Trash2 className="w-3 h-3" aria-hidden="true" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                          {expandedDocId === docRow.id && (
+                            <tr className="bg-[#FFFDF5] dark:bg-slate-950/60">
+                              <td colSpan={7} className="px-4 py-3">
+                                {loadingVersionsId === docRow.id ? (
+                                  <div className="text-xs text-[#64748B] flex items-center gap-2">
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <span>Loading Company Drive version history...</span>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1.5">
+                                    <div className="text-[10px] font-display font-extrabold uppercase tracking-wider text-[#2F3E4E] dark:text-[#F9C80E]">
+                                      Version History ({(versionsByDoc[docRow.id] || []).length})
+                                    </div>
+                                    {(versionsByDoc[docRow.id] || []).map((ver) => (
+                                      <div
+                                        key={ver.id}
+                                        className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono border-b border-[#2F3E4E]/10 dark:border-slate-800 pb-1"
+                                      >
+                                        <span>
+                                          <strong>v{ver.version_number}</strong> · {ver.file_name} (
+                                          {(ver.size_bytes / 1024).toFixed(1)} KB)
+                                        </span>
+                                        <span className="text-[#64748B] dark:text-slate-400">
+                                          By {ver.uploaded_by_username} ·{' '}
+                                          {new Date(ver.created_at).toLocaleString()}
+                                          {ver.notes ? ` · ${ver.notes}` : ''}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))
                     )}
                   </tbody>
@@ -802,8 +1131,13 @@ export const CentralWorkspaceModules: React.FC<{
                   <tbody className="divide-y divide-[#2F3E4E]/10 dark:divide-slate-800">
                     {records.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-[#64748B] dark:text-slate-400">
-                          {loading ? 'Loading records...' : `No central entries recorded in ${meta.title} yet.`}
+                        <td
+                          colSpan={6}
+                          className="py-8 text-center text-[#64748B] dark:text-slate-400"
+                        >
+                          {loading
+                            ? 'Loading records...'
+                            : `No central entries recorded in ${meta.title} yet.`}
                         </td>
                       </tr>
                     ) : (
@@ -818,7 +1152,10 @@ export const CentralWorkspaceModules: React.FC<{
                           // ignore
                         }
                         return (
-                          <tr key={rec.id} className="hover:bg-[#FEF2C8]/25 dark:hover:bg-slate-900/60">
+                          <tr
+                            key={rec.id}
+                            className="hover:bg-[#FEF2C8]/25 dark:hover:bg-slate-900/60"
+                          >
                             <td className="py-2.5 px-3.5 font-mono font-semibold text-[#2F3E4E] dark:text-slate-200">
                               {rec.reference_code || '—'}
                             </td>

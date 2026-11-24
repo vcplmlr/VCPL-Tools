@@ -139,14 +139,49 @@ export async function createDriveFolder(
   return (await res.json()) as DriveFileItem;
 }
 
+export async function ensureVcplDriveFolder(
+  accessToken: string,
+  folderName = 'VCPL Pro Storage'
+): Promise<string> {
+  const escaped = folderName.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const params = new URLSearchParams({
+    q: `name = '${escaped}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+    pageSize: '1',
+    fields: 'files(id,name)',
+    supportsAllDrives: 'true',
+    includeItemsFromAllDrives: 'true',
+  });
+  const searchRes = await googleFetch(
+    `https://www.googleapis.com/drive/v3/files?${params.toString()}`,
+    accessToken
+  );
+  const searchData = (await searchRes.json()) as { files?: Array<{ id?: string }> };
+  const existingId = searchData.files?.[0]?.id;
+  if (existingId) return existingId;
+
+  const created = await createDriveFolder(accessToken, folderName.trim());
+  if (!created.id) {
+    throw new Error('Failed to create Google Drive storage folder.');
+  }
+  return created.id;
+}
+
 export async function uploadFileToDrive(
   accessToken: string,
-  file: File
+  file: File,
+  parentFolderId?: string
 ): Promise<DriveFileItem> {
-  const metadata = {
+  const metadata: {
+    name: string;
+    mimeType: string;
+    parents?: string[];
+  } = {
     name: file.name,
     mimeType: file.type || 'application/octet-stream',
   };
+  if (parentFolderId) {
+    metadata.parents = [parentFolderId];
+  }
   const form = new FormData();
   form.append(
     'metadata',
@@ -581,4 +616,456 @@ export async function listMeetRecordings(
   );
   const data = (await res.json()) as { recordings?: MeetRecording[] };
   return Array.isArray(data.recordings) ? data.recordings : [];
+}
+
+// =============================================================================
+// GOOGLE SHEETS API v4
+// =============================================================================
+
+export interface SpreadsheetSheetInfo {
+  properties: {
+    sheetId: number;
+    title: string;
+    index?: number;
+    gridProperties?: { rowCount?: number; columnCount?: number };
+  };
+}
+
+export interface SpreadsheetMetadata {
+  spreadsheetId: string;
+  spreadsheetUrl?: string;
+  properties: {
+    title: string;
+    locale?: string;
+    timeZone?: string;
+  };
+  sheets: SpreadsheetSheetInfo[];
+}
+
+export async function listSpreadsheetsFromDrive(
+  accessToken: string,
+  pageSize = 25
+): Promise<DriveFileItem[]> {
+  const params = new URLSearchParams({
+    pageSize: String(pageSize),
+    orderBy: 'modifiedTime desc',
+    fields: 'files(id,name,mimeType,modifiedTime,webViewLink)',
+    q: "mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false",
+    supportsAllDrives: 'true',
+    includeItemsFromAllDrives: 'true',
+  });
+  const res = await googleFetch(
+    `https://www.googleapis.com/drive/v3/files?${params.toString()}`,
+    accessToken
+  );
+  const data = (await res.json()) as { files?: DriveFileItem[] };
+  return Array.isArray(data.files) ? data.files : [];
+}
+
+export async function getSpreadsheetMetadata(
+  accessToken: string,
+  spreadsheetId: string
+): Promise<SpreadsheetMetadata> {
+  const res = await googleFetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(
+      spreadsheetId.trim()
+    )}?fields=spreadsheetId,spreadsheetUrl,properties(title,locale,timeZone),sheets(properties(sheetId,title,index,gridProperties))`,
+    accessToken
+  );
+  return (await res.json()) as SpreadsheetMetadata;
+}
+
+export function formatSheetRange(sheetTitle: string, a1CellRange = 'A1:Z50'): string {
+  const escaped = sheetTitle.replace(/'/g, "''");
+  return `'${escaped}'!${a1CellRange}`;
+}
+
+export async function getSpreadsheetValues(
+  accessToken: string,
+  spreadsheetId: string,
+  range: string
+): Promise<{ range: string; values: string[][] }> {
+  const res = await googleFetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(
+      spreadsheetId.trim()
+    )}/values/${encodeURIComponent(range)}?valueRenderOption=FORMATTED_VALUE`,
+    accessToken
+  );
+  const data = (await res.json()) as { range?: string; values?: unknown[][] };
+  const rows = Array.isArray(data.values)
+    ? data.values.map((row) =>
+        Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : []
+      )
+    : [];
+  return {
+    range: data.range || range,
+    values: rows,
+  };
+}
+
+export async function createSpreadsheet(
+  accessToken: string,
+  title: string,
+  initialSheetTitle = 'Ledger'
+): Promise<SpreadsheetMetadata> {
+  const res = await googleFetch('https://sheets.googleapis.com/v4/spreadsheets', accessToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      properties: { title: title.trim() },
+      sheets: [{ properties: { title: initialSheetTitle.trim() || 'Ledger' } }],
+    }),
+  });
+  return (await res.json()) as SpreadsheetMetadata;
+}
+
+export async function updateSpreadsheetValues(
+  accessToken: string,
+  spreadsheetId: string,
+  range: string,
+  values: string[][]
+): Promise<{ updatedCells?: number; updatedRange?: string }> {
+  const res = await googleFetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(
+      spreadsheetId.trim()
+    )}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,
+    accessToken,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ range, majorDimension: 'ROWS', values }),
+    }
+  );
+  return (await res.json()) as { updatedCells?: number; updatedRange?: string };
+}
+
+export async function appendSpreadsheetRow(
+  accessToken: string,
+  spreadsheetId: string,
+  range: string,
+  rowValues: string[]
+): Promise<{ updates?: { updatedRange?: string; updatedRows?: number } }> {
+  const res = await googleFetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(
+      spreadsheetId.trim()
+    )}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    accessToken,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ majorDimension: 'ROWS', values: [rowValues] }),
+    }
+  );
+  return (await res.json()) as { updates?: { updatedRange?: string; updatedRows?: number } };
+}
+
+// =============================================================================
+// GOOGLE CALENDAR API v3
+// =============================================================================
+
+export interface CalendarListItem {
+  id: string;
+  summary: string;
+  description?: string;
+  timeZone?: string;
+  primary?: boolean;
+  accessRole?: string;
+  backgroundColor?: string;
+}
+
+export interface CalendarEventItem {
+  id: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  status?: string;
+  htmlLink?: string;
+  hangoutLink?: string;
+  start?: { dateTime?: string; date?: string; timeZone?: string };
+  end?: { dateTime?: string; date?: string; timeZone?: string };
+  attendees?: Array<{ email: string; displayName?: string; responseStatus?: string }>;
+}
+
+export async function listUserCalendars(accessToken: string): Promise<CalendarListItem[]> {
+  const res = await googleFetch(
+    'https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=50',
+    accessToken
+  );
+  const data = (await res.json()) as { items?: CalendarListItem[] };
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export async function listCalendarEvents(
+  accessToken: string,
+  calendarId = 'primary',
+  options: { timeMin?: string; timeMax?: string; maxResults?: number; q?: string } = {}
+): Promise<CalendarEventItem[]> {
+  const params = new URLSearchParams({
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: String(options.maxResults ?? 30),
+  });
+  if (options.timeMin) params.set('timeMin', options.timeMin);
+  if (options.timeMax) params.set('timeMax', options.timeMax);
+  if (options.q?.trim()) params.set('q', options.q.trim());
+
+  const res = await googleFetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+      calendarId
+    )}/events?${params.toString()}`,
+    accessToken
+  );
+  const data = (await res.json()) as { items?: CalendarEventItem[] };
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+export interface CalendarEventInput {
+  summary: string;
+  description?: string;
+  location?: string;
+  startIso: string;
+  endIso: string;
+  attendeeEmails?: string[];
+  timeZone?: string;
+}
+
+export async function createCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  input: CalendarEventInput
+): Promise<CalendarEventItem> {
+  const body: Record<string, unknown> = {
+    summary: input.summary.trim(),
+    description: input.description?.trim() || undefined,
+    location: input.location?.trim() || undefined,
+    start: {
+      dateTime: input.startIso,
+      timeZone: input.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+    },
+    end: {
+      dateTime: input.endIso,
+      timeZone: input.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+    },
+  };
+  if (input.attendeeEmails && input.attendeeEmails.length > 0) {
+    body.attendees = input.attendeeEmails.map((email) => ({ email: email.trim() }));
+  }
+
+  const res = await googleFetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+    accessToken,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
+  return (await res.json()) as CalendarEventItem;
+}
+
+export async function updateCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string,
+  input: Partial<CalendarEventInput>
+): Promise<CalendarEventItem> {
+  const body: Record<string, unknown> = {};
+  if (input.summary !== undefined) body.summary = input.summary.trim();
+  if (input.description !== undefined) body.description = input.description.trim();
+  if (input.location !== undefined) body.location = input.location.trim();
+  if (input.startIso) {
+    body.start = {
+      dateTime: input.startIso,
+      timeZone: input.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+    };
+  }
+  if (input.endIso) {
+    body.end = {
+      dateTime: input.endIso,
+      timeZone: input.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
+    };
+  }
+
+  const res = await googleFetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+      calendarId
+    )}/events/${encodeURIComponent(eventId)}`,
+    accessToken,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
+  return (await res.json()) as CalendarEventItem;
+}
+
+export async function deleteCalendarEvent(
+  accessToken: string,
+  calendarId: string,
+  eventId: string
+): Promise<void> {
+  await googleFetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+      calendarId
+    )}/events/${encodeURIComponent(eventId)}`,
+    accessToken,
+    { method: 'DELETE' }
+  );
+}
+
+// =============================================================================
+// GOOGLE CHAT API v1
+// =============================================================================
+
+export const GOOGLE_CHAT_CONSOLE_CONFIG_URL =
+  'https://console.cloud.google.com/apis/api/chat.googleapis.com/hangouts-chat?project=gen-lang-client-0957477595';
+
+export class ChatSetupRequiredError extends Error {
+  consoleUrl: string;
+  constructor(message: string, consoleUrl = GOOGLE_CHAT_CONSOLE_CONFIG_URL) {
+    super(message);
+    this.name = 'ChatSetupRequiredError';
+    this.consoleUrl = consoleUrl;
+  }
+}
+
+export interface ChatSpaceItem {
+  name: string;
+  type?: string;
+  spaceType?: 'SPACE' | 'GROUP_CHAT' | 'DIRECT_MESSAGE' | string;
+  displayName?: string;
+  singleUserBotDm?: boolean;
+  threaded?: boolean;
+  spaceDetails?: { description?: string; guidelines?: string };
+}
+
+export interface ChatMessageItem {
+  name: string;
+  sender?: { name?: string; displayName?: string; type?: string };
+  createTime?: string;
+  text?: string;
+  formattedText?: string;
+  thread?: { name?: string };
+}
+
+export interface ChatMemberItem {
+  name: string;
+  role?: string;
+  state?: string;
+  member?: { name?: string; displayName?: string; type?: string };
+}
+
+async function chatFetch(
+  url: string,
+  accessToken: string,
+  init: RequestInit = {}
+): Promise<Response> {
+  const headers = new Headers(init.headers);
+  headers.set('Authorization', `Bearer ${accessToken}`);
+  const res = await fetch(url, { ...init, headers });
+  if (res.status === 401) {
+    clearAccessToken();
+    throw new WorkspaceAuthExpiredError();
+  }
+  if (!res.ok) {
+    const msg = await parseGoogleError(res);
+    if (
+      res.status === 404 ||
+      /Google Chat app not found/i.test(msg) ||
+      /configure the app/i.test(msg) ||
+      /not a Google Workspace/i.test(msg)
+    ) {
+      throw new ChatSetupRequiredError(msg);
+    }
+    throw new Error(msg);
+  }
+  return res;
+}
+
+export async function listChatSpaces(
+  accessToken: string,
+  pageSize = 50
+): Promise<ChatSpaceItem[]> {
+  const params = new URLSearchParams({ pageSize: String(pageSize) });
+  const res = await chatFetch(
+    `https://chat.googleapis.com/v1/spaces?${params.toString()}`,
+    accessToken
+  );
+  const data = (await res.json()) as { spaces?: ChatSpaceItem[] };
+  return Array.isArray(data.spaces) ? data.spaces : [];
+}
+
+export async function createChatSpace(
+  accessToken: string,
+  displayName: string,
+  spaceType: 'SPACE' | 'GROUP_CHAT' = 'SPACE'
+): Promise<ChatSpaceItem> {
+  const res = await chatFetch('https://chat.googleapis.com/v1/spaces', accessToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      spaceType,
+      displayName: displayName.trim(),
+    }),
+  });
+  return (await res.json()) as ChatSpaceItem;
+}
+
+export async function listChatMessages(
+  accessToken: string,
+  spaceName: string,
+  pageSize = 30
+): Promise<ChatMessageItem[]> {
+  const cleanSpace = spaceName.startsWith('spaces/') ? spaceName : `spaces/${spaceName}`;
+  const params = new URLSearchParams({
+    pageSize: String(pageSize),
+    orderBy: 'createTime desc',
+  });
+  const res = await chatFetch(
+    `https://chat.googleapis.com/v1/${cleanSpace}/messages?${params.toString()}`,
+    accessToken
+  );
+  const data = (await res.json()) as { messages?: ChatMessageItem[] };
+  return Array.isArray(data.messages) ? data.messages : [];
+}
+
+export async function listChatMemberships(
+  accessToken: string,
+  spaceName: string
+): Promise<ChatMemberItem[]> {
+  const cleanSpace = spaceName.startsWith('spaces/') ? spaceName : `spaces/${spaceName}`;
+  const res = await chatFetch(
+    `https://chat.googleapis.com/v1/${cleanSpace}/members?pageSize=50`,
+    accessToken
+  );
+  const data = (await res.json()) as { memberships?: ChatMemberItem[] };
+  return Array.isArray(data.memberships) ? data.memberships : [];
+}
+
+export async function sendChatMessage(
+  accessToken: string,
+  spaceName: string,
+  text: string
+): Promise<ChatMessageItem> {
+  const cleanSpace = spaceName.startsWith('spaces/') ? spaceName : `spaces/${spaceName}`;
+  const res = await chatFetch(
+    `https://chat.googleapis.com/v1/${cleanSpace}/messages`,
+    accessToken,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text.trim() }),
+    }
+  );
+  return (await res.json()) as ChatMessageItem;
+}
+
+export async function deleteChatMessage(
+  accessToken: string,
+  messageName: string
+): Promise<void> {
+  await chatFetch(`https://chat.googleapis.com/v1/${messageName}`, accessToken, {
+    method: 'DELETE',
+  });
 }

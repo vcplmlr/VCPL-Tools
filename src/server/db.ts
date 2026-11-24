@@ -174,6 +174,27 @@ export function ensureSchema(db: DatabaseSync): void {
 
     CREATE INDEX IF NOT EXISTS idx_auto_blog_ist_date ON auto_blog_posts(published_ist_date DESC);
 
+    CREATE TABLE IF NOT EXISTS enterprise_departments (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      code TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL DEFAULT '',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS enterprise_designations (
+      id TEXT PRIMARY KEY,
+      department_id TEXT NOT NULL DEFAULT '',
+      name TEXT NOT NULL UNIQUE,
+      default_role TEXT NOT NULL DEFAULT 'employee',
+      default_permissions_json TEXT NOT NULL DEFAULT '{}',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS enterprise_users (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL UNIQUE,
@@ -189,17 +210,36 @@ export function ensureSchema(db: DatabaseSync): void {
       status TEXT NOT NULL DEFAULT 'Pending Approval',
       is_archived INTEGER NOT NULL DEFAULT 0,
       must_change_password INTEGER NOT NULL DEFAULT 1,
+      failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+      locked_until TEXT NOT NULL DEFAULT '',
       token_version INTEGER NOT NULL DEFAULT 1,
       last_login_at TEXT NOT NULL DEFAULT '',
       last_active_at TEXT NOT NULL DEFAULT '',
       created_by TEXT NOT NULL DEFAULT 'system',
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT NOT NULL DEFAULT ''
     );
 
     CREATE INDEX IF NOT EXISTS idx_ent_users_username ON enterprise_users(username);
     CREATE INDEX IF NOT EXISTS idx_ent_users_status ON enterprise_users(status, is_archived);
     CREATE INDEX IF NOT EXISTS idx_ent_users_role ON enterprise_users(role);
+
+    CREATE TABLE IF NOT EXISTS enterprise_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      token_version INTEGER NOT NULL DEFAULT 1,
+      ip_address TEXT NOT NULL DEFAULT '',
+      user_agent TEXT NOT NULL DEFAULT '',
+      expires_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      revoked_at TEXT NOT NULL DEFAULT '',
+      revoke_reason TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ent_sessions_user ON enterprise_sessions(user_id, revoked_at, expires_at);
 
     CREATE TABLE IF NOT EXISTS enterprise_permissions (
       user_id TEXT NOT NULL,
@@ -264,24 +304,96 @@ export function ensureSchema(db: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS idx_ent_act_logs_created ON enterprise_activity_logs(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ent_act_logs_actor ON enterprise_activity_logs(actor_user_id, created_at DESC);
 
+    CREATE TABLE IF NOT EXISTS enterprise_audit_logs (
+      id TEXT PRIMARY KEY,
+      actor_user_id TEXT NOT NULL DEFAULT '',
+      actor_username TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'general',
+      event_type TEXT NOT NULL,
+      target_type TEXT NOT NULL DEFAULT '',
+      target_id TEXT NOT NULL DEFAULT '',
+      before_json TEXT NOT NULL DEFAULT '',
+      after_json TEXT NOT NULL DEFAULT '',
+      ip_address TEXT NOT NULL DEFAULT '',
+      user_agent TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ent_audit_logs_created ON enterprise_audit_logs(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS google_drive_configuration (
+      id TEXT PRIMARY KEY,
+      auth_mode TEXT NOT NULL DEFAULT 'unconfigured',
+      root_folder_id TEXT NOT NULL DEFAULT '',
+      root_folder_name TEXT NOT NULL DEFAULT 'VCPL TOOLS - COMPANY DRIVE',
+      shared_drive_id TEXT NOT NULL DEFAULT '',
+      service_account_email TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'Not Configured',
+      last_verified_at TEXT NOT NULL DEFAULT '',
+      last_error TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT 'system',
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS google_drive_folders (
+      id TEXT PRIMARY KEY,
+      folder_key TEXT NOT NULL UNIQUE,
+      folder_name TEXT NOT NULL,
+      parent_key TEXT NOT NULL DEFAULT '',
+      drive_folder_id TEXT NOT NULL DEFAULT '',
+      drive_parent_id TEXT NOT NULL DEFAULT '',
+      module_id TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS enterprise_documents (
       id TEXT PRIMARY KEY,
       module_id TEXT NOT NULL,
+      folder_key TEXT NOT NULL DEFAULT '04_DOCUMENT_VAULT',
       title TEXT NOT NULL,
       file_name TEXT NOT NULL,
       stored_file_name TEXT NOT NULL,
       mime_type TEXT NOT NULL,
       size_bytes INTEGER NOT NULL,
       approval_status TEXT NOT NULL DEFAULT 'Draft',
+      storage_provider TEXT NOT NULL DEFAULT 'google_drive',
       drive_file_id TEXT NOT NULL DEFAULT '',
+      drive_folder_id TEXT NOT NULL DEFAULT '',
       drive_web_view_link TEXT NOT NULL DEFAULT '',
+      checksum_sha256 TEXT NOT NULL DEFAULT '',
+      version_number INTEGER NOT NULL DEFAULT 1,
+      tags TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      is_archived INTEGER NOT NULL DEFAULT 0,
+      archived_at TEXT NOT NULL DEFAULT '',
+      deleted_at TEXT NOT NULL DEFAULT '',
       uploaded_by TEXT NOT NULL,
       uploaded_by_username TEXT NOT NULL,
+      approved_by TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_ent_docs_mod ON enterprise_documents(module_id, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS enterprise_document_versions (
+      id TEXT PRIMARY KEY,
+      document_id TEXT NOT NULL,
+      version_number INTEGER NOT NULL DEFAULT 1,
+      file_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      drive_file_id TEXT NOT NULL DEFAULT '',
+      drive_web_view_link TEXT NOT NULL DEFAULT '',
+      checksum_sha256 TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      uploaded_by TEXT NOT NULL,
+      uploaded_by_username TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ent_doc_versions_doc ON enterprise_document_versions(document_id, version_number DESC);
 
     CREATE TABLE IF NOT EXISTS enterprise_workspace_records (
       id TEXT PRIMARY KEY,
@@ -290,13 +402,45 @@ export function ensureSchema(db: DatabaseSync): void {
       reference_code TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'Active',
       payload_json TEXT NOT NULL DEFAULT '{}',
+      is_archived INTEGER NOT NULL DEFAULT 0,
+      deleted_at TEXT NOT NULL DEFAULT '',
       created_by TEXT NOT NULL,
       created_by_username TEXT NOT NULL,
+      updated_by TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_ent_rec_mod ON enterprise_workspace_records(module_id, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS report_management_records (
+      id TEXT PRIMARY KEY,
+      report_type TEXT NOT NULL,
+      report_title TEXT NOT NULL,
+      format TEXT NOT NULL DEFAULT 'csv',
+      module_filter TEXT NOT NULL DEFAULT 'all',
+      date_range_label TEXT NOT NULL DEFAULT 'All Time',
+      row_count INTEGER NOT NULL DEFAULT 0,
+      drive_file_id TEXT NOT NULL DEFAULT '',
+      drive_web_view_link TEXT NOT NULL DEFAULT '',
+      file_name TEXT NOT NULL DEFAULT '',
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'Generated',
+      generated_by TEXT NOT NULL,
+      generated_by_username TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ent_reports_created ON report_management_records(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS enterprise_settings (
+      key TEXT PRIMARY KEY,
+      value_json TEXT NOT NULL DEFAULT '{}',
+      description TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT 'system',
+      updated_at TEXT NOT NULL
+    );
+
 
     CREATE VIRTUAL TABLE IF NOT EXISTS india_pincodes_fts USING fts5(
       pincode,
@@ -392,6 +536,35 @@ export function ensureSchema(db: DatabaseSync): void {
       VALUES (new.id, new.code, new.office_name, new.district, new.city, new.state, new.state_code, new.address, new.note);
     END;
   `);
+
+  const addColIfMissing = (table: string, col: string, defSql: string) => {
+    try {
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name?: string }>;
+      if (!cols.some((c) => c.name === col)) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${defSql};`);
+      }
+    } catch {
+      // Ignore if table not present
+    }
+  };
+
+  addColIfMissing('enterprise_users', 'failed_login_attempts', 'INTEGER NOT NULL DEFAULT 0');
+  addColIfMissing('enterprise_users', 'locked_until', "TEXT NOT NULL DEFAULT ''");
+  addColIfMissing('enterprise_users', 'deleted_at', "TEXT NOT NULL DEFAULT ''");
+  addColIfMissing('enterprise_documents', 'folder_key', "TEXT NOT NULL DEFAULT '04_DOCUMENT_VAULT'");
+  addColIfMissing('enterprise_documents', 'storage_provider', "TEXT NOT NULL DEFAULT 'google_drive'");
+  addColIfMissing('enterprise_documents', 'drive_folder_id', "TEXT NOT NULL DEFAULT ''");
+  addColIfMissing('enterprise_documents', 'checksum_sha256', "TEXT NOT NULL DEFAULT ''");
+  addColIfMissing('enterprise_documents', 'version_number', 'INTEGER NOT NULL DEFAULT 1');
+  addColIfMissing('enterprise_documents', 'tags', "TEXT NOT NULL DEFAULT ''");
+  addColIfMissing('enterprise_documents', 'notes', "TEXT NOT NULL DEFAULT ''");
+  addColIfMissing('enterprise_documents', 'is_archived', 'INTEGER NOT NULL DEFAULT 0');
+  addColIfMissing('enterprise_documents', 'archived_at', "TEXT NOT NULL DEFAULT ''");
+  addColIfMissing('enterprise_documents', 'deleted_at', "TEXT NOT NULL DEFAULT ''");
+  addColIfMissing('enterprise_documents', 'approved_by', "TEXT NOT NULL DEFAULT ''");
+  addColIfMissing('enterprise_workspace_records', 'is_archived', 'INTEGER NOT NULL DEFAULT 0');
+  addColIfMissing('enterprise_workspace_records', 'deleted_at', "TEXT NOT NULL DEFAULT ''");
+  addColIfMissing('enterprise_workspace_records', 'updated_by', "TEXT NOT NULL DEFAULT ''");
 }
 
 export function normalizeStateDisplay(raw: string): string {

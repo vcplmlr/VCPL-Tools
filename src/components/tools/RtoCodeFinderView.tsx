@@ -42,6 +42,7 @@ import { ToolPasscodeGate } from './ToolPasscodeGate';
 
 interface RtoCodeFinderViewProps {
   initialCode?: string;
+  isVaultUnlocked?: boolean;
   onSyncUrlCode?: (code: string | null) => void;
   onBack?: () => void;
 }
@@ -110,13 +111,19 @@ function writeJsonArray(key: string, items: string[]) {
   }
 }
 
-export function RtoCodeFinderView({ initialCode, onSyncUrlCode, onBack }: RtoCodeFinderViewProps) {
+export function RtoCodeFinderView({
+  initialCode,
+  isVaultUnlocked = false,
+  onSyncUrlCode,
+  onBack,
+}: RtoCodeFinderViewProps) {
   return (
     <ToolPasscodeGate
       toolCode="UT-43"
       toolTitle="India RTO Code Finder"
       sessionKey="vcpl_rto_admin_unlocked"
       verifyWithServerAdminAuth
+      bypassGate={isVaultUnlocked}
       description="This directory tool is restricted for authorized administrative access only. Enter the 6-digit admin passcode to open India RTO Code Finder."
       onBack={onBack}
     >

@@ -257,6 +257,9 @@ export const ENTERPRISE_ROLE_PRESETS: RolePresetDefinition[] = [
           'pdf-merger',
           'pdf-compressor',
           'google-drive-manager',
+          'google-sheets-studio',
+          'google-calendar-planner',
+          'google-chat-hub',
         ],
         {
           view: true,

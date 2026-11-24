@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity,
   AlertTriangle,
+  Calendar,
   Check,
+  Clock,
   Copy,
   Download,
   ExternalLink,
@@ -13,14 +15,17 @@ import {
   HardDrive,
   ListChecks,
   LogOut,
+  MessageSquare,
   Pencil,
   Plus,
   RefreshCw,
   RotateCcw,
   Search,
+  Send,
   Settings2,
   ShieldAlert,
   Star,
+  Table,
   Trash2,
   Upload,
   Users,
@@ -37,9 +42,16 @@ import {
   logout,
 } from '../../services/googleWorkspaceAuth';
 import {
+  CalendarEventItem,
+  CalendarListItem,
+  ChatMemberItem,
+  ChatMessageItem,
+  ChatSetupRequiredError,
+  ChatSpaceItem,
   DriveActivityEntry,
   DriveFileItem,
   DriveFilterMode,
+  GOOGLE_CHAT_CONSOLE_CONFIG_URL,
   GoogleFormDocument,
   GoogleFormResponseItem,
   MeetAccessType,
@@ -48,31 +60,50 @@ import {
   MeetParticipant,
   MeetRecording,
   MeetSpace,
+  SpreadsheetMetadata,
   WorkspaceAuthExpiredError,
+  appendSpreadsheetRow,
   batchUpdateGoogleForm,
+  createCalendarEvent,
+  createChatSpace,
   createDriveFolder,
   createGoogleForm,
   createMeetSpace,
+  createSpreadsheet,
+  deleteCalendarEvent,
+  deleteChatMessage,
   deleteDriveFilePermanently,
   downloadDriveFile,
   endMeetActiveConference,
+  formatSheetRange,
   getGoogleForm,
   getMeetSpace,
+  getSpreadsheetMetadata,
+  getSpreadsheetValues,
+  listCalendarEvents,
+  listChatMemberships,
+  listChatMessages,
+  listChatSpaces,
   listDriveFiles,
   listFormsFromDrive,
   listGoogleFormResponses,
   listMeetConferenceRecords,
   listMeetParticipants,
   listMeetRecordings,
+  listSpreadsheetsFromDrive,
+  listUserCalendars,
   patchMeetSpaceConfig,
   queryDriveActivity,
   renameDriveFile,
+  sendChatMessage,
   setDriveFileStarred,
   setDriveFileTrashed,
+  updateCalendarEvent,
+  updateSpreadsheetValues,
   uploadFileToDrive,
 } from '../../services/googleWorkspaceApis';
 
-type WorkspaceTab = 'drive' | 'forms' | 'meet';
+type WorkspaceTab = 'drive' | 'sheets' | 'calendar' | 'forms' | 'meet' | 'chat';
 
 interface PendingConfirmAction {
   title: string;
@@ -84,8 +115,11 @@ interface PendingConfirmAction {
 }
 
 function getInitialTabForTool(toolId: string): WorkspaceTab {
+  if (toolId === 'google-sheets-studio') return 'sheets';
+  if (toolId === 'google-calendar-planner') return 'calendar';
   if (toolId === 'google-forms-studio') return 'forms';
   if (toolId === 'google-meet-spaces') return 'meet';
+  if (toolId === 'google-chat-hub') return 'chat';
   return 'drive';
 }
 
@@ -188,10 +222,23 @@ export const GoogleWorkspaceSuiteView: React.FC<{ tool: ToolCatalogItem }> = ({ 
     return token;
   }, [accessToken]);
 
+  const [chatSetupError, setChatSetupError] = useState<{
+    message: string;
+    consoleUrl: string;
+  } | null>(null);
+
   const handleApiError = useCallback((err: unknown) => {
     if (err instanceof WorkspaceAuthExpiredError) {
       setAccessToken(null);
       setNeedsAuth(true);
+      setErrorMessage(err.message);
+      return;
+    }
+    if (err instanceof ChatSetupRequiredError) {
+      setChatSetupError({
+        message: err.message,
+        consoleUrl: err.consoleUrl,
+      });
       setErrorMessage(err.message);
       return;
     }
@@ -734,24 +781,462 @@ export const GoogleWorkspaceSuiteView: React.FC<{ tool: ToolCatalogItem }> = ({ 
     }
   };
 
+  // ===========================================================================
+  // SHEETS STATE & ACTIONS
+  // ===========================================================================
+  const [driveSpreadsheets, setDriveSpreadsheets] = useState<DriveFileItem[]>([]);
+  const [sheetIdInput, setSheetIdInput] = useState('');
+  const [newSpreadsheetTitle, setNewSpreadsheetTitle] = useState('');
+  const [activeSpreadsheet, setActiveSpreadsheet] = useState<SpreadsheetMetadata | null>(null);
+  const [selectedSheetTitle, setSelectedSheetTitle] = useState('');
+  const [sheetRangeInput, setSheetRangeInput] = useState('A1:H25');
+  const [sheetValues, setSheetValues] = useState<string[][]>([]);
+  const [newRowInput, setNewRowInput] = useState('');
+  const [cellUpdateRange, setCellUpdateRange] = useState('');
+  const [cellUpdateValue, setCellUpdateValue] = useState('');
+  const [sheetsLoading, setSheetsLoading] = useState(false);
+
+  const loadSpreadsheetsList = useCallback(async () => {
+    const token = await requireToken();
+    if (!token) return;
+    setSheetsLoading(true);
+    setErrorMessage(null);
+    try {
+      const files = await listSpreadsheetsFromDrive(token, 25);
+      setDriveSpreadsheets(files);
+    } catch (err) {
+      handleApiError(err);
+    } finally {
+      setSheetsLoading(false);
+    }
+  }, [handleApiError, requireToken]);
+
+  const loadSpreadsheetTabValues = useCallback(
+    async (spreadsheetId: string, tabTitle: string, a1Range = sheetRangeInput) => {
+      const token = await requireToken();
+      if (!token || !tabTitle) return;
+      setSheetsLoading(true);
+      setErrorMessage(null);
+      try {
+        const fullRange = formatSheetRange(tabTitle, a1Range.trim() || 'A1:H25');
+        const res = await getSpreadsheetValues(token, spreadsheetId, fullRange);
+        setSheetValues(res.values);
+      } catch (err) {
+        handleApiError(err);
+      } finally {
+        setSheetsLoading(false);
+      }
+    },
+    [handleApiError, requireToken, sheetRangeInput]
+  );
+
+  const openSpreadsheet = useCallback(
+    async (spreadsheetId: string) => {
+      const cleanId = spreadsheetId.trim();
+      if (!cleanId) return;
+      const token = await requireToken();
+      if (!token) return;
+      setSheetsLoading(true);
+      setErrorMessage(null);
+      try {
+        const meta = await getSpreadsheetMetadata(token, cleanId);
+        setActiveSpreadsheet(meta);
+        setSheetIdInput(meta.spreadsheetId);
+        const firstTab = meta.sheets?.[0]?.properties?.title || '';
+        setSelectedSheetTitle(firstTab);
+        if (firstTab) {
+          const fullRange = formatSheetRange(firstTab, sheetRangeInput.trim() || 'A1:H25');
+          const res = await getSpreadsheetValues(token, meta.spreadsheetId, fullRange);
+          setSheetValues(res.values);
+        } else {
+          setSheetValues([]);
+        }
+      } catch (err) {
+        handleApiError(err);
+      } finally {
+        setSheetsLoading(false);
+      }
+    },
+    [handleApiError, requireToken, sheetRangeInput]
+  );
+
+  const handleCreateSpreadsheet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSpreadsheetTitle.trim()) return;
+    const token = await requireToken();
+    if (!token) return;
+    setSheetsLoading(true);
+    setErrorMessage(null);
+    try {
+      const created = await createSpreadsheet(token, newSpreadsheetTitle.trim(), 'SheetData');
+      setNewSpreadsheetTitle('');
+      setActiveSpreadsheet(created);
+      setSheetIdInput(created.spreadsheetId);
+      const firstTab = created.sheets?.[0]?.properties?.title || 'SheetData';
+      setSelectedSheetTitle(firstTab);
+      setSheetValues([]);
+      setStatusMessage(`Created spreadsheet "${created.properties.title}".`);
+      await loadSpreadsheetsList();
+    } catch (err) {
+      handleApiError(err);
+    } finally {
+      setSheetsLoading(false);
+    }
+  };
+
+  const requestAppendSheetRow = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeSpreadsheet || !selectedSheetTitle || !newRowInput.trim()) return;
+    const rowCells = newRowInput.split(',').map((c) => c.trim());
+    const targetId = activeSpreadsheet.spreadsheetId;
+    const targetTitle = activeSpreadsheet.properties.title;
+    const targetTab = selectedSheetTitle;
+
+    setPendingConfirm({
+      title: 'Append Row to Google Sheet?',
+      description: `Append ${rowCells.length} column value(s) to tab "${targetTab}" in "${targetTitle}"?`,
+      confirmLabel: 'Append Row',
+      tone: 'warning',
+      affectedItems: [targetTitle, `Tab: ${targetTab}`, `Values: ${rowCells.join(' | ')}`],
+      onConfirm: async () => {
+        const token = await requireToken();
+        if (!token) return;
+        const range = formatSheetRange(targetTab, 'A1');
+        await appendSpreadsheetRow(token, targetId, range, rowCells);
+        setNewRowInput('');
+        await loadSpreadsheetTabValues(targetId, targetTab);
+        setStatusMessage(`Appended row to "${targetTab}".`);
+      },
+    });
+  };
+
+  const requestUpdateSheetCells = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeSpreadsheet || !selectedSheetTitle || !cellUpdateRange.trim()) return;
+    const targetId = activeSpreadsheet.spreadsheetId;
+    const targetTitle = activeSpreadsheet.properties.title;
+    const targetTab = selectedSheetTitle;
+    const a1 = cellUpdateRange.trim();
+    const rowValues = cellUpdateValue.split(',').map((c) => c.trim());
+    const fullRange = formatSheetRange(targetTab, a1);
+
+    setPendingConfirm({
+      title: 'Overwrite Google Sheet Cells?',
+      description: `Update range ${fullRange} in "${targetTitle}"? Existing cell values in this range will be overwritten.`,
+      confirmLabel: 'Update Cells',
+      tone: 'warning',
+      affectedItems: [targetTitle, `Range: ${fullRange}`, `New Values: ${rowValues.join(' | ')}`],
+      onConfirm: async () => {
+        const token = await requireToken();
+        if (!token) return;
+        await updateSpreadsheetValues(token, targetId, fullRange, [rowValues]);
+        setCellUpdateRange('');
+        setCellUpdateValue('');
+        await loadSpreadsheetTabValues(targetId, targetTab);
+        setStatusMessage(`Updated ${fullRange}.`);
+      },
+    });
+  };
+
+  const handleExportSheetCsv = () => {
+    if (!activeSpreadsheet || sheetValues.length === 0) return;
+    const escapeCsv = (val: string) =>
+      /[",\r\n]/.test(val) ? `"${val.replace(/"/g, '""')}"` : val;
+    const csv = `\uFEFF${sheetValues
+      .map((row) => row.map(escapeCsv).join(','))
+      .join('\r\n')}`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(activeSpreadsheet.properties.title || 'sheet')
+      .replace(/[^a-z0-9-_]+/gi, '_')}_${(selectedSheetTitle || 'tab').replace(/[^a-z0-9-_]+/gi, '_')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // ===========================================================================
+  // CALENDAR STATE & ACTIONS
+  // ===========================================================================
+  const [calendars, setCalendars] = useState<CalendarListItem[]>([]);
+  const [selectedCalendarId, setSelectedCalendarId] = useState('primary');
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEventItem[]>([]);
+  const [calendarSearch, setCalendarSearch] = useState('');
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [eventSummary, setEventSummary] = useState('');
+  const [eventLocation, setEventLocation] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventStartLocal, setEventStartLocal] = useState(() => {
+    const d = new Date(Date.now() + 3600_000);
+    d.setMinutes(0, 0, 0);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  });
+  const [eventEndLocal, setEventEndLocal] = useState(() => {
+    const d = new Date(Date.now() + 7200_000);
+    d.setMinutes(0, 0, 0);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  });
+  const [eventAttendees, setEventAttendees] = useState('');
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editingEventSummary, setEditingEventSummary] = useState('');
+
+  const loadCalendarData = useCallback(
+    async (calId = selectedCalendarId, q = calendarSearch) => {
+      const token = await requireToken();
+      if (!token) return;
+      setCalendarLoading(true);
+      setErrorMessage(null);
+      try {
+        const [calList, evList] = await Promise.all([
+          listUserCalendars(token),
+          listCalendarEvents(token, calId, {
+            timeMin: new Date(Date.now() - 7 * 86400_000).toISOString(),
+            maxResults: 30,
+            q,
+          }),
+        ]);
+        setCalendars(calList);
+        setCalendarEvents(evList);
+      } catch (err) {
+        handleApiError(err);
+      } finally {
+        setCalendarLoading(false);
+      }
+    },
+    [calendarSearch, handleApiError, requireToken, selectedCalendarId]
+  );
+
+  const requestCreateCalendarEvent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!eventSummary.trim() || !eventStartLocal || !eventEndLocal) return;
+    const startIso = new Date(eventStartLocal).toISOString();
+    const endIso = new Date(eventEndLocal).toISOString();
+    const summary = eventSummary.trim();
+    const calId = selectedCalendarId;
+    const attendeeList = eventAttendees
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    setPendingConfirm({
+      title: 'Create Google Calendar Event?',
+      description: `Schedule "${summary}" on calendar "${calId}"${attendeeList.length ? ` and invite ${attendeeList.length} attendee(s)` : ''}?`,
+      confirmLabel: 'Create Event',
+      tone: 'warning',
+      affectedItems: [
+        summary,
+        `Start: ${new Date(startIso).toLocaleString('en-IN')}`,
+        ...(attendeeList.length ? [`Attendees: ${attendeeList.join(', ')}`] : []),
+      ],
+      onConfirm: async () => {
+        const token = await requireToken();
+        if (!token) return;
+        await createCalendarEvent(token, calId, {
+          summary,
+          location: eventLocation,
+          description: eventDescription,
+          startIso,
+          endIso,
+          attendeeEmails: attendeeList,
+        });
+        setEventSummary('');
+        setEventLocation('');
+        setEventDescription('');
+        setEventAttendees('');
+        await loadCalendarData(calId, calendarSearch);
+        setStatusMessage(`Created calendar event "${summary}".`);
+      },
+    });
+  };
+
+  const requestSaveEventTitleEdit = (ev: CalendarEventItem) => {
+    const nextSummary = editingEventSummary.trim();
+    if (!nextSummary || nextSummary === (ev.summary || '')) {
+      setEditingEventId(null);
+      return;
+    }
+    const calId = selectedCalendarId;
+    setPendingConfirm({
+      title: 'Update Calendar Event?',
+      description: `Rename event "${ev.summary || '(Untitled)'}" to "${nextSummary}"?`,
+      confirmLabel: 'Update Event',
+      tone: 'warning',
+      affectedItems: [ev.summary || ev.id, `New Title: ${nextSummary}`],
+      onConfirm: async () => {
+        const token = await requireToken();
+        if (!token) return;
+        await updateCalendarEvent(token, calId, ev.id, { summary: nextSummary });
+        setEditingEventId(null);
+        await loadCalendarData(calId, calendarSearch);
+        setStatusMessage(`Updated calendar event "${nextSummary}".`);
+      },
+    });
+  };
+
+  const requestDeleteCalendarEvent = (ev: CalendarEventItem) => {
+    const calId = selectedCalendarId;
+    setPendingConfirm({
+      title: 'Delete Google Calendar Event?',
+      description: `Permanently delete "${ev.summary || '(Untitled Event)'}" from Google Calendar?`,
+      confirmLabel: 'Delete Event',
+      tone: 'danger',
+      affectedItems: [ev.summary || ev.id],
+      onConfirm: async () => {
+        const token = await requireToken();
+        if (!token) return;
+        await deleteCalendarEvent(token, calId, ev.id);
+        await loadCalendarData(calId, calendarSearch);
+        setStatusMessage(`Deleted calendar event "${ev.summary || ev.id}".`);
+      },
+    });
+  };
+
+  // ===========================================================================
+  // CHAT STATE & ACTIONS
+  // ===========================================================================
+  const [chatSpaces, setChatSpaces] = useState<ChatSpaceItem[]>([]);
+  const [selectedChatSpace, setSelectedChatSpace] = useState<ChatSpaceItem | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessageItem[]>([]);
+  const [chatMembers, setChatMembers] = useState<ChatMemberItem[]>([]);
+  const [newChatSpaceName, setNewChatSpaceName] = useState('');
+  const [newChatMessageText, setNewChatMessageText] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+
+  const loadChatSpacesList = useCallback(async () => {
+    const token = await requireToken();
+    if (!token) return;
+    setChatLoading(true);
+    setErrorMessage(null);
+    setChatSetupError(null);
+    try {
+      const spaces = await listChatSpaces(token, 50);
+      setChatSpaces(spaces);
+    } catch (err) {
+      handleApiError(err);
+    } finally {
+      setChatLoading(false);
+    }
+  }, [handleApiError, requireToken]);
+
+  const loadChatSpaceDetails = useCallback(
+    async (space: ChatSpaceItem) => {
+      const token = await requireToken();
+      if (!token) return;
+      setSelectedChatSpace(space);
+      setChatLoading(true);
+      setErrorMessage(null);
+      try {
+        const [messages, members] = await Promise.all([
+          listChatMessages(token, space.name, 30),
+          listChatMemberships(token, space.name).catch(() => []),
+        ]);
+        setChatMessages(messages);
+        setChatMembers(members);
+      } catch (err) {
+        handleApiError(err);
+      } finally {
+        setChatLoading(false);
+      }
+    },
+    [handleApiError, requireToken]
+  );
+
+  const requestCreateChatSpace = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChatSpaceName.trim()) return;
+    const displayName = newChatSpaceName.trim();
+    setPendingConfirm({
+      title: 'Create Google Chat Space?',
+      description: `Create a new Google Chat space named "${displayName}"?`,
+      confirmLabel: 'Create Space',
+      tone: 'warning',
+      affectedItems: [displayName],
+      onConfirm: async () => {
+        const token = await requireToken();
+        if (!token) return;
+        const created = await createChatSpace(token, displayName, 'SPACE');
+        setNewChatSpaceName('');
+        await loadChatSpacesList();
+        await loadChatSpaceDetails(created);
+        setStatusMessage(`Created Google Chat space "${displayName}".`);
+      },
+    });
+  };
+
+  const requestSendChatMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedChatSpace || !newChatMessageText.trim()) return;
+    const targetSpace = selectedChatSpace;
+    const msgText = newChatMessageText.trim();
+    setPendingConfirm({
+      title: 'Send Google Chat Message?',
+      description: `Post this message to "${targetSpace.displayName || targetSpace.name}" as your signed-in Google Workspace user?`,
+      confirmLabel: 'Send Message',
+      tone: 'warning',
+      affectedItems: [targetSpace.displayName || targetSpace.name, msgText],
+      onConfirm: async () => {
+        const token = await requireToken();
+        if (!token) return;
+        await sendChatMessage(token, targetSpace.name, msgText);
+        setNewChatMessageText('');
+        await loadChatSpaceDetails(targetSpace);
+        setStatusMessage('Sent Google Chat message.');
+      },
+    });
+  };
+
+  const requestDeleteChatMessage = (msg: ChatMessageItem) => {
+    if (!selectedChatSpace) return;
+    const targetSpace = selectedChatSpace;
+    setPendingConfirm({
+      title: 'Delete Google Chat Message?',
+      description: 'Permanently delete this Google Chat message?',
+      confirmLabel: 'Delete Message',
+      tone: 'danger',
+      affectedItems: [msg.text || msg.name],
+      onConfirm: async () => {
+        const token = await requireToken();
+        if (!token) return;
+        await deleteChatMessage(token, msg.name);
+        await loadChatSpaceDetails(targetSpace);
+        setStatusMessage('Deleted Google Chat message.');
+      },
+    });
+  };
+
   // Auto-load current tab data once signed in
   useEffect(() => {
     if (!accessToken || needsAuth) return;
     if (activeTab === 'drive' && driveFiles.length === 0) {
       void loadDriveFiles();
+    } else if (activeTab === 'sheets' && driveSpreadsheets.length === 0) {
+      void loadSpreadsheetsList();
+    } else if (activeTab === 'calendar' && calendars.length === 0) {
+      void loadCalendarData();
     } else if (activeTab === 'forms' && driveForms.length === 0) {
       void loadFormsList();
     } else if (activeTab === 'meet' && meetRecords.length === 0) {
       void loadMeetRecords();
+    } else if (activeTab === 'chat' && chatSpaces.length === 0 && !chatSetupError) {
+      void loadChatSpacesList();
     }
   }, [
     accessToken,
     activeTab,
+    calendars.length,
+    chatSetupError,
+    chatSpaces.length,
     driveFiles.length,
     driveForms.length,
+    driveSpreadsheets.length,
+    loadCalendarData,
+    loadChatSpacesList,
     loadDriveFiles,
     loadFormsList,
     loadMeetRecords,
+    loadSpreadsheetsList,
     meetRecords.length,
     needsAuth,
   ]);
@@ -791,11 +1276,11 @@ export const GoogleWorkspaceSuiteView: React.FC<{ tool: ToolCatalogItem }> = ({ 
               Google Workspace
             </span>
             <h1 className="font-display font-extrabold text-lg sm:text-xl text-[#FFFDF5]">
-              Google Drive, Forms &amp; Meet Hub
+              Google Workspace Studio
             </h1>
           </div>
           <p className="text-xs text-[#CBD5E1]">
-            Client-side Google Workspace integration using your signed-in Google account with in-memory OAuth access.
+            Google Drive, Sheets, Calendar, Forms, Meet &amp; Chat powered by your signed-in Google account with in-memory OAuth access.
           </p>
         </div>
 
@@ -840,6 +1325,32 @@ export const GoogleWorkspaceSuiteView: React.FC<{ tool: ToolCatalogItem }> = ({ 
 
         <button
           type="button"
+          onClick={() => setActiveTab('sheets')}
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-display font-extrabold border-t-[1.5px] border-x-[1.5px] transition cursor-pointer whitespace-nowrap ${
+            activeTab === 'sheets'
+              ? 'bg-[#FFFDF5] dark:bg-[#131C2E] text-[#2F3E4E] dark:text-[#F9C80E] border-[#2F3E4E] dark:border-slate-700'
+              : 'bg-transparent text-[#475569] dark:text-slate-400 border-transparent hover:text-[#2F3E4E] dark:hover:text-slate-200'
+          }`}
+        >
+          <Table className="w-4 h-4" />
+          <span>Google Sheets</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('calendar')}
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-display font-extrabold border-t-[1.5px] border-x-[1.5px] transition cursor-pointer whitespace-nowrap ${
+            activeTab === 'calendar'
+              ? 'bg-[#FFFDF5] dark:bg-[#131C2E] text-[#2F3E4E] dark:text-[#F9C80E] border-[#2F3E4E] dark:border-slate-700'
+              : 'bg-transparent text-[#475569] dark:text-slate-400 border-transparent hover:text-[#2F3E4E] dark:hover:text-slate-200'
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          <span>Google Calendar</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('forms')}
           className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-display font-extrabold border-t-[1.5px] border-x-[1.5px] transition cursor-pointer whitespace-nowrap ${
             activeTab === 'forms'
@@ -862,6 +1373,19 @@ export const GoogleWorkspaceSuiteView: React.FC<{ tool: ToolCatalogItem }> = ({ 
         >
           <Video className="w-4 h-4" />
           <span>Google Meet</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('chat')}
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-display font-extrabold border-t-[1.5px] border-x-[1.5px] transition cursor-pointer whitespace-nowrap ${
+            activeTab === 'chat'
+              ? 'bg-[#FFFDF5] dark:bg-[#131C2E] text-[#2F3E4E] dark:text-[#F9C80E] border-[#2F3E4E] dark:border-slate-700'
+              : 'bg-transparent text-[#475569] dark:text-slate-400 border-transparent hover:text-[#2F3E4E] dark:hover:text-slate-200'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Google Chat</span>
         </button>
       </div>
 
@@ -908,15 +1432,18 @@ export const GoogleWorkspaceSuiteView: React.FC<{ tool: ToolCatalogItem }> = ({ 
         <div className="p-6 sm:p-10 text-center space-y-4">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-[#FEF2C8] dark:bg-[#0B1120] border-[1.5px] border-[#2F3E4E] dark:border-slate-600 flex items-center justify-center">
             {activeTab === 'drive' && <HardDrive className="w-7 h-7 text-[#2F3E4E] dark:text-[#F9C80E]" />}
+            {activeTab === 'sheets' && <Table className="w-7 h-7 text-[#2F3E4E] dark:text-[#F9C80E]" />}
+            {activeTab === 'calendar' && <Calendar className="w-7 h-7 text-[#2F3E4E] dark:text-[#F9C80E]" />}
             {activeTab === 'forms' && <ListChecks className="w-7 h-7 text-[#2F3E4E] dark:text-[#F9C80E]" />}
             {activeTab === 'meet' && <Video className="w-7 h-7 text-[#2F3E4E] dark:text-[#F9C80E]" />}
+            {activeTab === 'chat' && <MessageSquare className="w-7 h-7 text-[#2F3E4E] dark:text-[#F9C80E]" />}
           </div>
           <div className="max-w-lg mx-auto space-y-1.5">
             <h2 className="font-display font-extrabold text-lg text-[#2F3E4E] dark:text-slate-100">
               Connect Your Google Account
             </h2>
             <p className="text-xs sm:text-sm text-[#475569] dark:text-slate-400 leading-relaxed">
-              Sign in with Google to browse and upload Drive files, inspect or build Google Forms and export responses, and create or manage Google Meet spaces directly from your browser.
+              Sign in with Google to manage Drive files, edit Google Sheets, schedule Google Calendar events, inspect Google Forms, launch Google Meet spaces, and collaborate in Google Chat.
             </p>
           </div>
           <div className="flex justify-center pt-1">
@@ -1794,6 +2321,698 @@ export const GoogleWorkspaceSuiteView: React.FC<{ tool: ToolCatalogItem }> = ({ 
                     )}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* =============================================================== */}
+          {/* TAB 4: GOOGLE SHEETS */}
+          {/* =============================================================== */}
+          {activeTab === 'sheets' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              <div className="lg:col-span-4 space-y-4">
+                <form
+                  onSubmit={handleCreateSpreadsheet}
+                  className="p-4 rounded-xl bg-[#FEF2C8]/55 dark:bg-[#0B1120] border-[1.5px] border-[#2F3E4E]/25 dark:border-slate-700 space-y-2.5"
+                >
+                  <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
+                    Create New Spreadsheet
+                  </h3>
+                  <input
+                    type="text"
+                    value={newSpreadsheetTitle}
+                    onChange={(e) => setNewSpreadsheetTitle(e.target.value)}
+                    placeholder="e.g. VCPL GST Monthly Tracker"
+                    className="w-full h-9 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sheetsLoading || !newSpreadsheetTitle.trim()}
+                    className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A] text-xs font-bold cursor-pointer disabled:opacity-50"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Create Google Sheet</span>
+                  </button>
+                </form>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void openSpreadsheet(sheetIdInput);
+                  }}
+                  className="p-3.5 rounded-xl bg-white dark:bg-[#0B1120] border-[1.5px] border-[#2F3E4E]/20 dark:border-slate-700 space-y-2"
+                >
+                  <label className="block text-[11px] font-bold text-[#475569] dark:text-slate-300">
+                    Open by Spreadsheet ID
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={sheetIdInput}
+                      onChange={(e) => setSheetIdInput(e.target.value)}
+                      placeholder="Paste Spreadsheet ID..."
+                      className="flex-1 h-9 px-2.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-[#FFFDF5] dark:bg-[#131C2E] text-xs font-mono"
+                    />
+                    <button
+                      type="submit"
+                      disabled={sheetsLoading || !sheetIdInput.trim()}
+                      className="h-9 px-3 rounded-lg bg-[#2F3E4E] text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                    >
+                      Open
+                    </button>
+                  </div>
+                </form>
+
+                <div className="p-4 rounded-xl bg-white dark:bg-[#0B1120] border-[1.5px] border-[#2F3E4E]/20 dark:border-slate-700 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
+                      Your Spreadsheets ({driveSpreadsheets.length})
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => void loadSpreadsheetsList()}
+                      disabled={sheetsLoading}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#12805C] dark:text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${sheetsLoading ? 'animate-spin' : ''}`} />
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+                  {driveSpreadsheets.length === 0 ? (
+                    <p className="text-xs text-[#64748B]">
+                      No spreadsheets found yet. Create a new sheet or paste a Spreadsheet ID.
+                    </p>
+                  ) : (
+                    <div className="max-h-72 overflow-y-auto divide-y divide-[#2F3E4E]/10 dark:divide-slate-800">
+                      {driveSpreadsheets.map((file) => (
+                        <button
+                          key={file.id}
+                          type="button"
+                          onClick={() => void openSpreadsheet(file.id)}
+                          className={`w-full text-left py-2.5 px-2.5 rounded-lg transition cursor-pointer ${
+                            activeSpreadsheet?.spreadsheetId === file.id
+                              ? 'bg-[#F9C80E]/35'
+                              : 'hover:bg-[#FEF2C8]/45 dark:hover:bg-slate-800/50'
+                          }`}
+                        >
+                          <div className="text-xs font-bold text-[#2F3E4E] dark:text-slate-100 truncate">
+                            {file.name}
+                          </div>
+                          <div className="text-[11px] text-[#64748B]">
+                            Updated {formatIsoDate(file.modifiedTime)}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="lg:col-span-8 space-y-4">
+                {!activeSpreadsheet ? (
+                  <div className="p-8 rounded-xl border border-dashed border-[#2F3E4E]/30 dark:border-slate-700 text-center space-y-2">
+                    <Table className="w-8 h-8 mx-auto text-[#64748B]" />
+                    <p className="text-sm font-bold text-[#2F3E4E] dark:text-slate-200">
+                      Select or create a Google Sheet to view &amp; edit data
+                    </p>
+                    <p className="text-xs text-[#64748B]">
+                      Tabs are fetched dynamically from workbook metadata (never hardcoded).
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-white dark:bg-[#0B1120] border-[1.5px] border-[#2F3E4E]/25 dark:border-slate-700 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <h3 className="font-display font-extrabold text-base text-[#2F3E4E] dark:text-slate-100">
+                          {activeSpreadsheet.properties.title}
+                        </h3>
+                        <p className="text-[11px] font-mono text-[#64748B]">
+                          ID: {activeSpreadsheet.spreadsheetId} · {activeSpreadsheet.sheets.length} tab(s)
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {sheetValues.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleExportSheetCsv}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#12805C] text-white text-xs font-bold cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Export CSV</span>
+                          </button>
+                        )}
+                        {activeSpreadsheet.spreadsheetUrl && (
+                          <a
+                            href={activeSpreadsheet.spreadsheetUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#2F3E4E]/30 text-xs font-bold"
+                          >
+                            <span>Open in Sheets</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Dynamic Tab Switcher + Range Reload */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={selectedSheetTitle}
+                        onChange={(e) => {
+                          const nextTab = e.target.value;
+                          setSelectedSheetTitle(nextTab);
+                          void loadSpreadsheetTabValues(activeSpreadsheet.spreadsheetId, nextTab);
+                        }}
+                        className="h-9 px-3 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-[#FFFDF5] dark:bg-[#131C2E] text-xs font-bold"
+                      >
+                        {activeSpreadsheet.sheets.map((s) => (
+                          <option key={s.properties.sheetId} value={s.properties.title}>
+                            {s.properties.title}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={sheetRangeInput}
+                        onChange={(e) => setSheetRangeInput(e.target.value)}
+                        placeholder="A1:H25"
+                        className="w-28 h-9 px-2.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void loadSpreadsheetTabValues(
+                            activeSpreadsheet.spreadsheetId,
+                            selectedSheetTitle,
+                            sheetRangeInput
+                          )
+                        }
+                        disabled={sheetsLoading}
+                        className="h-9 px-3 rounded-lg bg-[#FEF2C8] dark:bg-slate-800 border border-[#2F3E4E]/30 text-xs font-bold cursor-pointer"
+                      >
+                        Load Range
+                      </button>
+                    </div>
+
+                    {/* Sheet Values Table */}
+                    <div className="overflow-x-auto border border-[#2F3E4E]/20 dark:border-slate-700 rounded-xl">
+                      {sheetValues.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-[#64748B]">
+                          No cell values found in range {sheetRangeInput}. Append a row below to start.
+                        </div>
+                      ) : (
+                        <table className="w-full text-left border-collapse text-xs">
+                          <tbody>
+                            {sheetValues.map((row, rIdx) => (
+                              <tr
+                                key={rIdx}
+                                className={
+                                  rIdx === 0
+                                    ? 'bg-[#FEF2C8]/70 dark:bg-[#131C2E] font-bold text-[#2F3E4E] dark:text-[#F9C80E]'
+                                    : 'border-t border-[#2F3E4E]/10 dark:border-slate-800 hover:bg-[#FEF2C8]/25'
+                                }
+                              >
+                                <td className="px-2.5 py-1.5 font-mono text-[10px] text-[#64748B] border-r border-[#2F3E4E]/10 w-10">
+                                  {rIdx + 1}
+                                </td>
+                                {row.map((cell, cIdx) => (
+                                  <td
+                                    key={cIdx}
+                                    className="px-2.5 py-1.5 border-r border-[#2F3E4E]/10 dark:border-slate-800 max-w-[200px] truncate"
+                                    title={cell}
+                                  >
+                                    {cell || '—'}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+
+                    {/* Mutating Actions (Behind Confirmation Modal) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[#2F3E4E]/15 dark:border-slate-700">
+                      <form onSubmit={requestAppendSheetRow} className="space-y-2">
+                        <label className="block text-[11px] font-bold text-[#2F3E4E] dark:text-slate-200">
+                          Append New Row (comma-separated)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={newRowInput}
+                            onChange={(e) => setNewRowInput(e.target.value)}
+                            placeholder="e.g. INV-102, 24 Nov 2026, 18500"
+                            className="flex-1 h-9 px-3 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!newRowInput.trim()}
+                            className="h-9 px-3.5 rounded-lg bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A] text-xs font-bold cursor-pointer disabled:opacity-50"
+                          >
+                            Append
+                          </button>
+                        </div>
+                      </form>
+
+                      <form onSubmit={requestUpdateSheetCells} className="space-y-2">
+                        <label className="block text-[11px] font-bold text-[#2F3E4E] dark:text-slate-200">
+                          Update Cell / Row Range
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={cellUpdateRange}
+                            onChange={(e) => setCellUpdateRange(e.target.value)}
+                            placeholder="A2:C2"
+                            className="w-20 h-9 px-2.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs font-mono"
+                          />
+                          <input
+                            type="text"
+                            value={cellUpdateValue}
+                            onChange={(e) => setCellUpdateValue(e.target.value)}
+                            placeholder="Comma values..."
+                            className="flex-1 h-9 px-2.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!cellUpdateRange.trim()}
+                            className="h-9 px-3 rounded-lg border border-[#2F3E4E] dark:border-slate-600 text-xs font-bold cursor-pointer disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* =============================================================== */}
+          {/* TAB 5: GOOGLE CALENDAR */}
+          {/* =============================================================== */}
+          {activeTab === 'calendar' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              <div className="lg:col-span-5 space-y-4">
+                <form
+                  onSubmit={requestCreateCalendarEvent}
+                  className="p-4 rounded-xl bg-[#FEF2C8]/55 dark:bg-[#0B1120] border-[1.5px] border-[#2F3E4E]/25 dark:border-slate-700 space-y-2.5"
+                >
+                  <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
+                    Schedule Calendar Event
+                  </h3>
+                  <input
+                    type="text"
+                    value={eventSummary}
+                    onChange={(e) => setEventSummary(e.target.value)}
+                    placeholder="Event title (e.g. GSTR-3B Review Meeting)"
+                    className="w-full h-9 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs"
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#475569] dark:text-slate-300 mb-1">
+                        Start Time
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={eventStartLocal}
+                        onChange={(e) => setEventStartLocal(e.target.value)}
+                        className="w-full h-9 px-2 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#475569] dark:text-slate-300 mb-1">
+                        End Time
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={eventEndLocal}
+                        onChange={(e) => setEventEndLocal(e.target.value)}
+                        className="w-full h-9 px-2 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs"
+                      />
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    value={eventLocation}
+                    onChange={(e) => setEventLocation(e.target.value)}
+                    placeholder="Location or meeting link (optional)"
+                    className="w-full h-9 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs"
+                  />
+                  <input
+                    type="text"
+                    value={eventAttendees}
+                    onChange={(e) => setEventAttendees(e.target.value)}
+                    placeholder="Attendee emails comma-separated (optional)"
+                    className="w-full h-9 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs"
+                  />
+                  <textarea
+                    rows={2}
+                    value={eventDescription}
+                    onChange={(e) => setEventDescription(e.target.value)}
+                    placeholder="Agenda / notes (optional)"
+                    className="w-full p-2.5 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs"
+                  />
+                  <button
+                    type="submit"
+                    disabled={calendarLoading || !eventSummary.trim()}
+                    className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A] text-xs font-bold cursor-pointer disabled:opacity-50"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Schedule Event</span>
+                  </button>
+                </form>
+              </div>
+
+              <div className="lg:col-span-7 space-y-4">
+                <div className="p-4 rounded-xl bg-white dark:bg-[#0B1120] border-[1.5px] border-[#2F3E4E]/20 dark:border-slate-700 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                      <select
+                        value={selectedCalendarId}
+                        onChange={(e) => {
+                          const nextCal = e.target.value;
+                          setSelectedCalendarId(nextCal);
+                          void loadCalendarData(nextCal, calendarSearch);
+                        }}
+                        className="h-9 px-3 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-[#FFFDF5] dark:bg-[#131C2E] text-xs font-bold max-w-[220px]"
+                      >
+                        {calendars.length === 0 ? (
+                          <option value="primary">Primary Calendar</option>
+                        ) : (
+                          calendars.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.summary} {c.primary ? '(Primary)' : ''}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <input
+                        type="text"
+                        value={calendarSearch}
+                        onChange={(e) => setCalendarSearch(e.target.value)}
+                        placeholder="Filter events..."
+                        className="flex-1 h-9 px-3 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void loadCalendarData(selectedCalendarId, calendarSearch)}
+                      disabled={calendarLoading}
+                      className="inline-flex items-center gap-1 px-3 h-9 rounded-lg bg-[#FEF2C8] dark:bg-slate-800 text-xs font-bold cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${calendarLoading ? 'animate-spin' : ''}`} />
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+
+                  {calendarEvents.length === 0 ? (
+                    <p className="text-xs text-[#64748B] py-4 text-center">
+                      No upcoming or recent events found in the selected calendar.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-[#2F3E4E]/10 dark:divide-slate-800 max-h-[460px] overflow-y-auto">
+                      {calendarEvents.map((ev) => {
+                        const startLabel = ev.start?.dateTime || ev.start?.date || '';
+                        const isEditing = editingEventId === ev.id;
+                        return (
+                          <div key={ev.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="min-w-0 space-y-1">
+                              {isEditing ? (
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={editingEventSummary}
+                                    onChange={(e) => setEditingEventSummary(e.target.value)}
+                                    className="h-8 px-2.5 rounded border border-[#2F3E4E]/40 text-xs"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => requestSaveEventTitleEdit(ev)}
+                                    className="px-2.5 h-8 rounded bg-[#12805C] text-white text-[11px] font-bold cursor-pointer"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingEventId(null)}
+                                    className="px-2 h-8 rounded border border-[#2F3E4E]/30 text-[11px] cursor-pointer"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="text-xs font-bold text-[#2F3E4E] dark:text-slate-100 truncate">
+                                  {ev.summary || '(Untitled Event)'}
+                                </div>
+                              )}
+                              <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#64748B]">
+                                <span className="inline-flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {formatIsoDate(startLabel)}
+                                </span>
+                                {ev.location && <span>· {ev.location}</span>}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {ev.htmlLink && (
+                                <a
+                                  href={ev.htmlLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 rounded-lg border border-[#2F3E4E]/20 hover:bg-[#FEF2C8]/60 text-[#2F3E4E] dark:text-slate-300"
+                                  title="Open in Google Calendar"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingEventId(ev.id);
+                                  setEditingEventSummary(ev.summary || '');
+                                }}
+                                className="p-1.5 rounded-lg border border-[#2F3E4E]/20 hover:bg-[#FEF2C8]/60 text-[#2F3E4E] dark:text-slate-300 cursor-pointer"
+                                title="Rename event"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => requestDeleteCalendarEvent(ev)}
+                                className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 cursor-pointer"
+                                title="Delete event"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =============================================================== */}
+          {/* TAB 6: GOOGLE CHAT */}
+          {/* =============================================================== */}
+          {activeTab === 'chat' && (
+            <div className="space-y-4">
+              {chatSetupError && (
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border-[1.5px] border-amber-400 dark:border-amber-700 space-y-2 text-xs text-amber-950 dark:text-amber-200">
+                  <div className="font-display font-extrabold flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>Google Chat App &amp; Workspace Prerequisites Required</span>
+                  </div>
+                  <p>{chatSetupError.message}</p>
+                  <p className="text-[11px] leading-relaxed">
+                    Google Chat API requires (1) a Business or Enterprise Google Workspace account (consumer @gmail.com accounts are not supported by Google Chat API) and (2) configuring the Chat App details in Google Cloud Console.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <a
+                      href={chatSetupError.consoleUrl || GOOGLE_CHAT_CONSOLE_CONFIG_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2F3E4E] text-white font-bold"
+                    >
+                      <span>Open Google Chat Console Config</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => void loadChatSpacesList()}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#2F3E4E]/40 font-bold cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Retry</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <div className="lg:col-span-4 space-y-4">
+                  <form
+                    onSubmit={requestCreateChatSpace}
+                    className="p-4 rounded-xl bg-[#FEF2C8]/55 dark:bg-[#0B1120] border-[1.5px] border-[#2F3E4E]/25 dark:border-slate-700 space-y-2.5"
+                  >
+                    <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
+                      Create Google Chat Space
+                    </h3>
+                    <input
+                      type="text"
+                      value={newChatSpaceName}
+                      onChange={(e) => setNewChatSpaceName(e.target.value)}
+                      placeholder="e.g. VCPL Accounts Desk"
+                      className="w-full h-9 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#131C2E] text-xs"
+                    />
+                    <button
+                      type="submit"
+                      disabled={chatLoading || !newChatSpaceName.trim()}
+                      className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A] text-xs font-bold cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create Chat Space</span>
+                    </button>
+                  </form>
+
+                  <div className="p-4 rounded-xl bg-white dark:bg-[#0B1120] border-[1.5px] border-[#2F3E4E]/20 dark:border-slate-700 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-[#2F3E4E] dark:text-slate-200">
+                        Chat Spaces ({chatSpaces.length})
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => void loadChatSpacesList()}
+                        disabled={chatLoading}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-[#12805C] dark:text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${chatLoading ? 'animate-spin' : ''}`} />
+                        <span>Refresh</span>
+                      </button>
+                    </div>
+                    {chatSpaces.length === 0 ? (
+                      <p className="text-xs text-[#64748B]">
+                        No Google Chat spaces loaded yet. Note: requires a Google Workspace Business/Enterprise account.
+                      </p>
+                    ) : (
+                      <div className="max-h-72 overflow-y-auto divide-y divide-[#2F3E4E]/10 dark:divide-slate-800">
+                        {chatSpaces.map((sp) => (
+                          <button
+                            key={sp.name}
+                            type="button"
+                            onClick={() => void loadChatSpaceDetails(sp)}
+                            className={`w-full text-left py-2.5 px-2.5 rounded-lg transition cursor-pointer ${
+                              selectedChatSpace?.name === sp.name
+                                ? 'bg-[#F9C80E]/35'
+                                : 'hover:bg-[#FEF2C8]/45 dark:hover:bg-slate-800/50'
+                            }`}
+                          >
+                            <div className="text-xs font-bold text-[#2F3E4E] dark:text-slate-100 truncate">
+                              {sp.displayName || sp.name}
+                            </div>
+                            <div className="text-[10px] font-mono text-[#64748B]">
+                              {sp.spaceType || sp.type || 'SPACE'} · {sp.name}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="lg:col-span-8 space-y-4">
+                  {!selectedChatSpace ? (
+                    <div className="p-8 rounded-xl border border-dashed border-[#2F3E4E]/30 dark:border-slate-700 text-center space-y-2">
+                      <MessageSquare className="w-8 h-8 mx-auto text-[#64748B]" />
+                      <p className="text-sm font-bold text-[#2F3E4E] dark:text-slate-200">
+                        Select a Google Chat space to inspect messages &amp; members
+                      </p>
+                      <p className="text-xs text-[#64748B]">
+                        Sending or deleting messages always displays an explicit confirmation step.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-white dark:bg-[#0B1120] border-[1.5px] border-[#2F3E4E]/25 dark:border-slate-700 space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <h3 className="font-display font-extrabold text-base text-[#2F3E4E] dark:text-slate-100">
+                            {selectedChatSpace.displayName || selectedChatSpace.name}
+                          </h3>
+                          <p className="text-[11px] font-mono text-[#64748B]">
+                            {selectedChatSpace.name} · {chatMembers.length} member(s)
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void loadChatSpaceDetails(selectedChatSpace)}
+                          disabled={chatLoading}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#FEF2C8] dark:bg-slate-800 text-xs font-bold cursor-pointer"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${chatLoading ? 'animate-spin' : ''}`} />
+                          <span>Reload Messages</span>
+                        </button>
+                      </div>
+
+                      <form onSubmit={requestSendChatMessage} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newChatMessageText}
+                          onChange={(e) => setNewChatMessageText(e.target.value)}
+                          placeholder="Write a message to this Google Chat space..."
+                          className="flex-1 h-10 px-3 rounded-xl border border-[#2F3E4E]/35 dark:border-slate-600 bg-[#FFFDF5] dark:bg-[#131C2E] text-xs"
+                        />
+                        <button
+                          type="submit"
+                          disabled={chatLoading || !newChatMessageText.trim()}
+                          className="h-10 px-4 inline-flex items-center gap-1.5 rounded-xl bg-[#2F3E4E] dark:bg-[#F9C80E] text-[#FFFDF5] dark:text-[#0F172A] text-xs font-bold cursor-pointer disabled:opacity-50"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Send</span>
+                        </button>
+                      </form>
+
+                      <div className="max-h-80 overflow-y-auto divide-y divide-[#2F3E4E]/10 dark:divide-slate-800">
+                        {chatMessages.length === 0 ? (
+                          <p className="text-xs text-[#64748B] py-4 text-center">
+                            No messages returned for this space.
+                          </p>
+                        ) : (
+                          chatMessages.map((msg) => (
+                            <div key={msg.name} className="py-2.5 flex items-start justify-between gap-2">
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="flex items-center gap-2 text-[11px]">
+                                  <span className="font-bold text-[#2F3E4E] dark:text-slate-100">
+                                    {msg.sender?.displayName || msg.sender?.name || 'Member'}
+                                  </span>
+                                  <span className="text-[#64748B]">{formatIsoDate(msg.createTime)}</span>
+                                </div>
+                                <p className="text-xs text-[#334155] dark:text-slate-300 whitespace-pre-wrap break-words">
+                                  {msg.text || msg.formattedText || '(Attachment / Card)'}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => requestDeleteChatMessage(msg)}
+                                className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer shrink-0"
+                                title="Delete message"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

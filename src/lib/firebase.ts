@@ -1,12 +1,14 @@
-import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { type FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
+import { type Auth, getAuth } from 'firebase/auth';
 import {
+  type Firestore,
   Timestamp,
   collection,
   doc,
   getDocFromServer,
   getDocs,
   getFirestore,
+  initializeFirestore,
   orderBy,
   query,
   serverTimestamp,
@@ -14,14 +16,37 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-export const firebaseApp =
-  getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+let cachedApp: FirebaseApp | null = null;
+let cachedAuth: Auth | null = null;
+let cachedDb: Firestore | null = null;
 
-export const firebaseAuth = getAuth(firebaseApp);
+export function getFirebaseApp(): FirebaseApp {
+  if (!cachedApp) {
+    cachedApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  }
+  return cachedApp;
+}
 
-export const firestoreDb = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(firebaseApp);
+export function getFirebaseAuth(): Auth {
+  if (!cachedAuth) {
+    cachedAuth = getAuth(getFirebaseApp());
+  }
+  return cachedAuth;
+}
+
+export function getFirestoreDb(): Firestore {
+  if (cachedDb) return cachedDb;
+  const app = getFirebaseApp();
+  const dbId = firebaseConfig.firestoreDatabaseId;
+  try {
+    cachedDb = dbId ? getFirestore(app, dbId) : getFirestore(app);
+  } catch {
+    cachedDb = dbId
+      ? initializeFirestore(app, { ignoreUndefinedProperties: true }, dbId)
+      : initializeFirestore(app, { ignoreUndefinedProperties: true });
+  }
+  return cachedDb;
+}
 
 export enum OperationType {
   CREATE = 'create',
@@ -56,7 +81,12 @@ export function handleFirestoreError(
   operationType: OperationType,
   path: string | null
 ): never {
-  const user = firebaseAuth.currentUser;
+  let user = null;
+  try {
+    user = getFirebaseAuth().currentUser;
+  } catch {
+    user = null;
+  }
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     operationType,
@@ -85,12 +115,22 @@ export async function testFirestoreConnection(): Promise<{
   offline?: boolean;
   error?: string;
 }> {
-  if (!firebaseAuth.currentUser) {
+  let auth: Auth;
+  try {
+    auth = getFirebaseAuth();
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Firebase Auth is unavailable.',
+    };
+  }
+  if (!auth.currentUser) {
     return { ok: false, error: 'Not signed into Google Workspace / Firebase Auth.' };
   }
   const path = 'test/connection';
   try {
-    await getDocFromServer(doc(firestoreDb, 'test', 'connection'));
+    const db = getFirestoreDb();
+    await getDocFromServer(doc(db, 'test', 'connection'));
     return { ok: true };
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
@@ -109,12 +149,16 @@ export async function testFirestoreConnection(): Promise<{
 }
 
 export function isFirebaseSuperAdminSignedIn(): boolean {
-  const user = firebaseAuth.currentUser;
-  return Boolean(
-    user &&
-      user.emailVerified &&
-      user.email?.toLowerCase() === 'vcpl.mlr@gmail.com'
-  );
+  try {
+    const user = getFirebaseAuth().currentUser;
+    return Boolean(
+      user &&
+        user.emailVerified &&
+        user.email?.toLowerCase() === 'vcpl.mlr@gmail.com'
+    );
+  } catch {
+    return false;
+  }
 }
 
 export interface CloudSyncEnterpriseUser {
@@ -203,7 +247,7 @@ export async function syncEnterpriseSnapshotToFirestore(payload: {
     const id = sanitizeId(user.id);
     const userPath = `enterpriseUsers/${id}`;
     try {
-      const ref = doc(firestoreDb, 'enterpriseUsers', id);
+      const ref = doc(getFirestoreDb(), 'enterpriseUsers', id);
       const existing = await getDocFromServer(ref);
       const baseData = {
         id,
@@ -230,7 +274,7 @@ export async function syncEnterpriseSnapshotToFirestore(payload: {
       syncedCount += 1;
 
       if (user.permissions) {
-        const permRef = doc(firestoreDb, 'permissionProfiles', id);
+        const permRef = doc(getFirestoreDb(), 'permissionProfiles', id);
         const existingPerm = await getDocFromServer(permRef);
         await setDoc(permRef, {
           userId: id,
@@ -251,7 +295,7 @@ export async function syncEnterpriseSnapshotToFirestore(payload: {
     const id = sanitizeId(req.id);
     const path = `resetRequests/${id}`;
     try {
-      const ref = doc(firestoreDb, 'resetRequests', id);
+      const ref = doc(getFirestoreDb(), 'resetRequests', id);
       const existing = await getDocFromServer(ref);
       await setDoc(ref, {
         id,
@@ -277,7 +321,7 @@ export async function syncEnterpriseSnapshotToFirestore(payload: {
     const id = sanitizeId(log.id);
     const path = `activityLogs/${id}`;
     try {
-      const ref = doc(firestoreDb, 'activityLogs', id);
+      const ref = doc(getFirestoreDb(), 'activityLogs', id);
       const existing = await getDocFromServer(ref);
       if (!existing.exists()) {
         await setDoc(ref, {
@@ -301,7 +345,7 @@ export async function syncEnterpriseSnapshotToFirestore(payload: {
     const id = sanitizeId(docMeta.id);
     const path = `enterpriseDocuments/${id}`;
     try {
-      const ref = doc(firestoreDb, 'enterpriseDocuments', id);
+      const ref = doc(getFirestoreDb(), 'enterpriseDocuments', id);
       const existing = await getDocFromServer(ref);
       await setDoc(ref, {
         id,
@@ -330,7 +374,7 @@ export async function syncEnterpriseSnapshotToFirestore(payload: {
     const id = sanitizeId(rec.id);
     const path = `workspaceRecords/${id}`;
     try {
-      const ref = doc(firestoreDb, 'workspaceRecords', id);
+      const ref = doc(getFirestoreDb(), 'workspaceRecords', id);
       const existing = await getDocFromServer(ref);
       await setDoc(ref, {
         id,
@@ -372,7 +416,7 @@ export async function loadEnterpriseSnapshotFromFirestore(): Promise<{
 
   try {
     const snap = await getDocs(
-      query(collection(firestoreDb, 'enterpriseUsers'), orderBy('username'))
+      query(collection(getFirestoreDb(), 'enterpriseUsers'), orderBy('username'))
     );
     snap.forEach((docSnap) => {
       const d = docSnap.data();
@@ -399,7 +443,7 @@ export async function loadEnterpriseSnapshotFromFirestore(): Promise<{
   }
 
   try {
-    const permSnap = await getDocs(collection(firestoreDb, 'permissionProfiles'));
+    const permSnap = await getDocs(collection(getFirestoreDb(), 'permissionProfiles'));
     permSnap.forEach((docSnap) => {
       const d = docSnap.data();
       try {
@@ -415,7 +459,7 @@ export async function loadEnterpriseSnapshotFromFirestore(): Promise<{
   }
 
   try {
-    const docsSnap = await getDocs(collection(firestoreDb, 'enterpriseDocuments'));
+    const docsSnap = await getDocs(collection(getFirestoreDb(), 'enterpriseDocuments'));
     docsSnap.forEach((docSnap) => {
       const d = docSnap.data();
       documents.push({
@@ -437,7 +481,7 @@ export async function loadEnterpriseSnapshotFromFirestore(): Promise<{
   }
 
   try {
-    const recSnap = await getDocs(collection(firestoreDb, 'workspaceRecords'));
+    const recSnap = await getDocs(collection(getFirestoreDb(), 'workspaceRecords'));
     recSnap.forEach((docSnap) => {
       const d = docSnap.data();
       records.push({

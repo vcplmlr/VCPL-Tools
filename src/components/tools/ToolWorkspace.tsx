@@ -905,6 +905,7 @@ export const ToolWorkspace: React.FC<ToolWorkspaceProps> = ({
           {tool.kind === 'rto-code-finder' && (
             <RtoCodeFinderView
               initialCode={initialSubParam}
+              isVaultUnlocked={effectiveVaultUnlocked}
               onSyncUrlCode={onSyncToolSubParam}
               onBack={onClose}
             />

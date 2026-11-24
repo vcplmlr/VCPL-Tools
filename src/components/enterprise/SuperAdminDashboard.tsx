@@ -4,17 +4,25 @@ import {
   AlertTriangle,
   Archive,
   ArrowLeft,
+  Building2,
   CheckCircle2,
   Cloud,
   Copy,
   Database,
+  Download,
   Edit3,
+  ExternalLink,
+  FileSpreadsheet,
+  FolderTree,
+  HardDriveDownload,
   History,
   KeyRound,
   Layers,
+  Loader2,
   Lock,
   PauseCircle,
   PlayCircle,
+  Plus,
   RefreshCw,
   RotateCcw,
   Search,
@@ -22,6 +30,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Trash2,
+  Upload,
   UserCheck,
   UserPlus,
   Users,
@@ -42,13 +51,6 @@ import {
   type UserPermissionMatrix,
   createEmptyPermissionSet,
 } from '../../data/enterpriseModules.ts';
-import {
-  isFirebaseSuperAdminSignedIn,
-  loadEnterpriseSnapshotFromFirestore,
-  syncEnterpriseSnapshotToFirestore,
-  testFirestoreConnection,
-} from '../../lib/firebase.ts';
-import { googleSignIn } from '../../services/googleWorkspaceAuth.ts';
 import { CentralWorkspaceModules } from './CentralWorkspaceModules.tsx';
 
 interface SuperAdminDashboardProps {
@@ -62,6 +64,7 @@ type AdminTabId =
   | 'permissions'
   | 'resets'
   | 'logs'
+  | 'reports'
   | 'vault';
 
 interface ResetRequestRow {
@@ -97,6 +100,112 @@ interface ActivityLogRow {
   target_id: string;
   summary: string;
   created_at: string;
+}
+
+interface AuditLogRow {
+  id: string;
+  actor_username: string;
+  category: string;
+  event_type: string;
+  target_type: string;
+  target_id: string;
+  ip_address: string;
+  created_at: string;
+}
+
+interface DepartmentRow {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  created_at: string;
+}
+
+interface DesignationRow {
+  id: string;
+  department_id: string;
+  name: string;
+  default_permissions_json: string;
+  created_at: string;
+}
+
+interface DriveFolderItem {
+  folder_key?: string;
+  folderKey?: string;
+  folder_name?: string;
+  folderName?: string;
+  drive_folder_id?: string;
+  driveFolderId?: string;
+  parent_folder_key?: string;
+  parentFolderKey?: string;
+}
+
+interface SystemStatusResponse {
+  supabase: {
+    configured: boolean;
+    connected: boolean;
+    mode: 'supabase' | 'sqlite_local' | 'sqlite_ephemeral_warning';
+    schemaReady?: boolean;
+    error?: string;
+  };
+  googleDrive: {
+    configured: boolean;
+    authMode: 'service_account' | 'company_oauth' | 'unconfigured';
+    rootFolderId: string;
+    sharedDriveId: string;
+    serviceAccountEmail: string;
+    missingVars: string[];
+    liveConnection: {
+      ok: boolean;
+      rootFolderName?: string;
+      error?: string;
+    };
+  };
+  summary: {
+    mode: string;
+    usersCount: number;
+    documentsCount: number;
+    recordsCount: number;
+    auditLogsCount: number;
+  };
+  services: {
+    geminiConfigured: boolean;
+    cronConfigured: boolean;
+    indexNowConfigured: boolean;
+    superAdminEnvSeeded: boolean;
+  };
+}
+
+interface ReportRecordRow {
+  id: string;
+  report_type: string;
+  report_title: string;
+  format: string;
+  module_filter: string;
+  row_count: number;
+  drive_file_id: string;
+  drive_web_view_link: string;
+  file_name: string;
+  size_bytes: number;
+  status: string;
+  generated_by_username: string;
+  created_at: string;
+}
+
+interface ReportsSummaryResponse {
+  totals: {
+    documentsCount: number;
+    archivedDocumentsCount: number;
+    totalStorageBytes: number;
+    usersCount: number;
+    reportsCount: number;
+    failedUploadCount: number;
+  };
+  byModule: Record<string, number>;
+  byStatus: Record<string, number>;
+  byFolder: Record<string, number>;
+  byUploader: Record<string, { count: number; bytes: number }>;
+  reports: ReportRecordRow[];
 }
 
 const STATUS_BADGE_CLASSES: Record<EnterpriseAccountStatus, string> = {
@@ -194,18 +303,51 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [permSearch, setPermSearch] = useState('');
   const [permSaving, setPermSaving] = useState(false);
 
-  // Firebase Firestore Cloud Sync state
-  const [cloudBusy, setCloudBusy] = useState(false);
-  const [cloudEmail, setCloudEmail] = useState<string>(() =>
-    isFirebaseSuperAdminSignedIn() ? 'vcpl.mlr@gmail.com' : ''
-  );
+  // Supabase Diagnostics, Central Company Drive, Governance, Reports & Backups state
+  const [systemStatus, setSystemStatus] = useState<SystemStatusResponse | null>(null);
+  const [driveFolders, setDriveFolders] = useState<DriveFolderItem[]>([]);
+  const [driveBusy, setDriveBusy] = useState(false);
+
+  const [departments, setDepartments] = useState<DepartmentRow[]>([]);
+  const [designations, setDesignations] = useState<DesignationRow[]>([]);
+  const [governanceOpen, setGovernanceOpen] = useState(false);
+  const [newDeptName, setNewDeptName] = useState('');
+  const [newDeptCode, setNewDeptCode] = useState('');
+  const [newDeptDesc, setNewDeptDesc] = useState('');
+  const [newDesigDeptId, setNewDesigDeptId] = useState('');
+  const [newDesigName, setNewDesigName] = useState('');
+
+  const [reportSummary, setReportSummary] = useState<ReportsSummaryResponse | null>(null);
+  const [backups, setBackups] = useState<ReportRecordRow[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
+  const [reportType, setReportType] = useState<
+    'documents_register' | 'users_permissions' | 'audit_trail' | 'workspace_records'
+  >('documents_register');
+  const [reportFormat, setReportFormat] = useState<'csv' | 'xlsx'>('xlsx');
+  const [reportModuleFilter, setReportModuleFilter] = useState('all');
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [restoreConfirmPhrase, setRestoreConfirmPhrase] = useState('');
+  const [restoreSnapshotJson, setRestoreSnapshotJson] = useState('');
 
   const loadAllAdminData = useCallback(async () => {
     if (!isSuperAdmin) return;
     setLoading(true);
     setBannerError('');
     try {
-      const [uRes, rRes, lRes, aRes] = await Promise.all([
+      const [
+        uRes,
+        rRes,
+        lRes,
+        aRes,
+        sysRes,
+        drvRes,
+        deptRes,
+        desigRes,
+        repRes,
+        bakRes,
+        audRes,
+      ] = await Promise.all([
         apiFetch(`/api/enterprise/admin/users?includeArchived=${showArchivedUsers ? '1' : '0'}`),
         apiFetch('/api/enterprise/admin/reset-requests'),
         apiFetch(
@@ -218,6 +360,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
             ? `/api/enterprise/admin/activity-logs?userId=${encodeURIComponent(logUserFilter)}`
             : '/api/enterprise/admin/activity-logs'
         ),
+        apiFetch('/api/enterprise/admin/system-status'),
+        apiFetch('/api/enterprise/admin/drive/status'),
+        apiFetch('/api/enterprise/admin/departments'),
+        apiFetch('/api/enterprise/admin/designations'),
+        apiFetch('/api/enterprise/admin/reports/summary'),
+        apiFetch('/api/enterprise/admin/backups'),
+        apiFetch('/api/enterprise/admin/audit-logs'),
       ]);
 
       if (uRes.ok) {
@@ -243,6 +392,32 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       if (aRes.ok) {
         const d = (await aRes.json()) as { logs?: ActivityLogRow[] };
         setActivityLogs(d.logs || []);
+      }
+      if (sysRes.ok) {
+        setSystemStatus((await sysRes.json()) as SystemStatusResponse);
+      }
+      if (drvRes.ok) {
+        const d = (await drvRes.json()) as { folders?: DriveFolderItem[] };
+        setDriveFolders(d.folders || []);
+      }
+      if (deptRes.ok) {
+        const d = (await deptRes.json()) as { departments?: DepartmentRow[] };
+        setDepartments(d.departments || []);
+      }
+      if (desigRes.ok) {
+        const d = (await desigRes.json()) as { designations?: DesignationRow[] };
+        setDesignations(d.designations || []);
+      }
+      if (repRes.ok) {
+        setReportSummary((await repRes.json()) as ReportsSummaryResponse);
+      }
+      if (bakRes.ok) {
+        const d = (await bakRes.json()) as { backups?: ReportRecordRow[] };
+        setBackups(d.backups || []);
+      }
+      if (audRes.ok) {
+        const d = (await audRes.json()) as { auditLogs?: AuditLogRow[] };
+        setAuditLogs(d.auditLogs || []);
       }
     } catch (err) {
       setBannerError(err instanceof Error ? err.message : 'Unable to load admin console data.');
@@ -303,7 +478,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         error?: string;
       } | null;
       if (!res.ok) throw new Error(data?.error || 'Unable to save permissions.');
-      setBannerSuccess(`Updated granular tool permissions for @${data?.user?.displayUsername || 'employee'}.`);
+      setBannerSuccess(`Updated granular tool permissions for ${data?.user?.displayUsername || 'employee'}.`);
       await loadAllAdminData();
     } catch (err) {
       setBannerError(err instanceof Error ? err.message : 'Permission save failed.');
@@ -355,7 +530,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       setNewContact('');
       setNewTempPwd(generateClientRandomTempPassword());
       setNewPresetId('');
-      setBannerSuccess(`Created user @${data.user.displayUsername}.`);
+      setBannerSuccess(`Created user ${data.user.displayUsername}.`);
       await loadAllAdminData();
     } catch (err) {
       setBannerError(err instanceof Error ? err.message : 'User creation failed.');
@@ -376,7 +551,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       } | null;
       if (!res.ok) throw new Error(data?.error || 'Unable to change account status.');
       setBannerSuccess(
-        `Account @${data?.user?.displayUsername || userId} updated to "${nextStatus}".`
+        `Account ${data?.user?.displayUsername || userId} updated to "${nextStatus}".`
       );
       await loadAllAdminData();
     } catch (err) {
@@ -477,7 +652,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       });
       setResetTargetUser(null);
       setResetCustomPwd('');
-      setBannerSuccess(`Temporary password issued for @${resetTargetUser.username}.`);
+      setBannerSuccess(`Temporary password issued for ${resetTargetUser.username}.`);
       await loadAllAdminData();
     } catch (err) {
       setBannerError(err instanceof Error ? err.message : 'Reset password failed.');
@@ -502,147 +677,239 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     }
   };
 
-  const handleConnectFirebaseAdmin = async () => {
-    setCloudBusy(true);
+  const handleTestCompanyDrive = async () => {
+    setDriveBusy(true);
     setBannerError('');
     setBannerSuccess('');
     try {
-      const { user } = await googleSignIn();
-      const email = (user.email || '').toLowerCase();
-      setCloudEmail(email);
-      const conn = await testFirestoreConnection();
-      if (!conn.ok) {
-        throw new Error(conn.error || 'Firestore connection test failed.');
-      }
-      setBannerSuccess(`Connected Google Super Admin (${email}) to Firebase Firestore.`);
-    } catch (err) {
-      setBannerError(err instanceof Error ? err.message : 'Firebase Google sign-in failed.');
-    } finally {
-      setCloudBusy(false);
-    }
-  };
-
-  const handleSyncToFirestore = async () => {
-    setCloudBusy(true);
-    setBannerError('');
-    setBannerSuccess('');
-    try {
-      if (!isFirebaseSuperAdminSignedIn()) {
-        await googleSignIn();
-        setCloudEmail('vcpl.mlr@gmail.com');
-      }
-      const res = await apiFetch('/api/enterprise/admin/cloud-snapshot');
-      const snap = (await res.json()) as {
-        users: EnterpriseUserProfile[];
-        resetRequests: Array<Record<string, unknown>>;
-        activityLogs: Array<Record<string, unknown>>;
-        documents: Array<Record<string, unknown>>;
-        records: Array<Record<string, unknown>>;
-      };
-
-      const { syncedCount } = await syncEnterpriseSnapshotToFirestore({
-        users: snap.users.map((u) => ({
-          id: u.id,
-          username: u.username,
-          displayUsername: u.displayUsername,
-          internalAuthId: u.internalAuthId || `${u.username}@auth.vcpl.internal`,
-          fullName: u.fullName,
-          employeeId: u.employeeId,
-          department: u.department,
-          designation: u.designation,
-          contactNumber: u.contactNumber,
-          role: u.role,
-          status: u.status,
-          isArchived: u.isArchived,
-          mustChangePassword: u.mustChangePassword,
-          lastLoginAt: u.lastLoginAt,
-          lastActiveAt: u.lastActiveAt,
-          permissions: u.permissions,
-        })),
-        resetRequests: snap.resetRequests.map((r) => ({
-          id: String(r.id || ''),
-          userId: String(r.user_id || r.userId || ''),
-          username: String(r.username || ''),
-          fullName: String(r.full_name || r.fullName || ''),
-          status: (r.status as 'Pending' | 'Approved' | 'Rejected') || 'Pending',
-          note: String(r.note || ''),
-          resolvedBy: String(r.resolved_by || r.resolvedBy || ''),
-          resolvedAt: String(r.resolved_at || r.resolvedAt || ''),
-        })),
-        activityLogs: snap.activityLogs.map((l) => ({
-          id: String(l.id || ''),
-          actorUserId: String(l.actor_user_id || l.actorUserId || ''),
-          actorUsername: String(l.actor_username || l.actorUsername || ''),
-          action: String(l.action || ''),
-          targetType: String(l.target_type || l.targetType || ''),
-          targetId: String(l.target_id || l.targetId || ''),
-          summary: String(l.summary || ''),
-        })),
-        documents: snap.documents.map((d) => ({
-          id: String(d.id || ''),
-          moduleId: String(d.module_id || d.moduleId || 'document-vault'),
-          title: String(d.title || 'Document'),
-          fileName: String(d.file_name || d.fileName || 'file'),
-          mimeType: String(d.mime_type || d.mimeType || 'application/octet-stream'),
-          sizeBytes: Number(d.size_bytes ?? d.sizeBytes ?? 0),
-          approvalStatus:
-            (d.approval_status as 'Draft' | 'Pending Review' | 'Approved' | 'Rejected') ||
-            'Pending Review',
-          driveFileId: String(d.drive_file_id || d.driveFileId || ''),
-          driveWebViewLink: String(d.drive_web_view_link || d.driveWebViewLink || ''),
-          uploadedBy: String(d.uploaded_by || d.uploadedBy || 'admin'),
-          uploadedByUsername: String(d.uploaded_by_username || d.uploadedByUsername || 'admin'),
-        })),
-        records: snap.records.map((rec) => ({
-          id: String(rec.id || ''),
-          moduleId: String(rec.module_id || rec.moduleId || 'auto-ledger'),
-          recordTitle: String(rec.record_title || rec.recordTitle || 'Record'),
-          referenceCode: String(rec.reference_code || rec.referenceCode || ''),
-          status: String(rec.status || 'Active'),
-          payloadJson: String(rec.payload_json || rec.payloadJson || '{}'),
-          createdBy: String(rec.created_by || rec.createdBy || 'admin'),
-          createdByUsername: String(rec.created_by_username || rec.createdByUsername || 'admin'),
-        })),
-      });
-      setBannerSuccess(`Synced ${syncedCount} enterprise records & permission profiles to Firebase Cloud.`);
-    } catch (err) {
-      setBannerError(err instanceof Error ? err.message : 'Firebase sync failed.');
-    } finally {
-      setCloudBusy(false);
-    }
-  };
-
-  const handleRestoreFromFirestore = async () => {
-    setCloudBusy(true);
-    setBannerError('');
-    setBannerSuccess('');
-    try {
-      if (!isFirebaseSuperAdminSignedIn()) {
-        await googleSignIn();
-        setCloudEmail('vcpl.mlr@gmail.com');
-      }
-      const cloud = await loadEnterpriseSnapshotFromFirestore();
-      const res = await apiFetch('/api/enterprise/admin/hydrate-from-cloud', {
-        method: 'POST',
-        body: JSON.stringify({
-          permissionsByUser: cloud.permissionsByUser,
-          records: cloud.records,
-        }),
-      });
-      const data = (await res.json()) as {
-        restoredPermissions?: number;
-        restoredRecords?: number;
+      const [drvRes, sysRes] = await Promise.all([
+        apiFetch('/api/enterprise/admin/drive/status'),
+        apiFetch('/api/enterprise/admin/system-status'),
+      ]);
+      const drvData = (await drvRes.json().catch(() => null)) as {
+        liveConnection?: { ok: boolean; rootFolderName?: string; error?: string };
+        folders?: DriveFolderItem[];
         error?: string;
-      };
-      if (!res.ok) throw new Error(data.error || 'Hydration failed.');
+      } | null;
+      if (sysRes.ok) {
+        setSystemStatus((await sysRes.json()) as SystemStatusResponse);
+      }
+      if (!drvRes.ok) {
+        throw new Error(drvData?.error || 'Unable to verify Company Google Drive.');
+      }
+      setDriveFolders(drvData?.folders || []);
+      if (drvData?.liveConnection?.ok) {
+        setBannerSuccess(
+          `Central Company Google Drive connected (${drvData.liveConnection.rootFolderName || 'VCPL TOOLS - COMPANY DRIVE'}).`
+        );
+      } else {
+        setBannerError(
+          drvData?.liveConnection?.error ||
+            'Company Google Drive is not configured or unreachable yet.'
+        );
+      }
+    } catch (err) {
+      setBannerError(err instanceof Error ? err.message : 'Company Drive check failed.');
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
+  const handleInitializeDriveFolders = async () => {
+    setDriveBusy(true);
+    setBannerError('');
+    setBannerSuccess('');
+    try {
+      const res = await apiFetch('/api/enterprise/admin/drive/initialize', {
+        method: 'POST',
+      });
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        folders?: DriveFolderItem[];
+        error?: string;
+      } | null;
+      if (!res.ok) {
+        throw new Error(data?.error || 'Company Google Drive folder initialization failed.');
+      }
+      setDriveFolders(data?.folders || []);
       setBannerSuccess(
-        `Restored ${data.restoredPermissions || 0} permission profiles and ${data.restoredRecords || 0} workspace records from Firebase Firestore.`
+        `Verified & initialized ${(data?.folders || []).length} Central Company Google Drive folders.`
       );
       await loadAllAdminData();
     } catch (err) {
-      setBannerError(err instanceof Error ? err.message : 'Firebase restore failed.');
+      setBannerError(err instanceof Error ? err.message : 'Drive folder initialization failed.');
     } finally {
-      setCloudBusy(false);
+      setDriveBusy(false);
+    }
+  };
+
+  const handleCreateDepartment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBannerError('');
+    setBannerSuccess('');
+    try {
+      const res = await apiFetch('/api/enterprise/admin/departments', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: newDeptName.trim(),
+          code: newDeptCode.trim().toUpperCase(),
+          description: newDeptDesc.trim(),
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error || 'Unable to create department.');
+      setNewDeptName('');
+      setNewDeptCode('');
+      setNewDeptDesc('');
+      setBannerSuccess('Department created in central database.');
+      await loadAllAdminData();
+    } catch (err) {
+      setBannerError(err instanceof Error ? err.message : 'Department creation failed.');
+    }
+  };
+
+  const handleCreateDesignation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBannerError('');
+    setBannerSuccess('');
+    try {
+      const res = await apiFetch('/api/enterprise/admin/designations', {
+        method: 'POST',
+        body: JSON.stringify({
+          departmentId: newDesigDeptId || undefined,
+          name: newDesigName.trim(),
+          defaultPermissions: {},
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(data?.error || 'Unable to create designation.');
+      setNewDesigName('');
+      setBannerSuccess('Designation created in central database.');
+      await loadAllAdminData();
+    } catch (err) {
+      setBannerError(err instanceof Error ? err.message : 'Designation creation failed.');
+    }
+  };
+
+  const triggerBase64Download = (base64: string, fileName: string, mimeType: string) => {
+    const bin = atob(base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) {
+      bytes[i] = bin.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleGenerateReport = async () => {
+    setGeneratingReport(true);
+    setBannerError('');
+    setBannerSuccess('');
+    try {
+      const res = await apiFetch('/api/enterprise/admin/reports/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          reportType,
+          format: reportFormat,
+          moduleFilter: reportModuleFilter,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        fileName?: string;
+        mimeType?: string;
+        downloadBase64?: string;
+        report?: ReportRecordRow;
+        error?: string;
+      } | null;
+      if (!res.ok || !data?.downloadBase64) {
+        throw new Error(data?.error || 'Report generation failed.');
+      }
+      triggerBase64Download(
+        data.downloadBase64,
+        data.fileName || `vcpl_report.${reportFormat}`,
+        data.mimeType || 'application/octet-stream'
+      );
+      setBannerSuccess(
+        `Generated ${data.fileName || reportFormat.toUpperCase()} (${data.report?.status || 'Ready'}).`
+      );
+      await loadAllAdminData();
+    } catch (err) {
+      setBannerError(err instanceof Error ? err.message : 'Unable to generate report.');
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
+  const handleCreateBackup = async () => {
+    setBackupBusy(true);
+    setBannerError('');
+    setBannerSuccess('');
+    try {
+      const res = await apiFetch('/api/enterprise/admin/backups/create', {
+        method: 'POST',
+      });
+      const data = (await res.json().catch(() => null)) as {
+        backup?: ReportRecordRow;
+        fileName?: string;
+        snapshotBase64?: string;
+        error?: string;
+      } | null;
+      if (!res.ok || !data?.snapshotBase64) {
+        throw new Error(data?.error || 'Database backup failed.');
+      }
+      triggerBase64Download(
+        data.snapshotBase64,
+        data.fileName || 'vcpl_db_backup.json',
+        'application/json'
+      );
+      setBannerSuccess(
+        `Created backup ${data.fileName || 'snapshot'} (${data.backup?.status || 'Saved'}).`
+      );
+      await loadAllAdminData();
+    } catch (err) {
+      setBannerError(err instanceof Error ? err.message : 'Backup creation failed.');
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleRestoreBackup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBackupBusy(true);
+    setBannerError('');
+    setBannerSuccess('');
+    try {
+      const parsed = JSON.parse(restoreSnapshotJson) as Record<string, unknown>;
+      const res = await apiFetch('/api/enterprise/admin/backups/restore', {
+        method: 'POST',
+        body: JSON.stringify({
+          confirmPhrase: restoreConfirmPhrase.trim(),
+          snapshot: parsed,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        restoredPermissions?: number;
+        restoredRecords?: number;
+        error?: string;
+      } | null;
+      if (!res.ok) throw new Error(data?.error || 'Restore failed.');
+      setRestoreConfirmPhrase('');
+      setRestoreSnapshotJson('');
+      setBannerSuccess(
+        `Restored ${data?.restoredPermissions || 0} permission profiles and ${data?.restoredRecords || 0} workspace records.`
+      );
+      await loadAllAdminData();
+    } catch (err) {
+      setBannerError(err instanceof Error ? err.message : 'Invalid backup JSON or restore failed.');
+    } finally {
+      setBackupBusy(false);
     }
   };
 
@@ -728,7 +995,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 SUPER ADMIN CONTROL PANEL
               </span>
               <span className="text-[#475569] dark:text-slate-300">
-                Signed in as @{currentUser?.displayUsername}
+                Signed in as {currentUser?.fullName?.trim() || currentUser?.displayUsername}
               </span>
             </div>
             <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#2F3E4E] dark:text-slate-50">
@@ -835,7 +1102,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         <div className="flex flex-wrap gap-2">
           {(
             [
-              { id: 'overview', label: 'Overview & Cloud Sync', icon: Cloud },
+              { id: 'overview', label: 'Overview & Infrastructure', icon: Database },
               {
                 id: 'users',
                 label: `User Management (${users.length})${pendingApprovalCount ? ` · ${pendingApprovalCount} Pending` : ''}`,
@@ -848,7 +1115,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 icon: KeyRound,
               },
               { id: 'logs', label: 'Login & Activity Logs', icon: History },
-              { id: 'vault', label: 'Central Vault & Records', icon: Database },
+              { id: 'reports', label: 'Reports & Backups', icon: FileSpreadsheet },
+              { id: 'vault', label: 'Central Vault & Records', icon: Cloud },
             ] as const
           ).map((tab) => {
             const Icon = tab.icon;
@@ -872,7 +1140,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         </div>
 
         {/* =============================================================== */}
-        {/* TAB 1: OVERVIEW & FIREBASE FIRESTORE CLOUD SYNC                 */}
+        {/* TAB 1: OVERVIEW, SUPABASE POSTGRESQL & COMPANY DRIVE            */}
         {/* =============================================================== */}
         {activeTab === 'overview' && (
           <div className="space-y-5">
@@ -896,7 +1164,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 },
                 {
                   label: 'Audit Events Logged',
-                  value: activityLogs.length,
+                  value: systemStatus?.summary.auditLogsCount ?? activityLogs.length,
                   tone: 'text-[#2F3E4E] dark:text-[#F9C80E]',
                 },
               ].map((stat) => (
@@ -914,62 +1182,295 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               ))}
             </div>
 
-            {/* Firebase Cloud Sync & Google Drive Backup Card */}
+            {/* Supabase PostgreSQL & Vercel Diagnostics */}
+            <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-5 sm:p-6 space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <h2 className="font-display font-extrabold text-base sm:text-lg text-[#2F3E4E] dark:text-slate-50 flex items-center gap-2">
+                    <Database className="w-5 h-5 text-[#12805C] dark:text-[#F9C80E]" />
+                    <span>Supabase PostgreSQL &amp; Production Environment Status</span>
+                  </h2>
+                  <p className="text-xs text-[#475569] dark:text-slate-300">
+                    Centralized relational storage for user accounts, 9-action RBAC matrices,
+                    sessions, password reset requests, document metadata, and audit trails.
+                  </p>
+                </div>
+                <span
+                  className={`px-2.5 py-1 rounded-md font-mono text-xs font-bold shrink-0 border ${
+                    systemStatus?.supabase.connected
+                      ? 'bg-[#CEE5DC] text-[#12805C] border-[#12805C]/30 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : systemStatus?.supabase.mode === 'sqlite_ephemeral_warning'
+                        ? 'bg-[#FEE2E2] text-[#7D0B0B] border-[#9E2A2B]/30'
+                        : 'bg-[#FEF2C8] text-[#B45309] border-[#B45309]/30 dark:bg-amber-950/60 dark:text-amber-300'
+                  }`}
+                >
+                  {systemStatus?.supabase.connected
+                    ? 'PostgreSQL Connected'
+                    : systemStatus?.supabase.mode === 'sqlite_ephemeral_warning'
+                      ? 'Warning: Ephemeral Vercel Storage'
+                      : 'Local SQLite Dev Fallback'}
+                </span>
+              </div>
+
+              {systemStatus?.supabase.error && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-50/70 dark:bg-amber-950/40 px-3.5 py-2.5 text-xs text-amber-900 dark:text-amber-200">
+                  {systemStatus.supabase.error}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                {[
+                  {
+                    label: 'Supabase Schema',
+                    ok: Boolean(systemStatus?.supabase.schemaReady),
+                    text: systemStatus?.supabase.schemaReady ? 'Ready' : 'Pending SQL / Env',
+                  },
+                  {
+                    label: 'Gemini Blog AI',
+                    ok: Boolean(systemStatus?.services.geminiConfigured),
+                    text: systemStatus?.services.geminiConfigured ? 'Configured' : 'Fallback Mode',
+                  },
+                  {
+                    label: '9 AM IST Cron Secret',
+                    ok: Boolean(systemStatus?.services.cronConfigured),
+                    text: systemStatus?.services.cronConfigured ? 'Protected' : 'Unset (503 Fail-Closed)',
+                  },
+                  {
+                    label: 'IndexNow Key',
+                    ok: Boolean(systemStatus?.services.indexNowConfigured),
+                    text: systemStatus?.services.indexNowConfigured ? 'Configured' : 'Optional / Unset',
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-lg border border-[#2F3E4E]/15 dark:border-slate-700 bg-white dark:bg-[#0B1120] px-3 py-2"
+                  >
+                    <div className="text-[10px] font-bold uppercase text-[#64748B] dark:text-slate-400">
+                      {item.label}
+                    </div>
+                    <div
+                      className={`font-mono font-bold mt-0.5 ${
+                        item.ok
+                          ? 'text-[#12805C] dark:text-emerald-300'
+                          : 'text-[#B45309] dark:text-amber-300'
+                      }`}
+                    >
+                      {item.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Central Company Google Drive Engine & 13-Folder Hierarchy */}
             <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-5 sm:p-6 space-y-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="space-y-1">
                   <h2 className="font-display font-extrabold text-base sm:text-lg text-[#2F3E4E] dark:text-slate-50 flex items-center gap-2">
                     <Cloud className="w-5 h-5 text-[#12805C] dark:text-[#F9C80E]" />
-                    <span>Firebase Cloud Database Sync &amp; Cross-Browser Backup</span>
+                    <span>Central Company Google Drive Engine</span>
                   </h2>
                   <p className="text-xs text-[#475569] dark:text-slate-300">
-                    Synchronize centralized employee directory, 9-action tool permission matrices,
-                    password reset logs, and workspace records with Firebase Firestore using the
-                    authorized Super Admin Google account (<code>vcpl.mlr@gmail.com</code>).
+                    All team uploads, reports, and JSON database backups save exclusively to ONE
+                    company Google Drive root folder. Employees never connect personal Google accounts.
                   </p>
                 </div>
-                {cloudEmail && (
-                  <span className="px-2.5 py-1 rounded-md bg-[#CEE5DC] dark:bg-emerald-950/60 text-[#12805C] dark:text-emerald-300 font-mono text-xs font-bold shrink-0">
-                    Google Linked: {cloudEmail}
-                  </span>
-                )}
+                <span
+                  className={`px-2.5 py-1 rounded-md font-mono text-xs font-bold shrink-0 border ${
+                    systemStatus?.googleDrive.liveConnection.ok
+                      ? 'bg-[#CEE5DC] text-[#12805C] border-[#12805C]/30'
+                      : 'bg-[#FEF2C8] text-[#B45309] border-[#B45309]/30 dark:bg-amber-950/60 dark:text-amber-300'
+                  }`}
+                >
+                  {systemStatus?.googleDrive.liveConnection.ok
+                    ? `Connected (${systemStatus.googleDrive.authMode})`
+                    : systemStatus?.googleDrive.configured
+                      ? 'Configured (Check Access)'
+                      : 'Drive Credentials Unset'}
+                </span>
               </div>
+
+              {systemStatus?.googleDrive && !systemStatus.googleDrive.configured && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-50/70 dark:bg-amber-950/40 px-3.5 py-2.5 text-xs text-amber-900 dark:text-amber-200">
+                  Missing server environment variables:{' '}
+                  <span className="font-mono font-bold">
+                    {systemStatus.googleDrive.missingVars.join(', ')}
+                  </span>
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2.5">
                 <button
                   type="button"
-                  disabled={cloudBusy}
-                  onClick={() => void handleConnectFirebaseAdmin()}
-                  className="px-4 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-bold text-[#2F3E4E] dark:text-slate-100 cursor-pointer disabled:opacity-60"
+                  disabled={driveBusy}
+                  onClick={() => void handleTestCompanyDrive()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl border-[1.5px] border-[#2F3E4E] dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-bold text-[#2F3E4E] dark:text-slate-100 cursor-pointer disabled:opacity-60"
                 >
-                  Connect Google Super Admin &amp; Test Firestore
+                  {driveBusy ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  )}
+                  <span>Test Company Drive Connection</span>
                 </button>
                 <button
                   type="button"
-                  disabled={cloudBusy}
-                  onClick={() => void handleSyncToFirestore()}
-                  className="px-4 py-2 min-h-[40px] rounded-xl bg-[#2F3E4E] hover:bg-[#1E293B] text-[#F9C80E] text-xs font-display font-extrabold cursor-pointer disabled:opacity-60"
+                  disabled={driveBusy}
+                  onClick={() => void handleInitializeDriveFolders()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl bg-[#12805C] hover:bg-[#0E6A4B] text-white text-xs font-display font-extrabold cursor-pointer disabled:opacity-60"
                 >
-                  {cloudBusy ? 'Syncing...' : 'Sync Snapshot to Firebase Cloud'}
-                </button>
-                <button
-                  type="button"
-                  disabled={cloudBusy}
-                  onClick={() => void handleRestoreFromFirestore()}
-                  className="px-4 py-2 min-h-[40px] rounded-xl bg-[#12805C] hover:bg-[#0E6A4B] text-white text-xs font-display font-extrabold cursor-pointer disabled:opacity-60"
-                >
-                  Restore Permissions &amp; Records from Firestore
+                  <FolderTree className="w-3.5 h-3.5" />
+                  <span>Initialize 13 Company Drive Folders</span>
                 </button>
               </div>
+
+              {driveFolders.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-2 border-t border-[#2F3E4E]/15 dark:border-slate-700">
+                  {driveFolders.map((f) => {
+                    const key = f.folder_key || f.folderKey || '';
+                    const name = f.folder_name || f.folderName || key;
+                    const id = f.drive_folder_id || f.driveFolderId || '';
+                    return (
+                      <div
+                        key={key}
+                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-[#2F3E4E]/15 dark:border-slate-700 bg-white dark:bg-[#0B1120] text-[11px]"
+                      >
+                        <span className="font-mono font-bold text-[#2F3E4E] dark:text-slate-100 truncate">
+                          {name}
+                        </span>
+                        <span className="font-mono text-[10px] text-[#12805C] dark:text-emerald-300 truncate max-w-[120px]">
+                          {id || 'Pending'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* =============================================================== */}
-        {/* TAB 2: COMPLETE USER MANAGEMENT (ALL 15 FEATURES)               */}
+        {/* TAB 2: COMPLETE USER MANAGEMENT & GOVERNANCE                    */}
         {/* =============================================================== */}
         {activeTab === 'users' && (
           <div className="space-y-4">
+            {/* Departments & Designations Governance Bar */}
+            <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E]/35 dark:border-slate-700 rounded-2xl p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs font-display font-extrabold text-[#2F3E4E] dark:text-slate-100">
+                  <Building2 className="w-4 h-4 text-[#12805C] dark:text-[#F9C80E]" />
+                  <span>
+                    Departments ({departments.length}) &amp; Designations ({designations.length})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setGovernanceOpen((v) => !v)}
+                  className="px-3 py-1 rounded-lg border border-[#2F3E4E]/25 dark:border-slate-600 text-[11px] font-bold text-[#2F3E4E] dark:text-slate-200 hover:bg-[#FEF2C8] dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  {governanceOpen ? 'Hide Structure Manager' : 'Manage Departments & Designations'}
+                </button>
+              </div>
+
+              {governanceOpen && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-3 border-t border-[#2F3E4E]/15 dark:border-slate-700">
+                  <form onSubmit={(e) => void handleCreateDepartment(e)} className="space-y-2.5">
+                    <h3 className="text-[11px] font-display font-extrabold uppercase text-[#64748B] dark:text-slate-400">
+                      Add Department
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        required
+                        value={newDeptName}
+                        onChange={(e) => setNewDeptName(e.target.value)}
+                        placeholder="Department Name"
+                        className="px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs"
+                      />
+                      <input
+                        type="text"
+                        required
+                        value={newDeptCode}
+                        onChange={(e) => setNewDeptCode(e.target.value)}
+                        placeholder="Code (e.g. FIN)"
+                        className="px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-mono uppercase"
+                      />
+                      <button
+                        type="submit"
+                        className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-[#2F3E4E] text-[#F9C80E] text-xs font-bold cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Dept</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={newDeptDesc}
+                      onChange={(e) => setNewDeptDesc(e.target.value)}
+                      placeholder="Optional description"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs"
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      {departments.map((d) => (
+                        <span
+                          key={d.id}
+                          className="px-2 py-0.5 rounded border border-[#2F3E4E]/20 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-[10px] font-mono"
+                        >
+                          {d.code}: {d.name}
+                        </span>
+                      ))}
+                    </div>
+                  </form>
+
+                  <form onSubmit={(e) => void handleCreateDesignation(e)} className="space-y-2.5">
+                    <h3 className="text-[11px] font-display font-extrabold uppercase text-[#64748B] dark:text-slate-400">
+                      Add Designation
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <select
+                        value={newDesigDeptId}
+                        onChange={(e) => setNewDesigDeptId(e.target.value)}
+                        className="px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs"
+                      >
+                        <option value="">Select Department</option>
+                        {departments.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        required
+                        value={newDesigName}
+                        onChange={(e) => setNewDesigName(e.target.value)}
+                        placeholder="Designation Title"
+                        className="px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs"
+                      />
+                      <button
+                        type="submit"
+                        className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-[#12805C] text-white text-xs font-bold cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Role</span>
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {designations.map((des) => (
+                        <span
+                          key={des.id}
+                          className="px-2 py-0.5 rounded border border-[#2F3E4E]/20 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-[10px] font-mono"
+                        >
+                          {des.name}
+                        </span>
+                      ))}
+                    </div>
+                  </form>
+                </div>
+              )}
+            </div>
+
             {/* Create User Drawer */}
             {createOpen && (
               <form
@@ -1004,7 +1505,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     />
                     {newUsername.trim() && (
                       <p className="text-[10px] font-mono text-[#64748B] mt-0.5">
-                        Canonical login: @{newUsername.trim().toLowerCase()}
+                        Canonical login: {newUsername.trim().toLowerCase()}
                       </p>
                     )}
                   </div>
@@ -1152,7 +1653,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               >
                 <div className="flex items-center justify-between">
                   <h2 className="font-display font-extrabold text-sm text-[#2F3E4E] dark:text-slate-50">
-                    Edit User Details &amp; Designation — @{editingUser.displayUsername}
+                    Edit User Details &amp; Designation — {editingUser.displayUsername}
                   </h2>
                   <button
                     type="button"
@@ -1232,7 +1733,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               >
                 <div className="space-y-0.5">
                   <p className="text-xs font-display font-extrabold text-[#7D0B0B] dark:text-rose-300">
-                    Reset Password for @{resetTargetUser.username}
+                    Reset Password for {resetTargetUser.username}
                   </p>
                   <p className="text-[11px] text-[#64748B] dark:text-slate-400">
                     Leave blank to auto-generate a secure one-time temporary password (forced change on next login).
@@ -1338,7 +1839,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                               )}
                             </div>
                             <div className="font-mono text-[11px] text-[#64748B] dark:text-slate-400">
-                              @{u.displayUsername}
+                              {u.displayUsername}
                               {u.employeeId ? ` · ${u.employeeId}` : ''}
                               {u.mustChangePassword ? ' · Temp Pwd Active' : ''}
                             </div>
@@ -1564,7 +2065,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 >
                   {users.map((u) => (
                     <option key={u.id} value={u.id}>
-                      @{u.displayUsername} — {u.fullName} ({u.designation})
+                      {u.displayUsername} — {u.fullName} ({u.designation})
                     </option>
                   ))}
                 </select>
@@ -1724,7 +2225,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                           <div className="font-bold text-[#2F3E4E] dark:text-slate-100">
                             {req.full_name}
                           </div>
-                          <div className="font-mono text-[11px] text-[#64748B]">@{req.username}</div>
+                          <div className="font-mono text-[11px] text-[#64748B]">{req.username}</div>
                         </td>
                         <td className="py-2.5 pr-3 text-[#475569] dark:text-slate-300">
                           {req.note || '—'}
@@ -1806,7 +2307,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 <option value="">All Users (Latest Events)</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
-                    @{u.displayUsername} — {u.fullName}
+                    {u.displayUsername} — {u.fullName}
                   </option>
                 ))}
               </select>
@@ -1832,7 +2333,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     <tbody className="divide-y divide-[#2F3E4E]/10 dark:divide-slate-800">
                       {loginHistory.map((h) => (
                         <tr key={h.id}>
-                          <td className="py-2 pr-2 font-mono font-bold">@{h.display_username}</td>
+                          <td className="py-2 pr-2 font-mono font-bold">{h.display_username}</td>
                           <td className="py-2 pr-2 font-mono">
                             <span
                               className={`px-1.5 py-0.5 rounded border text-[10px] ${
@@ -1877,7 +2378,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     <tbody className="divide-y divide-[#2F3E4E]/10 dark:divide-slate-800">
                       {activityLogs.map((log) => (
                         <tr key={log.id}>
-                          <td className="py-2 pr-2 font-mono font-bold">@{log.actor_username}</td>
+                          <td className="py-2 pr-2 font-mono font-bold">{log.actor_username}</td>
                           <td className="py-2 pr-2 font-mono text-[10px] font-bold text-[#2F3E4E] dark:text-[#F9C80E]">
                             {log.action}
                           </td>
@@ -1898,7 +2399,324 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         )}
 
         {/* =============================================================== */}
-        {/* TAB 6: CENTRAL DOCUMENT VAULT & WORKSPACE RECORDS               */}
+        {/* TAB 6: REPORTS, ANALYTICS, BACKUPS & SECURITY AUDIT LOGS        */}
+        {/* =============================================================== */}
+        {activeTab === 'reports' && (
+          <div className="space-y-5">
+            {/* Storage & Document Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+              <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E]/25 dark:border-slate-700 rounded-xl p-4">
+                <p className="text-xl font-mono font-extrabold text-[#2F3E4E] dark:text-slate-100">
+                  {reportSummary?.totals.documentsCount ?? 0}
+                </p>
+                <p className="text-[11px] font-display font-bold uppercase text-[#64748B] mt-1">
+                  Company Drive Documents
+                </p>
+              </div>
+              <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E]/25 dark:border-slate-700 rounded-xl p-4">
+                <p className="text-xl font-mono font-extrabold text-[#12805C] dark:text-emerald-300">
+                  {((reportSummary?.totals.totalStorageBytes ?? 0) / (1024 * 1024)).toFixed(2)} MB
+                </p>
+                <p className="text-[11px] font-display font-bold uppercase text-[#64748B] mt-1">
+                  Total Tracked Volume
+                </p>
+              </div>
+              <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E]/25 dark:border-slate-700 rounded-xl p-4">
+                <p className="text-xl font-mono font-extrabold text-[#2F3E4E] dark:text-[#F9C80E]">
+                  {reportSummary?.totals.reportsCount ?? 0}
+                </p>
+                <p className="text-[11px] font-display font-bold uppercase text-[#64748B] mt-1">
+                  Generated Reports
+                </p>
+              </div>
+              <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E]/25 dark:border-slate-700 rounded-xl p-4">
+                <p className="text-xl font-mono font-extrabold text-[#9E2A2B] dark:text-rose-300">
+                  {reportSummary?.totals.failedUploadCount ?? 0}
+                </p>
+                <p className="text-[11px] font-display font-bold uppercase text-[#64748B] mt-1">
+                  Drive Upload Errors
+                </p>
+              </div>
+            </div>
+
+            {/* Generate CSV / Excel Report (03_GENERATED_REPORTS) */}
+            <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h2 className="font-display font-extrabold text-base text-[#2F3E4E] dark:text-slate-50 flex items-center gap-2">
+                    <FileSpreadsheet className="w-5 h-5 text-[#12805C] dark:text-[#F9C80E]" />
+                    <span>Enterprise Report Generator (CSV / Excel &amp; Company Drive Archive)</span>
+                  </h2>
+                  <p className="text-xs text-[#64748B] dark:text-slate-400">
+                    Generates audited CSV or XLSX files, archives a copy in{' '}
+                    <code>03_GENERATED_REPORTS</code> when Company Drive is connected, and downloads locally.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                    Report Dataset
+                  </label>
+                  <select
+                    value={reportType}
+                    onChange={(e) =>
+                      setReportType(
+                        e.target.value as
+                          | 'documents_register'
+                          | 'users_permissions'
+                          | 'audit_trail'
+                          | 'workspace_records'
+                      )
+                    }
+                    className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-semibold"
+                  >
+                    <option value="documents_register">Documents &amp; Drive Register</option>
+                    <option value="users_permissions">Employees &amp; Permissions Matrix</option>
+                    <option value="workspace_records">Workspace Operational Records</option>
+                    <option value="audit_trail">Activity &amp; Security Audit Trail</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                    Export Format
+                  </label>
+                  <select
+                    value={reportFormat}
+                    onChange={(e) => setReportFormat(e.target.value as 'csv' | 'xlsx')}
+                    className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-semibold"
+                  >
+                    <option value="xlsx">Excel (.xlsx)</option>
+                    <option value="csv">CSV (.csv)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                    Module Scope
+                  </label>
+                  <select
+                    value={reportModuleFilter}
+                    onChange={(e) => setReportModuleFilter(e.target.value)}
+                    className="w-full h-10 px-3 rounded-lg border border-[#2F3E4E]/35 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs font-semibold"
+                  >
+                    <option value="all">All Modules</option>
+                    {ALL_ENTERPRISE_MODULES.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  disabled={generatingReport}
+                  onClick={() => void handleGenerateReport()}
+                  className="h-10 inline-flex items-center justify-center gap-1.5 px-4 rounded-xl bg-[#12805C] hover:bg-[#0E6A4B] text-white text-xs font-display font-extrabold cursor-pointer disabled:opacity-60"
+                >
+                  {generatingReport ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  <span>{generatingReport ? 'Generating...' : 'Generate & Download'}</span>
+                </button>
+              </div>
+
+              {(reportSummary?.reports.length ?? 0) > 0 && (
+                <div className="overflow-x-auto pt-2">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-[#2F3E4E]/20 dark:border-slate-700 text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                        <th className="py-2 pr-3">Report</th>
+                        <th className="py-2 pr-3">Rows</th>
+                        <th className="py-2 pr-3">Status</th>
+                        <th className="py-2 pr-3">Generated</th>
+                        <th className="py-2 text-right">Drive</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2F3E4E]/10 dark:divide-slate-800">
+                      {reportSummary?.reports.slice(0, 15).map((rep) => (
+                        <tr key={rep.id}>
+                          <td className="py-2 pr-3">
+                            <div className="font-bold text-[#2F3E4E] dark:text-slate-100">
+                              {rep.report_title}
+                            </div>
+                            <div className="font-mono text-[10px] text-[#64748B]">{rep.file_name}</div>
+                          </td>
+                          <td className="py-2 pr-3 font-mono">{rep.row_count}</td>
+                          <td className="py-2 pr-3 text-[11px]">{rep.status}</td>
+                          <td className="py-2 pr-3 font-mono text-[11px] text-[#64748B]">
+                            {new Date(rep.created_at).toLocaleString()}
+                          </td>
+                          <td className="py-2 text-right">
+                            {rep.drive_web_view_link ? (
+                              <a
+                                href={rep.drive_web_view_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[#12805C] dark:text-emerald-300 font-semibold hover:underline"
+                              >
+                                <span>Open</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-[#64748B]">Local</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Database Backup & Confirmed Restore */}
+            <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-display font-extrabold text-base text-[#2F3E4E] dark:text-slate-50 flex items-center gap-2">
+                    <HardDriveDownload className="w-5 h-5 text-[#2F3E4E] dark:text-[#F9C80E]" />
+                    <span>Database Snapshot Backup &amp; Confirmed Restore</span>
+                  </h2>
+                  <p className="text-xs text-[#64748B] dark:text-slate-400">
+                    Export complete PostgreSQL snapshot JSON (saved to{' '}
+                    <code>06_SYSTEM_BACKUPS</code> when Company Drive is connected) or restore
+                    permissions &amp; records with explicit confirmation.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={backupBusy}
+                  onClick={() => void handleCreateBackup()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl bg-[#2F3E4E] hover:bg-[#1E293B] text-[#F9C80E] text-xs font-display font-extrabold cursor-pointer disabled:opacity-60"
+                >
+                  {backupBusy ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <HardDriveDownload className="w-4 h-4" />
+                  )}
+                  <span>Create &amp; Download DB Backup</span>
+                </button>
+              </div>
+
+              {backups.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {backups.slice(0, 6).map((b) => (
+                    <span
+                      key={b.id}
+                      className="px-2.5 py-1 rounded-lg border border-[#2F3E4E]/20 dark:border-slate-700 bg-white dark:bg-[#0B1120] text-[11px] font-mono"
+                    >
+                      {b.file_name} ({new Date(b.created_at).toLocaleDateString()})
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <form
+                onSubmit={(e) => void handleRestoreBackup(e)}
+                className="pt-3 border-t border-[#2F3E4E]/15 dark:border-slate-700 space-y-2.5"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-display font-extrabold uppercase text-[#64748B] mb-1">
+                      Load Snapshot JSON File (or paste below)
+                    </label>
+                    <input
+                      type="file"
+                      accept=".json,application/json"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        void file.text().then((txt) => setRestoreSnapshotJson(txt));
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-display font-extrabold uppercase text-[#7D0B0B] dark:text-rose-300 mb-1">
+                      Type Exact Phrase: RESTORE VCPL DATABASE
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={restoreConfirmPhrase}
+                      onChange={(e) => setRestoreConfirmPhrase(e.target.value)}
+                      placeholder="RESTORE VCPL DATABASE"
+                      className="w-full px-3 py-1.5 rounded-lg border border-[#9E2A2B]/50 bg-white dark:bg-[#0B1120] text-xs font-mono"
+                    />
+                  </div>
+                </div>
+                <textarea
+                  rows={3}
+                  required
+                  value={restoreSnapshotJson}
+                  onChange={(e) => setRestoreSnapshotJson(e.target.value)}
+                  placeholder='{"schemaVersion": "vcpl-enterprise-v2", ...}'
+                  className="w-full px-3 py-2 rounded-lg border border-[#2F3E4E]/30 dark:border-slate-600 bg-white dark:bg-[#0B1120] text-[11px] font-mono"
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={
+                      backupBusy ||
+                      !restoreSnapshotJson.trim() ||
+                      restoreConfirmPhrase.trim() !== 'RESTORE VCPL DATABASE'
+                    }
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#9E2A2B] hover:bg-[#7D0B0B] text-white text-xs font-display font-extrabold cursor-pointer disabled:opacity-50"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Confirm &amp; Restore Snapshot</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Structured Security Audit Logs */}
+            {auditLogs.length > 0 && (
+              <div className="bg-[#FFFDF5] dark:bg-[#131C2E] border-[1.5px] border-[#2F3E4E] dark:border-slate-700 rounded-2xl p-5 space-y-3">
+                <h3 className="font-display font-extrabold text-sm text-[#2F3E4E] dark:text-slate-100 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#12805C]" />
+                  <span>Structured Security Audit Trail ({auditLogs.length})</span>
+                </h3>
+                <div className="overflow-x-auto max-h-[320px]">
+                  <table className="w-full text-left border-collapse text-[11px]">
+                    <thead>
+                      <tr className="border-b border-[#2F3E4E]/20 dark:border-slate-700 text-[10px] font-display font-extrabold uppercase text-[#64748B]">
+                        <th className="py-2 pr-2">Actor</th>
+                        <th className="py-2 pr-2">Category</th>
+                        <th className="py-2 pr-2">Event</th>
+                        <th className="py-2 pr-2">Target</th>
+                        <th className="py-2">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2F3E4E]/10 dark:divide-slate-800">
+                      {auditLogs.slice(0, 60).map((a) => (
+                        <tr key={a.id}>
+                          <td className="py-1.5 pr-2 font-mono font-bold">{a.actor_username}</td>
+                          <td className="py-1.5 pr-2 font-mono">{a.category}</td>
+                          <td className="py-1.5 pr-2 font-mono font-semibold text-[#12805C] dark:text-emerald-300">
+                            {a.event_type}
+                          </td>
+                          <td className="py-1.5 pr-2 font-mono">
+                            {a.target_type}:{a.target_id}
+                          </td>
+                          <td className="py-1.5 font-mono tabular-nums text-[#64748B]">
+                            {new Date(a.created_at).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =============================================================== */}
+        {/* TAB 7: CENTRAL DOCUMENT VAULT & WORKSPACE RECORDS               */}
         {/* =============================================================== */}
         {activeTab === 'vault' && <CentralWorkspaceModules />}
       </div>
